@@ -1,0 +1,43 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "plan-manager"
+version = "0.1.0"
+description = "AI-assisted task planning and management with MCP integration"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "sgrade"}
+]
+keywords = ["planning", "tasks", "ai", "mcp", "model-context-protocol"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Office/Business :: Scheduling",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+requires-python = ">=3.11"
+dependencies = [
+    "PyYAML>=6.0",        # YAML file parsing for plan data
+    "mcp",                # MCP SDK for server functionality
+    "starlette",          # ASGI framework used by FastMCP
+    "uvicorn[standard]",  # ASGI server for running the MCP server
+    "pydantic>=2.0",      # Schema validation for Task and Plan models
+]
+
+[project.urls]
+Homepage = "https://github.com/sgrade/plan-manager"
+Repository = "https://github.com/sgrade/plan-manager"
+Issues = "https://github.com/sgrade/plan-manager/issues"
+
+[project.scripts]
+plan-manager = "plan_manager.__main__:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/plan_manager"]
