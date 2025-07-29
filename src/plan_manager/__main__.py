@@ -17,22 +17,17 @@ from .mcp_server import app, LOG_FILE_PATH
 
 def main():
     """Main entry point for the plan-manager console script."""
-    # Get the directory of the plan_manager package itself
-    package_dir = os.path.dirname(os.path.abspath(__file__))
+    logging.info(f"Starting MCP Plan Manager Server on 0.0.0.0:8000. App logs: {LOG_FILE_PATH}")
 
-    logging.info(f"Starting MCP Plan Manager Server from __main__.py on 0.0.0.0:8000. App logs: {LOG_FILE_PATH}")
-
-    # Note: reload=False for production stability
-    # reload_dirs can be specified if you want to watch specific directories
+    # The server is started in a simple, stable mode.
+    # To apply changes, you must manually stop (Ctrl+C) and restart the server.
     uvicorn.run(
-        "plan_manager.mcp_server:app",  # Pass as an import string for reload to work
+        "plan_manager.mcp_server:app",
         host="0.0.0.0",
         port=8000,
-        reload=False,  # Disabled for production stability
-        reload_dirs=[package_dir],  # Watch the plan_manager directory for changes
-        log_level="info"  # Set uvicorn's own log level
+        reload=False,
+        log_level="info"
     )
-
 
 if __name__ == "__main__":
     main()

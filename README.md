@@ -4,7 +4,7 @@ AI-assisted task planning and management tool with MCP (Model Context Protocol) 
 
 ## Overview
 
-Plan Manager provides an MCP server interface to interact with project tasks defined in `todo/plan.yaml`. It enables AI assistants like Cursor to programmatically create, list, view, and update task statuses, with support for dependency management and priority-based sorting.
+Plan Manager provides an MCP server interface to interact with project tasks defined in `plan/plan.yaml`. It enables AI assistants like Cursor to programmatically create, list, view, and update task statuses, with support for dependency management and priority-based sorting.
 
 ## Features
 
@@ -12,86 +12,53 @@ Plan Manager provides an MCP server interface to interact with project tasks def
 - **Dependency Tracking**: Define task dependencies with topological sorting
 - **Priority System**: 0-5 priority levels (0 = highest priority)
 - **MCP Integration**: Server-side implementation for AI assistant integration
-- **CLI Tools**: Direct command-line task management scripts
 - **Robust Validation**: Pydantic-based schema validation for data integrity
 
-## Plan Manager (`plan_manager/`)
+## Development Environment
 
-This tool provides an [MCP](https://github.com/modelcontextprotocol) server interface to interact with the project's task plan defined in `todo/plan.yaml`. It allows creating and deleting tasks, listing, viewing, and updating task statuses programmatically, primarily intended for use with AI assistants like Cursor.
+This project is configured to run inside a VS Code Dev Container.
 
-### Setup and Environment
+### Setup
 
-The Plan Manager tool, located in `tools/plan_manager/`, is managed using [uv](https://docs.astral.sh/uv/) and requires Python 3. Dependencies are defined in `tools/pyproject.toml`. The `todo/plan.yaml` file it interacts with is parsed and validated against a Pydantic schema to ensure data integrity.
+1.  **Prerequisites**: You must have Docker and the [VS Code Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) installed.
+2.  **Open in Container**: Open the project folder in VS Code. You will be prompted to "Reopen in Container". Click it.
+3.  **Automatic Installation**: The dev container is configured to automatically install all necessary Python dependencies using `uv` when it's built for the first time. This is handled by the `postCreateCommand` in `.devcontainer/devcontainer.json`.
 
-**Automated Setup (Dev Container):**
+### Running the Server
 
-*   **Virtual Environment & Dependencies:** When the development container is built, the `.devcontainer/Dockerfile` installs `uv` and then uses `uv sync --directory /tools` to create the virtual environment (if it doesn't exist) at `tools/venv` and install dependencies based on `tools/pyproject.toml`. This process is part of the image creation.
+Once the container is running, start the MCP server from the VS Code terminal:
 
-**Run the server:**
+```bash
+uv run plan-manager
+```
 
-uv run python -m plan_manager
+The server will start on `http://localhost:8000`.
 
-**Test if the server runs:**
+**Important**: The server does **not** automatically restart when you make changes to the code. To apply your changes, you must:
+1.  Stop the server by pressing `Ctrl+C` in the terminal.
+2.  Restart it by running `uv run plan-manager` again.
 
-Note: from inside containers, use `host.docker.internal` instead of `localhost`.
+### Testing the Server
 
+You can verify that the server is running by sending requests to its endpoints:
+
+```bash
+# This should return a 404 Not Found, which is expected.
 curl -i http://localhost:8000/
 
-Expected: HTTP/1.1 404 Not Found
-
+# This should establish an SSE connection for MCP communication.
+# You will see a "ping" event every 15 seconds.
 curl -i http://localhost:8000/sse
+```
 
-Expected: ping every 15 seconds
+### Viewing Logs
 
-**Viewing Logs:**
+-   **Application Log**: The server's detailed application logs are written to `logs/mcp_server_app.log`.
+-   **Terminal Output**: The `uvicorn` server prints live logs directly to the terminal where you ran the `uv run plan-manager` command.
 
-*   **Supervisor Logs:** `supervisord` manages its own logs and the stdout/stderr of the `pm` service.
-    *   Main `supervisord` log: `/workspaces/plan-manager/tools/logs/supervisord_main.log`
-    *   `pm` service stdout log: `/workspaces/plan-manager/tools/logs/pm_supervisor.log`
-    *   `pm` service stderr log: `/workspaces/plan-manager/tools/logs/pm_supervisor.err.log`
-*   **Application Log:** The Python application itself also logs to `/workspaces/plan-manager/tools/logs/mcp_server_app.log`.
-*   **Docker Logs:** You can still view the container's main output (which will include `supervisord`'s primary output) using `docker logs <container_name_or_id>`. For live logs: `docker logs -f <container_name_or_id>`.
+### Configuration for Cursor
 
-**Checking Status and Managing the Service:**
-
-From a terminal *inside* the dev container, you can use `supervisorctl` to manage the `pm` service:
-*   **Check status:**
-    ```bash
-    sudo supervisorctl -s unix:///tmp/supervisor.sock status pm
-    # or using the config file:
-    # sudo supervisorctl -c /workspaces/plan-manager/tools/plan_manager/supervisord.conf status pm
-    ```
-*   **Restart the service:**
-    ```bash
-    sudo supervisorctl -s unix:///tmp/supervisor.sock restart pm
-    ```
-*   **Stop the service:**
-    ```bash
-    sudo supervisorctl -s unix:///tmp/supervisor.sock stop pm
-    ```
-*   **Start the service (if stopped):**
-    ```bash
-    sudo supervisorctl -s unix:///tmp/supervisor.sock start pm
-    ```
-
-If `uvicorn` is started with `reload=True` (as configured in `tools/plan_manager/__main__.py`), it will also monitor Python files for changes and automatically restart the server when code is updated. `supervisord` will ensure the `pm` process itself is restarted if it crashes.
-
-**Manual Interaction (Legacy/Direct Debugging - Generally Not Needed):**
-
-The following instructions are for direct manual execution, which should generally not be needed as `supervisord` now handles the server. If you do run manually for deep debugging, ensure the `supervisord`-managed service is stopped (`sudo supervisorctl -s unix:///tmp/supervisor.sock stop pm`) to avoid port conflicts.
-
-*   **Manually Running the Server (from `/workspaces/plan-manager/tools/` directory):**
-    ```bash
-    python -m plan_manager
-    ```
-    This will run the server in the foreground. Press `Ctrl+C` to stop it. Or, using `uv`:
-    ```bash
-    uv run python -m plan_manager
-    ```
-
-### Configuration (for Cursor)
-
-To allow Cursor to communicate with this server, ensure your `.cursor/mcp.json` file has an entry like this:
+To allow Cursor to communicate with this server, ensure your global `.cursor/mcp.json` file has an entry like this:
 
 ```json
 {
@@ -105,7 +72,7 @@ To allow Cursor to communicate with this server, ensure your `.cursor/mcp.json` 
 }
 ```
 
-### Available Tools (via MCP)
+## Available Tools (via MCP)
 
 *   **`list_tasks_handler(statuses: str, unblocked: bool = False)`:** Lists tasks from `plan.yaml`.
     *   Filters by the comma-separated `statuses` string (e.g., "TODO,IN_PROGRESS").
@@ -133,40 +100,3 @@ To allow Cursor to communicate with this server, ensure your `.cursor/mcp.json` 
     *   `max_tasks_to_archive_str` (string): Optional. If provided as a numeric string (e.g., "10"), limits the number of tasks archived in one run. Provide an empty string "" for no limit.
     *   It skips tasks that have active (non-DONE) tasks depending on them.
 *   **`delete_archived_task_handler(task_id: str)`:** Deletes a task from the archive (`todo/archive/plan_archive.yaml`) by its ID. Also attempts to delete the associated archived detail file.
-
----
-
-### Manual Script Usage Examples
-
-(Assuming virtual environment is active or using the full path to venv python)
-
-*   **Show task details:**
-    ```bash
-    python tools/plan_manager/show_task.py <TASK_ID>
-    ```
-*   **List tasks (e.g., unblocked TODOs):**
-    ```bash
-    python tools/plan_manager/list_tasks.py --unblocked
-    ```
-*   **Update task status:**
-    ```bash
-    python tools/plan_manager/update_task_status.py <TASK_ID> <NEW_STATUS>
-    ```
-
-*   **Delete task:**
-    ```bash
-    python tools/plan_manager/delete_task.py <TASK_ID>
-    ```
-
-### MCP Server Integration
-
-The `mcp_server.py` script provides the core functionality as tools usable directly by the Cursor AI Assistant.
-
-*   **Configuration:** The server is configured for this project in `.cursor/mcp.json` (see "Configuration (for Cursor)" section above) and runs using the `.venv` Python environment, started automatically in the dev container.
-*   **Verification:** Check Cursor's MCP settings (Command Palette -> Search for "MCP", or Settings UI) to ensure the `plan-manager` server is listed and enabled.
-*   **AI Usage:** You can ask the AI Assistant to use the tools:
-    *   "Use plan-manager to list all TODO tasks."
-    *   "Show the details for task IMPLEMENT_SNAPSHOTS using plan-manager."
-    *   "Update the status of REFACTOR_REPORT_GENERATION to IN_PROGRESS with plan-manager."
-    *   "Create a new task with ID MY_NEW_TASK and title 'Figure out MCP integration' using plan-manager."
-*   **Output:** Note that when used via MCP, the tools return structured JSON data to the AI, not the formatted text printed by the manual scripts.
