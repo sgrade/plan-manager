@@ -5,10 +5,15 @@
     },
     "features": {
         "ghcr.io/devcontainers/features/common-utils:2":{
-            "installZsh": "true",
-            "username": "vscode",
-            "userUid": "1000",
-            "userGid": "1000",
+            // "installZsh": "true",
+            // #########################################################
+            // Docker Desktop for Windows: Inside the container, any mounted files/folders will appear as if they are owned by root - https://code.visualstudio.com/remote/advancedcontainers/add-nonroot-user
+            // Because of this, there is the error in git: "fatal: detected dubious ownership in repository at '/workspaces/plan-manager'"
+            // So, we don't use the non-root user.
+            // "username": "vscode",
+            // "userUid": "1000",
+            // "userGid": "1000",
+            // #########################################################
             "upgradePackages": "true"
         },
         "ghcr.io/devcontainers/features/python:1": "none",
@@ -34,8 +39,9 @@
 	// Use 'postCreateCommand' to run commands after the container is created.
 	"postCreateCommand": "uv sync",
 
-	// Set `remoteUser` to `root` to connect as root instead. More info: https://aka.ms/vscode-remote/containers/non-root.
-	"remoteUser": "vscode",
+	// // Set `remoteUser` to `root` to connect as root instead. More info: https://aka.ms/vscode-remote/containers/non-root.
+    // Docker Desktop for Windows: If we use the non-root user, we can't use the git command in the terminal.
+	// "remoteUser": "vscode",
 
     "forwardPorts": [
         8000
