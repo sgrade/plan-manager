@@ -54,46 +54,36 @@ from plan_manager.plan_utils import (
 )
 
 # --- Logging Setup ---
-# Define the log file path relative to the current workspace
 LOG_DIR = os.path.join(os.getcwd(), 'logs')
 LOG_FILE_PATH = os.path.join(LOG_DIR, 'mcp_server_app.log')
-
-# Ensure the log directory exists
 os.makedirs(LOG_DIR, exist_ok=True)
 
-# Get the root logger
 logger = logging.getLogger()
-logger.setLevel(logging.INFO) # Set the desired logging level for the root logger
-
-# Define a common formatter
+logger.setLevel(logging.INFO)
 formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(module)s:%(lineno)d - %(message)s')
 
-# Remove any existing handlers to avoid duplicate logging if script is re-run in some contexts
 for handler in logger.handlers[:]:
     logger.removeHandler(handler)
 
-# 1. Handler for stderr (goes to docker logs)
 stream_handler = logging.StreamHandler(sys.stderr)
 stream_handler.setFormatter(formatter)
 logger.addHandler(stream_handler)
 
-# 2. Handler for the dedicated log file
-file_handler = logging.FileHandler(LOG_FILE_PATH)
-file_handler.setFormatter(formatter)
-logger.addHandler(file_handler)
+ENABLE_FILE_LOG = os.getenv("PLAN_MANAGER_ENABLE_FILE_LOG", "true").lower() in ("1","true","yes","on")
+if ENABLE_FILE_LOG:
+    file_handler = logging.FileHandler(LOG_FILE_PATH)
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
 
 logging.info(f"MCP server application logging configured. App logs will also be in: {LOG_FILE_PATH}")
 
 # --- MCP Server Initialization ---
-# Use FastMCP again
 mcp = FastMCP(
     name="plan-manager",
-    description="Manages tasks defined in the project's todo/plan.yaml file.",
-    version="0.1.0"
+    instructions="Manages tasks defined in the project's todo/plan.yaml file.",
+    sse_path="/sse",
+    message_path="/messages/"
 )
-# Configure the internal paths used by sse_app()
-mcp.settings.sse_path = "/sse"
-mcp.settings.message_path = "/messages/"
 
 # --- ID Generation Helper ---
 

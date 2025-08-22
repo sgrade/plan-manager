@@ -16,27 +16,38 @@ Plan Manager provides an MCP server interface to interact with project tasks def
 
 ## Development Environment
 
-This project is configured to run inside a VS Code Dev Container.
+This project is configured to run inside a [Dev Container](https://containers.dev/).
 
-### Setup
-
-1.  **Prerequisites**: You must have Docker and the [VS Code Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) installed.
-2.  **Open in Container**: Open the project folder in VS Code. You will be prompted to "Reopen in Container". Click it.
-3.  **Automatic Installation**: The dev container is configured to automatically install all necessary Python dependencies using `uv` when it's built for the first time. This is handled by the `postCreateCommand` in `.devcontainer/devcontainer.json`.
+**Automatic Installation**: The dev container is configured to automatically install all necessary Python dependencies using `uv` when it's built for the first time. This is handled by the `postCreateCommand` in `.devcontainer/devcontainer.json`.
 
 ### Running the Server
 
-Once the container is running, start the MCP server from the VS Code terminal:
+Once the dev container is running, start the MCP server from the VS Code terminal:
 
 ```bash
-uv run plan-manager
+PLAN_MANAGER_ENABLE_FILE_LOG=false uv run plan-manager --reload
+```
+
+Note: After MCP server is reloaded, Cursor (the client) does not reconnect automatically. To make Cursor reconnect, flip the MCP server switch in Cursor settings to off, then on.
+
+Alternatively, with logging
+
+```bash
+uv run plan-manager --reload
 ```
 
 The server will start on `http://localhost:8000`.
 
-**Important**: The server does **not** automatically restart when you make changes to the code. To apply your changes, you must:
-1.  Stop the server by pressing `Ctrl+C` in the terminal.
-2.  Restart it by running `uv run plan-manager` again.
+Optional flags if needed:
+
+```bash
+  uv run plan-manager --reload \
+    --reload-dir src \
+    --reload-include '*.py' \
+    --reload-exclude 'logs/*' \
+    --graceful-timeout 2 \
+    --timeout-keep-alive 2
+```
 
 ### Testing the Server
 
