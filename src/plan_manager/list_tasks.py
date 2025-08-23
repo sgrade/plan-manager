@@ -1,41 +1,41 @@
-"""Command-line tool for listing and filtering tasks from the project plan.
+"""Command-line tool for listing and filtering stories from the project plan.
 
-This script provides a CLI interface to list tasks with various filtering options
-including status filtering and dependency-based unblocked task filtering.
+This script provides a CLI interface to list stories with various filtering options
+including status filtering and dependency-based unblocked story filtering.
 
 Usage:
-    python list_tasks.py [--status STATUS] [--unblocked]
+    python list_stories.py [--status STATUS] [--unblocked]
 """
 
 import argparse
 import sys
 
-from plan_utils import load_tasks, filter_tasks
+from plan_manager.plan_utils import load_stories, filter_stories
 
-# --- list_tasks Specific Logic ---
+# --- list_stories Specific Logic ---
 
-def display_task_list(tasks: list[dict], title: str = "Listing tasks") -> None:
-    """Display a formatted list of tasks to stdout.
+def display_story_list(stories: list[dict], title: str = "Listing stories") -> None:
+    """Display a formatted list of stories to stdout.
 
     Args:
-        tasks: List of task dictionaries containing id, status, and title
-        title: Header title to display above the task list
+        stories: List of story dictionaries containing id, status, and title
+        title: Header title to display above the story list
     """
-    if not tasks:
+    if not stories:
         print(f"{title}: None found.")
         return
 
     print(f"{title}:")
     print("-" * (len(title) + 1))
-    for task in tasks:
-        task_id = task.get('id', 'N/A')
-        status = task.get('status', 'N/A')
-        task_title = task.get('title', 'N/A')
-        print(f"[{task_id}] ({status}) {task_title}")
+    for story in stories:
+        story_id = story.get('id', 'N/A')
+        status = story.get('status', 'N/A')
+        story_title = story.get('title', 'N/A')
+        print(f"[{story_id}] ({status}) {story_title}")
 
 def main() -> None:
-    """Main entry point for the list_tasks CLI tool."""
-    parser = argparse.ArgumentParser(description='List tasks from plan.yaml, with optional filters.')
+    """Main entry point for the list_stories CLI tool."""
+    parser = argparse.ArgumentParser(description='List stories from plan.yaml, with optional filters.')
     parser.add_argument(
         '--status',
         action='append',
@@ -45,20 +45,20 @@ def main() -> None:
     parser.add_argument(
         '--unblocked',
         action='store_true',
-        help='Show only TODO tasks whose dependencies are all DONE.'
+        help='Show only TODO stories whose dependencies are all DONE.'
     )
 
     args = parser.parse_args()
 
-    all_tasks = load_tasks() # Use utility function
-    if all_tasks is None:
-        sys.exit(1) # Error message already printed by load_tasks
+    all_stories = load_stories() # Use utility function
+    if all_stories is None:
+        sys.exit(1) # Error message already printed by load_stories
 
     # Use utility function for filtering
-    filtered_tasks = filter_tasks(all_tasks, statuses=args.status, unblocked=args.unblocked)
+    filtered_stories = filter_stories(all_stories, statuses=args.status, unblocked=args.unblocked)
 
     # --- Determine display title ---
-    display_title = "Listing tasks"
+    display_title = "Listing stories"
     filters_applied = []
     if args.status:
         filters_applied.append(f"status={'/'.join(args.status)}")
@@ -69,7 +69,7 @@ def main() -> None:
         display_title += f" matching: { ' & '.join(filters_applied) }"
     # --- End Determine display title ---
 
-    display_task_list(filtered_tasks, title=display_title)
+    display_story_list(filtered_stories, title=display_title)
 
 if __name__ == "__main__":
     main()

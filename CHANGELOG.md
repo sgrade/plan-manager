@@ -5,6 +5,16 @@ All notable changes to the Plan Manager project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.2] - 2025-08-23
+
+### Changed
+- Refactor: split modules into `story_model.py`, `stories.py`, `plan.py`, `archive.py` for clarity.
+- Explicit MCP tool registration (stories, plan, archive) from `mcp_server.py`.
+- Cleaned imports, removed sys.path hacks, and fixed circular imports.
+
+### Fixed
+- Lint issues and missing imports; server starts cleanly with autoreload.
+
 ## [0.2.1] - 2025-08-23
 
 ### Added
