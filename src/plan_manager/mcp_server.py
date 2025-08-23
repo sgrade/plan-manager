@@ -269,203 +269,128 @@ def list_tasks_handler(statuses: str, unblocked: bool = False) -> list[dict]:
         raise e
 
 @mcp.tool()
-def show_task_handler(task_id: str) -> dict:
-    """Shows full details for a specific task.
-
-    Args:
-        task_id: The ID of the task to show.
-
-    Returns:
-        A dictionary containing all details of the found task.
-    """
-    logging.info(f"Handling show_task: task_id={task_id}")
+def get_task(task_id: str) -> dict:
+    """Returns full details for a specific task by its ID."""
+    logging.info(f"Handling get_task: task_id={task_id}")
     try:
         tasks: List[Task] = load_tasks()
         task: Optional[Task] = find_task_by_id(tasks, task_id)
+        if not task:
+            raise KeyError(f"Task with ID '{task_id}' not found.")
+        return task.model_dump(mode='json', exclude_none=True)
+    except Exception as e:
+        logging.exception("Unexpected error during get_task")
+        raise e
 
-        if task:
-            logging.info(f"show_task found task: {task_id}")
-            # Return the full task details as a dictionary
-            return task.model_dump(mode='json', exclude_none=True)
-        else:
-            logging.warning(f"show_task did not find task: {task_id}")
-            # Raise KeyError as before, let FastMCP handle it
+
+@mcp.tool()
+def update_task(
+    task_id: str,
+    title: Optional[str] = None,
+    notes: Optional[str] = None,
+    depends_on: Optional[str] = None, # CSV of task IDs; None means no change
+    priority: Optional[str] = None,   # "0"-"5" or "6" to unset; None means no change
+    status: Optional[str] = None      # TODO/IN_PROGRESS/DONE/BLOCKED/DEFERRED; None means no change
+) -> dict:
+    """Partially updates a task. Only non-None fields are applied.
+
+    Rules:
+    - `priority`: string semantics as elsewhere ("6" unsets)
+    - `depends_on`: CSV of task IDs; validates existence and prevents self-dependency
+    - `status`: applies completion_time rules like update_task_status_handler
+    - Task ID cannot be changed.
+    Returns updated task dict.
+    """
+    logging.info(
+        f"Handling update_task (partial): id={task_id}, title={title is not None}, notes={notes is not None}, "
+        f"depends_on={depends_on is not None}, priority={priority is not None}, status={status is not None}"
+    )
+
+    try:
+        plan: Plan = load_plan_data()
+        tasks: List[Task] = plan.tasks
+
+        # Find task and index
+        target_index: Optional[int] = None
+        for i, t in enumerate(tasks):
+            if t.id == task_id:
+                target_index = i
+                break
+        if target_index is None:
             raise KeyError(f"Task with ID '{task_id}' not found.")
 
-    except (FileNotFoundError, yaml.YAMLError, ValidationError) as e:
-        logging.exception("Failed to load/validate plan data for show_task")
-        raise e # Let FastMCP handle it
-    except KeyError as e: # Catch the KeyError explicitly if needed, or let it propagate
-         raise e
-    except Exception as e:
-        logging.exception("Unexpected error during show_task")
-        raise e
+        task_obj = tasks[target_index]
 
-@mcp.tool()
-def update_task_status_handler(task_id: str, new_status: str) -> dict:
-    """Updates the status of a specific task.
+        # Apply title
+        if title is not None:
+            task_obj.title = title
 
-    Args:
-        task_id: The ID of the task to update.
-        new_status: The new status. Case-insensitive.
-                    Allowed: TODO, IN_PROGRESS, DONE, BLOCKED, DEFERRED
+        # Apply notes
+        if notes is not None:
+            task_obj.notes = notes if notes != "" else None
 
-    Returns:
-        A dictionary indicating success with a message.
-    """
-    logging.info(f"Handling update_task_status: task_id={task_id}, new_status={new_status}")
+        # Apply depends_on
+        if depends_on is not None:
+            dep_list: List[str] = [d.strip() for d in depends_on.split(',') if d.strip()]
+            # Validate existence and self-dependency
+            existing_ids = {t.id for t in tasks}
+            for dep in dep_list:
+                if dep not in existing_ids:
+                    raise ValueError(f"Dependency task with ID '{dep}' not found.")
+                if dep == task_id:
+                    raise ValueError(f"Task '{task_id}' cannot depend on itself.")
+            task_obj.depends_on = dep_list
 
-    # Pydantic model validator for Task handles status validation now.
-    # We still need to check here *before* loading if the input is potentially valid.
-    status_upper = new_status.upper()
-    if status_upper not in ALLOWED_STATUSES:
-        msg = f"Invalid status '{new_status}'. Allowed: { ', '.join(sorted(list(ALLOWED_STATUSES))) }"
-        logging.error(msg)
-        raise ValueError(msg)
+        # Apply priority (empty string means no change)
+        if priority is not None:
+            if priority.strip() == "":
+                pass
+            elif priority == "6":
+                task_obj.priority = None
+            else:
+                try:
+                    numeric_priority = int(priority)
+                except ValueError as e:
+                    raise ValueError(
+                        f"Invalid priority string: '{priority}'. Must be a whole number (0-5), or '6' to remove priority."
+                    ) from e
+                task_obj.priority = numeric_priority
 
-    try:
-        plan: Plan = load_plan_data()
-        tasks: List[Task] = plan.tasks
+        # Apply status (empty string means no change)
+        if status is not None:
+            if status.strip() == "":
+                pass
+            else:
+                new_status_upper = status.upper()
+                if new_status_upper not in ALLOWED_STATUSES:
+                    raise ValueError(
+                        f"Invalid status '{status}'. Allowed: {', '.join(sorted(list(ALLOWED_STATUSES)))}"
+                    )
+                old_status = task_obj.status
+                task_obj.status = new_status_upper
+                if new_status_upper == 'DONE' and old_status != 'DONE':
+                    task_obj.completion_time = datetime.now(timezone.utc)
+                elif new_status_upper != 'DONE' and old_status == 'DONE':
+                    task_obj.completion_time = None
 
-        # Find the task object
-        task_to_update: Optional[Task] = None
-        task_index: Optional[int] = None
-        for i, task in enumerate(tasks):
-            if task.id == task_id:
-                task_to_update = task
-                task_index = i
-                break
-
-        if task_to_update is None or task_index is None:
-            msg = f"Task with ID '{task_id}' not found."
-            logging.warning(msg)
-            raise KeyError(msg)
-
-        old_status = task_to_update.status
-
-        # Update the status on the Pydantic model
-        task_to_update.status = status_upper
-
-        # Handle completion_time based on new status
-        if status_upper == 'DONE' and old_status != 'DONE':
-            task_to_update.completion_time = datetime.now(timezone.utc)
-            logging.info(f"Task '{task_id}' marked DONE. Completion time set to {task_to_update.completion_time.isoformat()}.")
-        elif status_upper != 'DONE' and old_status == 'DONE':
-            task_to_update.completion_time = None
-            logging.info(f"Task '{task_id}' moved from DONE to {status_upper}. Completion time removed.")
-
-        plan.tasks[task_index] = task_to_update
-
-        # Save the updated Plan object
+        # Persist
+        plan.tasks[target_index] = task_obj
         save_plan_data(plan)
 
-        msg = f"Successfully updated status for task '{task_id}' from '{old_status}' to '{status_upper}'."
-        logging.info(msg)
-        return {"success": True, "message": msg}
+        return task_obj.model_dump(mode='json', exclude_none=True)
 
-    except (FileNotFoundError, yaml.YAMLError, ValidationError) as e:
-        # Handle loading/validation errors
-        logging.exception(f"Failed to load/validate plan data for update_task_status: {e}")
-        raise e # Let FastMCP handle it
-    except (KeyError, ValueError, IOError) as e:
-        # Handle errors specific to the update process (not found, invalid status (redundant?), save failed)
-        logging.exception(f"Error during task status update: {e}")
-        raise e # Let FastMCP handle it
     except Exception as e:
-        logging.exception("Unexpected error during update_task_status")
+        logging.exception(f"Unexpected error during update_task (partial) for '{task_id}': {e}")
         raise e
 
 @mcp.tool()
-def update_task_priority_handler(task_id: str, new_priority_str: str) -> dict:
-    """Updates the priority of a specific task.
-
-    Args:
-        task_id: The ID of the task to update.
-        new_priority_str: The new priority as a string.
-                          Valid values are "0", "1", "2", "3", "4", "5".
-                          Use "6" to remove the priority (set to null/None).
-
-    Returns:
-        A dictionary indicating success with a message.
-    """
-    logging.info(f"Handling update_task_priority: task_id={task_id}, new_priority_str={new_priority_str}")
-
-    numeric_priority: Optional[int] = None
-    if new_priority_str == "6":
-        numeric_priority = None
-        logging.info(f"Priority string for task '{task_id}' is \"6\", interpreting as remove priority (None).")
-    elif not new_priority_str:
-        msg = f"Priority string for task '{task_id}' cannot be empty. Use \"6\" to remove priority."
-        logging.error(msg)
-        raise ValueError(msg)
-    else:
-        try:
-            numeric_priority = int(new_priority_str)
-            # Pydantic model validator for Task will handle the 0-5 range check.
-            # We only need to ensure it\'s a convertible int here if not "6".
-            if not (0 <= numeric_priority <= 5): # We can pre-check here for a better error message
-                 msg = f"Invalid priority value '{new_priority_str}\' for task '{task_id}\'. Must be a whole number between 0 and 5, or \"6\" to remove priority."
-                 logging.error(msg)
-                 raise ValueError(msg)
-        except ValueError as e:
-            # If int() conversion failed or our pre-check failed
-            msg = f"Invalid priority string '{new_priority_str}\' for task '{task_id}\'. Must be a whole number (0-5), or \"6\" to remove priority."
-            logging.error(msg)
-            # Raise a new ValueError to ensure our message is used, or re-raise if it\'s already our specific message.
-            if "Invalid priority value" in str(e) or "Invalid priority string" in str(e) : # Avoid re-wrapping our own error
-                 raise e
-            raise ValueError(msg) from e
-
-
-    try:
-        plan: Plan = load_plan_data()
-        tasks: List[Task] = plan.tasks
-
-        task_to_update: Optional[Task] = None
-        task_index: Optional[int] = None
-        for i, task_obj in enumerate(tasks):
-            if task_obj.id == task_id:
-                task_to_update = task_obj
-                task_index = i
-                break
-
-        if task_to_update is None or task_index is None:
-            msg = f"Task with ID '{task_id}\' not found for priority update."
-            logging.warning(msg)
-            raise KeyError(msg)
-
-        old_priority = task_to_update.priority
-
-        # Update the priority on the Pydantic model
-        # This will trigger the validator in the Task model if the numeric_priority is invalid (e.g. 7)
-        # though our initial check for 0-5 should catch most direct numeric issues.
-        task_to_update.priority = numeric_priority
-
-        plan.tasks[task_index] = task_to_update
-
-        save_plan_data(plan)
-
-        msg = f"Successfully updated priority for task '{task_id}\' from '{old_priority if old_priority is not None else 'Not set'}\' to '{numeric_priority if numeric_priority is not None else 'Not set'}\'."
-        logging.info(msg)
-        return {"success": True, "message": msg, "task_id": task_id, "new_priority": numeric_priority}
-
-    except (FileNotFoundError, yaml.YAMLError, ValidationError) as e:
-        logging.exception(f"Failed to load/validate plan data for update_task_priority: {e}")
-        raise e
-    except (KeyError, ValueError, IOError) as e: # Includes our own ValueErrors from string validation
-        logging.exception(f"Error during task priority update for '{task_id}\': {e}")
-        raise e
-    except Exception as e:
-        logging.exception(f"Unexpected error during update_task_priority for '{task_id}\'")
-        raise e
-
-@mcp.tool()
-def create_task_handler(
+def create_task(
     # task_id: str, # Removed task_id parameter
     title: str,
     priority: str,                 # Priority is now a REQUIRED string. Sentinel value "6" means not set.
     depends_on: str,               # Depends_on is now a REQUIRED string. Sentinel value "" means not set.
-    notes: str                     # Notes is now a REQUIRED string. Sentinel value "" means not set.
+    notes: str,                    # Notes is now a REQUIRED string. Sentinel value "" means not set.
+    details_content: str = ""      # Optional: initial markdown content for the details file
 ) -> dict:
     """Creates a new task in the plan.yaml file.
      The task ID and details file path will be automatically generated from the title.
@@ -531,6 +456,16 @@ def create_task_handler(
             priority=numeric_priority
         )
 
+        # If initial details content provided, write it now so remote clients don't need direct FS access
+        try:
+            if details_content is not None and created_task_model.details:
+                abs_details_path = os.path.join(_workspace_root, created_task_model.details)
+                os.makedirs(os.path.dirname(abs_details_path), exist_ok=True)
+                with open(abs_details_path, 'w', encoding='utf-8') as f:
+                    _ = f.write(details_content)
+        except Exception as e_write:
+            logging.warning(f"Failed to write initial details content for task '{created_task_model.id}': {e_write}")
+
         msg = f"Successfully created task '{created_task_model.id}' with title '{created_task_model.title}'. Details file: {created_task_model.details}"
         logging.info(msg)
         return {
@@ -551,8 +486,10 @@ def create_task_handler(
         logging.exception(f"Unexpected error during create_task (ID: '{generated_id}' if generated): {e}")
         raise e
 
+### Removed unapproved handlers: get_task_details_handler, set_task_details_handler
+
 @mcp.tool()
-def delete_task_handler(task_id: str) -> dict:
+def delete_task(task_id: str) -> dict:
     """Deletes a task from the plan.yaml file by its ID.
        Also attempts to delete the associated details markdown file (best effort).
 

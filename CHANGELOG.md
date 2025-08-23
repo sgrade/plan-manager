@@ -5,6 +5,19 @@ All notable changes to the Plan Manager project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2025-08-23
+
+### Added
+- `create_task` supports `details_content` to initialize the task markdown (remote-friendly).
+- New unified `update_task` handler for partial updates (title, notes, depends_on, priority, status).
+
+### Changed
+- CRUD naming alignment: `get_task`, `create_task`, `update_task`, `delete_task`. Removed legacy `show_task_handler`.
+- Empty `status`/`priority` in `update_task` are treated as “no change” to ease client calls.
+
+### Removed
+- Specialized `update_task_status_handler` and `update_task_priority_handler` in favor of `update_task`.
+
 ## [0.2.0] - 2025-08-22
 
 ### Added
