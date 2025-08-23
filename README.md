@@ -8,7 +8,7 @@ Plan Manager provides an MCP server interface to interact with user stories defi
 
 ## Terminology
 
-The following terms from agile project management are assumed as a reference to represent pieces of work:
+The following terms from agile project management are used as a reference to represent pieces of work:
 - subtask
 - task
 - user story
@@ -114,7 +114,7 @@ If accessing from another Cursor instance on the same Windows host, point to the
 
 ## Available Tools (via MCP)
 
-*   **`list_stories_handler(statuses: str, unblocked: bool = False)`:** Lists stories from `plan.yaml`.
+*   **`list_stories(statuses: str, unblocked: bool = False)`:** Lists stories from `plan.yaml`.
     *   Filters by the comma-separated `statuses` string (e.g., "TODO,IN_PROGRESS").
     *   If `unblocked` is true, only shows `TODO` stories whose dependencies are all `DONE`.
     *   stories are sorted primarily by dependency (topological sort).
@@ -136,8 +136,8 @@ If accessing from another Cursor instance on the same Windows host, point to the
     The new story defaults to `TODO` status. The story ID is automatically generated from the title. The response will include `id`, `title`, `status`, `details`, `priority`, `creation_time`, `notes`, and `depends_on` (if set).
 *   **`delete_story(story_id: str)`:** Deletes a story by its ID.
 *   **`update_story(story_id: str, title: str | null = null, notes: str | null = null, depends_on: str | null = null, priority: str | null = null, status: str | null = null)`:** Partially updates a story. Only non-null fields are applied.
-*   **`archive_done_stories_handler(older_than_days_str: str, max_stories_to_archive_str: str)`:** Archives `DONE` stories from `plan.yaml` to `todo/archive/plan_archive.yaml` and moves their detail files.
+*   **`archive_done_stories(older_than_days_str: str, max_stories_to_archive_str: str)`:** Archives `DONE` stories from `plan.yaml` to `todo/archive/plan_archive.yaml` and moves their detail files.
     *   `older_than_days_str` (string): Optional. If provided as a numeric string (e.g., "7"), only archives stories completed more than this many days ago. Provide an empty string "" to not filter by age.
     *   `max_stories_to_archive_str` (string): Optional. If provided as a numeric string (e.g., "10"), limits the number of stories archived in one run. Provide an empty string "" for no limit.
     *   It skips stories that have active (non-DONE) stories depending on them.
-*   **`delete_archived_story_handler(story_id: str)`:** Deletes a story from the archive (`todo/archive/plan_archive.yaml`) by its ID. Also attempts to delete the associated archived detail file.
+*   **`delete_archived_story(story_id: str)`:** Deletes a story from the archive (`todo/archive/plan_archive.yaml`) by its ID. Also attempts to delete the associated archived detail file.

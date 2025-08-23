@@ -10,7 +10,7 @@ Usage:
 import argparse
 import sys
 
-from plan_utils import load_stories, filter_stories
+from plan_manager.plan_utils import load_stories, filter_stories
 
 # --- list_stories Specific Logic ---
 

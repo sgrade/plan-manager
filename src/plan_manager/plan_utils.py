@@ -1,52 +1,15 @@
-"""Utility functions for interacting with the project plan (todo/plan.yaml)."""
+"""Utilities for interacting with the project plan (todo/plan.yaml)."""
 
 import yaml
-import sys
 import os
 import logging
-from typing import List, Optional, Dict, Any, Set
-from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator, ValidationInfo
+from typing import List, Optional, Dict, Set
+from pydantic import BaseModel, Field, ValidationError, model_validator, ValidationInfo
 from datetime import datetime, timezone
-
-# --- Constants and Configuration ---
-
-# Allowed status values (from plan definition)
-ALLOWED_STATUSES = {'TODO', 'IN_PROGRESS', 'DONE', 'BLOCKED', 'DEFERRED'}
-
-# Determine the workspace root (project root directory)
-_workspace_root = os.getcwd()  # Current working directory (project root)
-PLAN_FILE_PATH = os.path.join(_workspace_root, 'todo', 'plan.yaml')
-
-ARCHIVE_DIR_PATH = os.path.join(_workspace_root, 'todo', 'archive')
-ARCHIVE_PLAN_FILE_PATH = os.path.join(ARCHIVE_DIR_PATH, 'plan_archive.yaml')
-ARCHIVED_DETAILS_DIR_PATH = os.path.join(ARCHIVE_DIR_PATH, 'details')
+from plan_manager.story_model import story
+from plan_manager.config import PLAN_FILE_PATH, ARCHIVE_PLAN_FILE_PATH, ARCHIVE_DIR_PATH, ARCHIVED_DETAILS_DIR_PATH, _workspace_root
 
 # --- Pydantic Models ---
-
-class story(BaseModel):
-    id: str
-    title: str
-    status: str
-    details: Optional[str] = None
-    depends_on: Optional[List[str]] = Field(default_factory=list)
-    notes: Optional[str] = None
-    creation_time: Optional[datetime] = None
-    completion_time: Optional[datetime] = None
-    priority: Optional[int] = None
-
-    @field_validator('status')
-    @classmethod
-    def status_must_be_allowed(cls, v: str) -> str:
-        if v.upper() not in ALLOWED_STATUSES:
-            raise ValueError(f"Invalid status '{v}'. Allowed: { ', '.join(sorted(list(ALLOWED_STATUSES))) }")
-        return v.upper() # Normalize to uppercase
-
-    @field_validator('priority')
-    @classmethod
-    def priority_must_be_in_range(cls, v: Optional[int]) -> Optional[int]:
-        if v is not None and not (0 <= v <= 5):
-            raise ValueError("Priority must be between 0 and 5 (inclusive) if provided.")
-        return v
 
 class Plan(BaseModel):
     stories: List[story] = Field(default_factory=list)

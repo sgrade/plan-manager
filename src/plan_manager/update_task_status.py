@@ -12,11 +12,12 @@ Allowed statuses: TODO, IN_PROGRESS, DONE, BLOCKED, DEFERRED
 import argparse
 import sys
 
-from plan_utils import (
+from plan_manager.stories import ALLOWED_STATUSES
+
+from plan_manager.plan_utils import (
     load_plan_data,
     save_plan_data,
     find_story_index_by_id,
-    ALLOWED_STATUSES,
     PLAN_FILE_PATH
 )
 
