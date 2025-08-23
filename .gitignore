@@ -208,3 +208,6 @@ __marimo__/
 
 ### Added manually ###
 uv.lock
+
+todo/
+.cursor/

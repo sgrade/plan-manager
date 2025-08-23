@@ -83,6 +83,19 @@ To allow Cursor to communicate with this server, ensure your global `.cursor/mcp
 }
 ```
 
+If accessing from another Cursor instance on the same Windows host, point to the Docker-host bridge DNS:
+
+```json
+{
+  "mcpServers": {
+    "plan-manager": {
+      "transport": "sse",
+      "url": "http://host.docker.internal:8000/sse"
+    }
+  }
+}
+```
+
 ## Available Tools (via MCP)
 
 *   **`list_tasks_handler(statuses: str, unblocked: bool = False)`:** Lists tasks from `plan.yaml`.
@@ -94,18 +107,19 @@ To allow Cursor to communicate with this server, ensure your global `.cursor/mcp
         2.  `creation_time` (ascending, earlier is higher priority; tasks without it are lower).
         3.  Task `id` (alphabetical ascending) as a final tie-breaker.
     *   Returns a list of task dictionaries containing `id`, `status`, `title`, `priority` (if set), and `creation_time` (if set). The `title` in the returned dictionary will be prepended with a zero-padded sequential number (e.g., "01. Actual Title") to reflect the primary sort order.
-*   **`show_task_handler(task_id: str)`:** Shows the full details of a specific task by its ID.
-*   **`update_task_status_handler(task_id: str, new_status: str)`:** Updates the status of a specific task. Allowed statuses are `TODO`, `IN_PROGRESS`, `DONE`, `BLOCKED`, `DEFERRED`.
-*   **`update_task_priority_handler(task_id: str, new_priority_str: str)`:** Updates the priority of a specific task.
+*   **`get_task(task_id: str)`:** Returns the full details of a specific task by its ID.
+*   (Replaced) Use `update_task` for status/priority updates too.
     *   `task_id` (string, required): The ID of the task to update.
     *   `new_priority_str` (string, required): The new priority. Valid values: "0", "1", "2", "3", "4", "5". Use "6" to remove priority (sets to null).
-*   **`create_task_handler(title: str, priority: str, depends_on: str, notes: str)`:** Creates a new task.
+*   **`create_task(title: str, priority: str, depends_on: str, notes: str, details_content: str = "")`:** Creates a new task.
     *   `title` (string, required): The human-readable title for the task. Used to generate the ID.
     *   `priority` (string, required): Priority for the task (0-5, 0 is highest). Provide the string "6" to indicate that the priority is not set (will be stored as null).
     *   `depends_on` (string, required): Comma-separated string of task IDs this new task depends on. Provide an empty string "" to indicate no dependencies.
     *   `notes` (string, required): Brief notes for the task. Provide an empty string "" to indicate no notes.
+    *   `details_content` (string, optional): Initial markdown content for the task's details file. Useful when using a remote MCP server.
     The new task defaults to `TODO` status. The task ID is automatically generated from the title. The response will include `id`, `title`, `status`, `details`, `priority`, `creation_time`, `notes`, and `depends_on` (if set).
-*   **`delete_task_handler(task_id: str)`:** Deletes a task by its ID.
+*   **`delete_task(task_id: str)`:** Deletes a task by its ID.
+*   **`update_task(task_id: str, title: str | null = null, notes: str | null = null, depends_on: str | null = null, priority: str | null = null, status: str | null = null)`:** Partially updates a task. Only non-null fields are applied.
 *   **`archive_done_tasks_handler(older_than_days_str: str, max_tasks_to_archive_str: str)`:** Archives `DONE` tasks from `plan.yaml` to `todo/archive/plan_archive.yaml` and moves their detail files.
     *   `older_than_days_str` (string): Optional. If provided as a numeric string (e.g., "7"), only archives tasks completed more than this many days ago. Provide an empty string "" to not filter by age.
     *   `max_tasks_to_archive_str` (string): Optional. If provided as a numeric string (e.g., "10"), limits the number of tasks archived in one run. Provide an empty string "" for no limit.

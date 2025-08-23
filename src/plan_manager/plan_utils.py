@@ -74,6 +74,22 @@ class Plan(BaseModel):
 
 # --- Core Functions ---
 
+def _ensure_plan_initialized(file_path: str = PLAN_FILE_PATH) -> None:
+    """Ensure that the plan file and its parent directory exist.
+
+    Creates the `todo/` directory and an empty plan file if missing.
+    """
+    plan_dir = os.path.dirname(file_path)
+    try:
+        os.makedirs(plan_dir, exist_ok=True)
+        if not os.path.exists(file_path):
+            with open(file_path, 'w', encoding='utf-8') as f:
+                yaml.safe_dump({"tasks": []}, f, default_flow_style=False, sort_keys=False)
+            logging.info(f"Initialized new plan file at {file_path}")
+    except Exception as e:
+        logging.exception(f"Failed to initialize plan at {file_path}: {e}")
+        raise
+
 def load_plan_data(file_path: str = PLAN_FILE_PATH) -> Plan:
     """Loads and validates the plan structure from the YAML file using Pydantic.
     
@@ -84,6 +100,8 @@ def load_plan_data(file_path: str = PLAN_FILE_PATH) -> Plan:
         Exception: For other unexpected loading errors.
     """
     try:
+        # Ensure plan exists before loading
+        _ensure_plan_initialized(file_path)
         with open(file_path, 'r', encoding='utf-8') as f:
             raw_data = yaml.safe_load(f)
             if raw_data is None: # Handle empty file case
@@ -163,6 +181,8 @@ def save_plan_data(plan: Plan) -> None:
         # exclude_none=True can make the YAML cleaner by omitting optional fields that are None
         data_to_dump = plan.model_dump(mode='json', exclude_none=True)
         
+        # Ensure parent directory exists before writing
+        os.makedirs(os.path.dirname(plan_path), exist_ok=True)
         with open(plan_path, 'w', encoding='utf-8') as f:
             yaml.safe_dump(data_to_dump, f, default_flow_style=False, sort_keys=False)
 
