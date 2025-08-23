@@ -83,6 +83,19 @@ To allow Cursor to communicate with this server, ensure your global `.cursor/mcp
 }
 ```
 
+If accessing from another Cursor instance on the same Windows host, point to the Docker-host bridge DNS:
+
+```json
+{
+  "mcpServers": {
+    "plan-manager": {
+      "transport": "sse",
+      "url": "http://host.docker.internal:8000/sse"
+    }
+  }
+}
+```
+
 ## Available Tools (via MCP)
 
 *   **`list_tasks_handler(statuses: str, unblocked: bool = False)`:** Lists tasks from `plan.yaml`.
