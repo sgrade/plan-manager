@@ -834,12 +834,10 @@ def delete_archived_task_handler(task_id: str) -> dict:
         raise e
 
 # --- ASGI Application Setup ---
-# Create the Starlette app and mount the MCP SSE handler at the root
+# SSE transport only
 app = Starlette(
     debug=True,
     routes=[
-        # Mount the app provided by FastMCP at the root
-        # It will internally handle routes like /mcp/sse and /mcp/messages/
         Mount('/', app=mcp.sse_app()),
     ]
 )
