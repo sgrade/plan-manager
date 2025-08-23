@@ -5,6 +5,17 @@ All notable changes to the Plan Manager project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- Development workflow: document SSE-only setup with `uvicorn --reload` and a short graceful shutdown timeout.
+- Added CLI flags for reload directories, include/exclude patterns, and timeouts.
+- Guarded file logging behind `PLAN_MANAGER_ENABLE_FILE_LOG` to avoid reload-triggered churn during development.
+- Polished README for SSE configuration and Cursor setup.
+
+### Fixed
+- Faster, more predictable shutdown on reload even with long-lived SSE connections open.
+
 ## [0.1.0] - 2025-07-28
 
 ### Added
