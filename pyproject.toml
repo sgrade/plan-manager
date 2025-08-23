@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "plan-manager"
-version = "0.1.0"
+version = "0.2.0"
 description = "AI-assisted task planning and management with MCP integration"
 readme = "README.md"
 license = {text = "MIT"}
