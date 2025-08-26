@@ -12,6 +12,8 @@ from plan_manager.story_model import story
 from plan_manager.config import ARCHIVED_DETAILS_DIR_PATH, _workspace_root
 import collections
 
+logger = logging.getLogger(__name__)
+
 def register_archive_tools(mcp_instance) -> None:
     """Register archive tools with the given FastMCP instance."""
     mcp_instance.tool()(archive_done_stories)

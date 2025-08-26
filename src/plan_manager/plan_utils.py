@@ -9,6 +9,8 @@ from datetime import datetime, timezone
 from plan_manager.story_model import story
 from plan_manager.config import PLAN_FILE_PATH, ARCHIVE_PLAN_FILE_PATH, ARCHIVE_DIR_PATH, ARCHIVED_DETAILS_DIR_PATH, _workspace_root
 
+logger = logging.getLogger(__name__)
+
 # --- Pydantic Models ---
 
 class Plan(BaseModel):
@@ -20,7 +22,7 @@ class Plan(BaseModel):
     def check_dependencies_exist_and_no_cycles(self, info: ValidationInfo) -> 'Plan':
         # If context indicates, skip this validation (useful for archive plan)
         if info.context and info.context.get("skip_dependency_check"):
-            logging.debug("Skipping dependency check for Plan validation based on context.")
+            logger.debug("Skipping dependency check for Plan validation based on context.")
             return self
 
         story_ids = {story.id for story in self.stories}
@@ -48,9 +50,9 @@ def _ensure_plan_initialized(file_path: str = PLAN_FILE_PATH) -> None:
         if not os.path.exists(file_path):
             with open(file_path, 'w', encoding='utf-8') as f:
                 yaml.safe_dump({"stories": []}, f, default_flow_style=False, sort_keys=False)
-            logging.info(f"Initialized new plan file at {file_path}")
+            logger.info(f"Initialized new plan file at {file_path}")
     except Exception as e:
-        logging.exception(f"Failed to initialize plan at {file_path}: {e}")
+        logger.exception(f"Failed to initialize plan at {file_path}: {e}")
         raise
 
 def load_plan_data(file_path: str = PLAN_FILE_PATH) -> Plan:
@@ -74,17 +76,17 @@ def load_plan_data(file_path: str = PLAN_FILE_PATH) -> Plan:
         plan = Plan.model_validate(raw_data) 
         return plan
     except FileNotFoundError as e:
-        logging.exception(f"Plan file not found at {file_path}")
+        logger.exception(f"Plan file not found at {file_path}")
         raise e # Re-raise specific exception
     except yaml.YAMLError as e:
-        logging.exception(f"Error parsing YAML file {file_path}: {e}")
+        logger.exception(f"Error parsing YAML file {file_path}: {e}")
         raise e # Re-raise specific exception
     except ValidationError as e:
-        logging.exception(f"Plan file {file_path} failed schema validation: {e}")
+        logger.exception(f"Plan file {file_path} failed schema validation: {e}")
         raise e # Re-raise specific exception
     except Exception as e:
         # Catch-all for other unexpected errors during loading/validation
-        logging.exception(f"An unexpected error occurred while loading/validating {file_path}: {e}")
+        logger.exception(f"An unexpected error occurred while loading/validating {file_path}: {e}")
         raise e 
 
 def load_archive_plan_data(file_path: str = ARCHIVE_PLAN_FILE_PATH) -> Plan:
@@ -106,16 +108,16 @@ def load_archive_plan_data(file_path: str = ARCHIVE_PLAN_FILE_PATH) -> Plan:
         plan = Plan.model_validate(raw_data, context={"skip_dependency_check": True})
         return plan
     except FileNotFoundError:
-        logging.info(f"Archive plan file not found at {file_path}. Returning empty plan.")
+        logger.info(f"Archive plan file not found at {file_path}. Returning empty plan.")
         return Plan(stories=[]) # Return an empty plan if file not found
     except yaml.YAMLError as e:
-        logging.exception(f"Error parsing YAML file {file_path}: {e}")
+        logger.exception(f"Error parsing YAML file {file_path}: {e}")
         raise e
     except ValidationError as e:
-        logging.exception(f"Archive plan file {file_path} failed schema validation: {e}")
+        logger.exception(f"Archive plan file {file_path} failed schema validation: {e}")
         raise e
     except Exception as e:
-        logging.exception(f"An unexpected error occurred while loading/validating archive {file_path}: {e}")
+        logger.exception(f"An unexpected error occurred while loading/validating archive {file_path}: {e}")
         raise e
 
 def load_stories(file_path: str = PLAN_FILE_PATH) -> List[story]:
@@ -150,13 +152,13 @@ def save_plan_data(plan: Plan) -> None:
             yaml.safe_dump(data_to_dump, f, default_flow_style=False, sort_keys=False)
 
     except yaml.YAMLError as e:
-        logging.exception(f"Error encoding plan data to YAML: {e}")
+        logger.exception(f"Error encoding plan data to YAML: {e}")
         raise IOError(f"Error encoding plan data to YAML: {e}") from e
     except OSError as e:
-        logging.exception(f"Error writing plan file {plan_path}: {e}")
+        logger.exception(f"Error writing plan file {plan_path}: {e}")
         raise IOError(f"Error writing plan file {plan_path}: {e}") from e
     except Exception as e: # Catch potential errors during model_dump
-        logging.exception(f"Error preparing plan data for saving: {e}")
+        logger.exception(f"Error preparing plan data for saving: {e}")
         raise IOError(f"Error preparing plan data for saving: {e}") from e
 
 def save_archive_plan_data(plan: Plan) -> None:
@@ -175,22 +177,22 @@ def save_archive_plan_data(plan: Plan) -> None:
     try:
         # Ensure the archive directory exists
         os.makedirs(archive_dir_path, exist_ok=True)
-        logging.info(f"Ensured archive directory exists: {archive_dir_path}")
+        logger.info(f"Ensured archive directory exists: {archive_dir_path}")
 
         data_to_dump = plan.model_dump(mode='json', exclude_none=True)
         
         with open(archive_file_path, 'w', encoding='utf-8') as f:
             yaml.safe_dump(data_to_dump, f, default_flow_style=False, sort_keys=False)
-        logging.info(f"Successfully saved archive plan data to {archive_file_path}")
+        logger.info(f"Successfully saved archive plan data to {archive_file_path}")
 
     except yaml.YAMLError as e:
-        logging.exception(f"Error encoding archive plan data to YAML: {e}")
+        logger.exception(f"Error encoding archive plan data to YAML: {e}")
         raise IOError(f"Error encoding archive plan data to YAML: {e}") from e
     except OSError as e:
-        logging.exception(f"Error writing archive plan file {archive_file_path}: {e}")
+        logger.exception(f"Error writing archive plan file {archive_file_path}: {e}")
         raise IOError(f"Error writing archive plan file {archive_file_path}: {e}") from e
     except Exception as e: 
-        logging.exception(f"Error preparing archive plan data for saving: {e}")
+        logger.exception(f"Error preparing archive plan data for saving: {e}")
         raise IOError(f"Error preparing archive plan data for saving: {e}") from e
 
 # --- story Utility Functions ---
@@ -289,7 +291,7 @@ def add_story(
     # Always auto-generate filename: todo/lowercase_story_id.md
     details_filename = f"{story_id.lower()}.md"
     details_path_to_store = os.path.join('todo', details_filename) # Relative path for storage
-    logging.info(f"Determined details path: {details_path_to_store}")
+    logger.info(f"Determined details path: {details_path_to_store}")
 
     # --- Dependency Handling (remains the same) ---
     depends_on_list: List[str] = []
@@ -315,14 +317,14 @@ def add_story(
             priority=priority
         )
     except ValidationError as e: 
-        logging.exception(f"Validation error creating new story '{story_id}': {e}")
+        logger.exception(f"Validation error creating new story '{story_id}': {e}")
         raise ValueError(f"Validation error creating new story '{story_id}': {e}") from e
 
     plan.stories.append(new_story)
     
     # Save the plan first
     save_plan_data(plan) 
-    logging.info(f"Successfully added new story '{story_id}' to plan.yaml.")
+    logger.info(f"Successfully added new story '{story_id}' to plan.yaml.")
 
     # --- Attempt to create the details file (best effort) ---
     try:
@@ -331,7 +333,7 @@ def add_story(
         abs_details_path = os.path.join(_workspace_root, details_path_to_store)
         
         if not os.path.exists(abs_details_path):
-            logging.info(f"Details file does not exist, attempting to create: {abs_details_path}")
+            logger.info(f"Details file does not exist, attempting to create: {abs_details_path}")
             # Ensure directory exists (e.g., if details='new_dir/story.md')
             details_dir = os.path.dirname(abs_details_path)
             if details_dir: # Only create if not in root
@@ -339,15 +341,15 @@ def add_story(
             # Create empty file
             with open(abs_details_path, 'w', encoding='utf-8') as f:
                 f.write("") # Write empty string to ensure file is created
-            logging.info(f"Successfully created empty details file: {abs_details_path}")
+            logger.info(f"Successfully created empty details file: {abs_details_path}")
         else:
-            logging.info(f"Details file already exists, skipping creation: {abs_details_path}")
+            logger.info(f"Details file already exists, skipping creation: {abs_details_path}")
             
     except OSError as e:
-        logging.warning(f"Could not create details file '{abs_details_path}': {e}. story entry in plan.yaml is still created.")
+        logger.warning(f"Could not create details file '{abs_details_path}': {e}. story entry in plan.yaml is still created.")
     except Exception as e:
         # Catch any other unexpected errors during file creation
-        logging.warning(f"Unexpected error creating details file '{details_path_to_store}': {e}. story entry in plan.yaml is still created.")
+        logger.warning(f"Unexpected error creating details file '{details_path_to_store}': {e}. story entry in plan.yaml is still created.")
 
     # Return the story object regardless of file creation success/failure
     return new_story 
@@ -385,7 +387,7 @@ def remove_story(story_id: str) -> bool:
     if len(plan.stories) == initial_story_count - 1:
         # Save the modified plan
         save_plan_data(plan)
-        logging.info(f"Successfully removed story '{story_id}' from plan.yaml.")
+        logger.info(f"Successfully removed story '{story_id}' from plan.yaml.")
         
         # Attempt to delete the associated details file (best effort)
         if details_file:
@@ -393,18 +395,18 @@ def remove_story(story_id: str) -> bool:
             try:
                 if os.path.exists(abs_details_path):
                     os.remove(abs_details_path)
-                    logging.info(f"Successfully deleted details file: {abs_details_path}")
+                    logger.info(f"Successfully deleted details file: {abs_details_path}")
                 else:
-                    logging.info(f"Details file not found, skipping deletion: {abs_details_path}")
+                    logger.info(f"Details file not found, skipping deletion: {abs_details_path}")
             except OSError as e:
-                logging.warning(f"Could not delete details file '{abs_details_path}': {e}")
+                logger.warning(f"Could not delete details file '{abs_details_path}': {e}")
         else:
-             logging.info(f"story '{story_id}' had no details file specified, nothing to delete.")
+             logger.info(f"story '{story_id}' had no details file specified, nothing to delete.")
              
         return True # Return True as the primary goal (YAML update) succeeded
     else:
         # This case should ideally not be reachable if index finding and deletion work correctly
-        logging.error(f"Failed to remove story '{story_id}' - list length did not decrease.")
+        logger.error(f"Failed to remove story '{story_id}' - list length did not decrease.")
         # Maybe raise a different exception here? 
         raise RuntimeError(f"Inconsistency detected while trying to remove story '{story_id}'.") 
 
@@ -445,7 +447,7 @@ def remove_archived_story(story_id: str) -> bool:
     
     if len(archive_plan.stories) == initial_story_count - 1:
         save_archive_plan_data(archive_plan)
-        logging.info(f"Successfully removed story '{story_id}' from archive plan: {ARCHIVE_PLAN_FILE_PATH}.")
+        logger.info(f"Successfully removed story '{story_id}' from archive plan: {ARCHIVE_PLAN_FILE_PATH}.")
         
         # Attempt to delete the associated archived details file (best effort)
         if story_details_path:
@@ -461,17 +463,17 @@ def remove_archived_story(story_id: str) -> bool:
                     
                     if normalized_abs_details_path.startswith(normalized_archived_details_dir + os.sep):
                         os.remove(abs_details_path)
-                        logging.info(f"Successfully deleted archived detail file: {abs_details_path}")
+                        logger.info(f"Successfully deleted archived detail file: {abs_details_path}")
                     else:
-                        logging.warning(f"Attempted to delete detail file '{abs_details_path}' which is outside the designated archive details directory '{ARCHIVED_DETAILS_DIR_PATH}'. Deletion aborted for safety.")
+                        logger.warning(f"Attempted to delete detail file '{abs_details_path}' which is outside the designated archive details directory '{ARCHIVED_DETAILS_DIR_PATH}'. Deletion aborted for safety.")
                 else:
-                    logging.info(f"Archived detail file not found, skipping deletion: {abs_details_path}")
+                    logger.info(f"Archived detail file not found, skipping deletion: {abs_details_path}")
             except OSError as e:
-                logging.warning(f"Could not delete archived detail file '{abs_details_path}': {e}")
+                logger.warning(f"Could not delete archived detail file '{abs_details_path}': {e}")
         else:
-             logging.info(f"Archived story '{story_id}' had no details file specified in archive, nothing to delete.")
+             logger.info(f"Archived story '{story_id}' had no details file specified in archive, nothing to delete.")
              
         return True
     else:
-        logging.error(f"Failed to remove story '{story_id}' from archive plan - list length did not decrease.")
+        logger.error(f"Failed to remove story '{story_id}' from archive plan - list length did not decrease.")
         raise RuntimeError(f"Inconsistency detected while trying to remove story '{story_id}' from archive plan.") 

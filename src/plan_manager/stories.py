@@ -9,6 +9,8 @@ from plan_manager.plan_utils import Plan, add_story, find_story_by_id, load_plan
 from plan_manager.config import _workspace_root
 from plan_manager.story_model import story, ALLOWED_STATUSES
 
+logger = logging.getLogger(__name__)
+
 def register_story_tools(mcp_instance) -> None:
     """Register story tools with the given FastMCP instance."""
     mcp_instance.tool()(create_story)

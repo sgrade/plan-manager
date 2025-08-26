@@ -7,6 +7,8 @@ from plan_manager.plan_utils import load_stories
 from plan_manager.story_model import story
 import collections
 
+logger = logging.getLogger(__name__)
+
 def register_plan_tools(mcp_instance) -> None:
     """Register plan-related tools with the given FastMCP instance."""
     mcp_instance.tool()(list_stories)
