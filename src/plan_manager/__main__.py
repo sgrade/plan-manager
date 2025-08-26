@@ -17,30 +17,33 @@ from plan_manager.config import LOG_FILE_PATH
 
 logger = logging.getLogger(__name__)
 
-# --- Centralized Logging Configuration ---
-# This single basicConfig call sets up logging for the entire application,
-# directing messages to both the console and a log file. It's placed in the
-# global scope to ensure it's configured when uvicorn imports the module.
-level_name = os.getenv("LOG_LEVEL", "INFO").upper()
-level = getattr(logging, level_name, logging.INFO)
-
-# Ensure the log directory exists before configuring the file handler
-os.makedirs(os.path.dirname(LOG_FILE_PATH), exist_ok=True)
-
-logging.basicConfig(
-    level=level,
-    format='%(asctime)s - %(levelname)s - %(name)s:%(lineno)d - %(message)s',
-    handlers=[
-        logging.FileHandler(LOG_FILE_PATH), # Log to file
-        logging.StreamHandler(sys.stdout)   # Log to console
-    ]
-)
-
 def _env_bool(name: str, default: bool = False) -> bool:
     val = os.getenv(name)
     if val is None:
         return default
     return val.strip().lower() in ("1", "true")
+
+# --- Centralized Logging Configuration ---
+# This single basicConfig call sets up logging for the entire application.
+# It's placed in the global scope to ensure it's configured when uvicorn
+# imports the module.
+level_name = os.getenv("LOG_LEVEL", "INFO").upper()
+level = getattr(logging, level_name, logging.INFO)
+
+# --- Handler Configuration ---
+# Default to logging ONLY to stdout, following 12-factor app principles.
+# If PLAN_MANAGER_ENABLE_FILE_LOG is set, also log to a file for development.
+handlers = [logging.StreamHandler(sys.stdout)]
+if _env_bool("PLAN_MANAGER_ENABLE_FILE_LOG"):
+    # Ensure the log directory exists before configuring the file handler
+    os.makedirs(os.path.dirname(LOG_FILE_PATH), exist_ok=True)
+    handlers.append(logging.FileHandler(LOG_FILE_PATH))
+
+logging.basicConfig(
+    level=level,
+    format='%(asctime)s - %(levelname)s - %(name)s:%(lineno)d - %(message)s',
+    handlers=handlers
+)
 
 
 def main():

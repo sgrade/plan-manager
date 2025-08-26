@@ -33,6 +33,11 @@
             }
 		}
 	},
+
+    "containerEnv": {
+        "PLAN_MANAGER_ENABLE_FILE_LOG": "true"
+    },
+
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
 	// "forwardPorts": [],
 
