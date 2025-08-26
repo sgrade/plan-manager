@@ -7,40 +7,20 @@ Usage:
     # Prod (no reload)
     uv run plan-manager
 """
-import logging
-import os
-import sys
-import uvicorn
 
-# Import all config from the central config module
+# --- Configuration Bootstrap ---
+# This is the first and only place where these modules should be imported to
+# ensure that configuration and logging are set up exactly once, as soon as
+# the application starts. The order is critical.
 from plan_manager import config
+
+import logging
+import uvicorn
 
 logger = logging.getLogger(__name__)
 
-# --- Centralized Logging Configuration ---
-# This part applies the logging configuration using the imported settings
-# from the config module. It is placed in the global scope to ensure it's
-# configured when uvicorn imports the module.
-level = getattr(logging, config.LOG_LEVEL, logging.INFO)
-
-# --- Handler Configuration ---
-# Default to logging ONLY to stdout, following 12-factor app principles.
-# If PLAN_MANAGER_ENABLE_FILE_LOG is set, also log to a file for development.
-handlers = [logging.StreamHandler(sys.stdout)]
-if config.ENABLE_FILE_LOG:
-    # Ensure the log directory exists before configuring the file handler
-    os.makedirs(os.path.dirname(config.LOG_FILE_PATH), exist_ok=True)
-    handlers.append(logging.FileHandler(config.LOG_FILE_PATH))
-
-logging.basicConfig(
-    level=level,
-    format='%(asctime)s - %(levelname)s - %(name)s:%(lineno)d - %(message)s',
-    handlers=handlers
-)
-
 
 def main():
-    logger.info("Initializing Plan Manager")
 
     log_destination = config.LOG_FILE_PATH if config.ENABLE_FILE_LOG else "stdout only"
     logger.info(
