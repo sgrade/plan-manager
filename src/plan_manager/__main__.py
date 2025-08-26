@@ -11,15 +11,14 @@ import argparse
 import logging
 import os
 import uvicorn
-
-from .mcp_server import app, LOG_FILE_PATH
-
+from .config import LOG_DIR, LOG_FILE_PATH
+logger = logging.getLogger(__name__)
 
 def _env_bool(name: str, default: bool = False) -> bool:
     val = os.getenv(name)
     if val is None:
         return default
-    return val.strip().lower() in ("1", "true", "yes", "on")
+    return val.strip().lower() in ("1", "true")
 
 
 def main():
@@ -35,12 +34,29 @@ def main():
     parser.add_argument("--reload-exclude", action="append", default=os.getenv("RELOAD_EXCLUDE", "logs/*").split(","))
     args = parser.parse_args()
 
-    logging.info(
-        f"Starting MCP Plan Manager Server on {args.host}:{args.port} (reload={args.reload}). App logs: {LOG_FILE_PATH}"
+    # Configure logging once for the process
+    level_name = os.getenv("LOG_LEVEL", "INFO").upper()
+    level = getattr(logging, level_name, logging.INFO)
+    logging.basicConfig(
+        level=level,
+        format='%(asctime)s - %(levelname)s - %(name)s:%(lineno)d - %(message)s'
     )
-
+    if os.getenv("PLAN_MANAGER_ENABLE_FILE_LOG", "false").lower() in ("1","true","yes","on"):
+        try:
+            os.makedirs(os.path.dirname(LOG_FILE_PATH), exist_ok=True)
+            fh = logging.FileHandler(LOG_FILE_PATH)
+            fh.setLevel(level)
+            fh.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(name)s:%(lineno)d - %(message)s'))
+            logging.getLogger().addHandler(fh)
+        except Exception:
+            pass
+    logging.getLogger(__name__).info(
+        "Starting MCP Plan Manager Server on %s:%s (reload=%s). App logs: %s",
+        args.host, args.port, bool(args.reload), LOG_FILE_PATH
+    )
+    
     uvicorn.run(
-        "plan_manager.mcp_server:app",
+        "plan_manager.mcp_server:starlette_app",
         host=args.host,
         port=args.port,
         log_level=args.log_level,

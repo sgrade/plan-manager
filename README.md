@@ -18,9 +18,9 @@ The following terms from agile project management are used as a reference to rep
 
 In plan-manager, every plan (equivalent of epic) is a collection of (user) stories; every story is a collection of tasks.
 
-Task is an elementary piece of work, which AI agent does autonomously: see relevant docs of the agent mode in [VS Code](https://code.visualstudio.com/docs/copilot/chat/chat-agent-mode#_use-agent-mode) and [Cursor](https://docs.cursor.com/en/agent/overview).
+"A task represents a discrete unit of work" ([source](https://langchain-ai.github.io/langgraph/concepts/functional_api/#task)), specifically a unit of work for an AI agent. See more in the docs of [Copilot](https://docs.github.com/en/copilot/get-started/features#agent-mode) and [Cursor](https://docs.cursor.com/en/agent/overview).
 
-Cursor agent may further (automatically) divide the tasks into [agent to-dos](https://docs.cursor.com/en/agent/planning#agent-to-dos) (equivalent of subtask).
+Cursor agent may divide a task into [agent to-dos](https://docs.cursor.com/en/agent/planning#agent-to-dos) (equivalent of subtask).
 
 ## Features
 
@@ -73,9 +73,15 @@ You can verify that the server is running by sending requests to its endpoints:
 # This should return a 404 Not Found, which is expected.
 curl -i http://localhost:8000/
 
-# This should establish an SSE connection for MCP communication.
-# You will see a "ping" event every 15 seconds.
-curl -i http://localhost:8000/sse
+# Streamable HTTP MCP endpoint (POST JSON-RPC)
+curl -i -X POST \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: application/json, text/event-stream' \
+  --data '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' \
+  http://localhost:8000/mcp
+
+# Optional: Open an SSE stream for server-initiated messages
+curl -i -H 'Accept: text/event-stream' http://localhost:8000/mcp
 ```
 
 ### Viewing Logs

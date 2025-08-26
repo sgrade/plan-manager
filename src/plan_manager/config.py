@@ -9,3 +9,7 @@ PLAN_FILE_PATH = os.path.join(_workspace_root, 'todo', 'plan.yaml')
 ARCHIVE_DIR_PATH = os.path.join(_workspace_root, 'todo', 'archive')
 ARCHIVE_PLAN_FILE_PATH = os.path.join(ARCHIVE_DIR_PATH, 'plan_archive.yaml')
 ARCHIVED_DETAILS_DIR_PATH = os.path.join(ARCHIVE_DIR_PATH, 'details')
+
+# Logging paths (no side effects here; directory creation is done in entrypoint)
+LOG_DIR = os.path.join(_workspace_root, 'logs')
+LOG_FILE_PATH = os.path.join(LOG_DIR, 'mcp_server_app.log')
