@@ -5,6 +5,22 @@ All notable changes to the Plan Manager project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.3] - 2025-08-26
+
+### Changed
+- SSE transport is replaced by Streamable HTTP
+- Refactored application configuration to follow Twelve-Factor App principles. All settings are now sourced from environment variables with sensible defaults. Command-line arguments have been removed for simplicity.
+- Configuration logic has been consolidated into the `plan_manager.config` module.
+- The logging system has been unified. All modules now use a consistent, centrally configured logger that inherits its settings from the main entrypoint.
+- Logging now defaults to writing to `stdout` as an event stream, adhering to Twelve-Factor principles. File-based logging is now an opt-in feature for development.
+
+### Added
+- The `PLAN_MANAGER_ENABLE_FILE_LOG` variable is now set in `.devcontainer/devcontainer.json` to automatically enable file logging for a better development experience.
+- Added `logs/` directory to `.gitignore` to prevent log files from being committed.
+
+### Fixed
+- Suppressed ASGI app factory warning from Uvicorn by adding `factory=True` to the `uvicorn.run()` call.
+
 ## [0.2.2] - 2025-08-23
 
 ### Changed
