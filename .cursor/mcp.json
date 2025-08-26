@@ -1,7 +1,7 @@
 {
     "mcpServers": {
         "plan-manager": {
-          "url": "http://localhost:8000/mcp"
+          "url": "http://localhost:3000/mcp"
         }
     }
 }

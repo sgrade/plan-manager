@@ -210,5 +210,5 @@ __marimo__/
 uv.lock
 
 todo/
-.cursor/
+.cursor/rules/
 logs/

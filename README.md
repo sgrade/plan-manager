@@ -41,29 +41,14 @@ This project is configured to run inside a [Dev Container](https://containers.de
 Once the dev container is running, start the MCP server from the VS Code terminal:
 
 ```bash
-PLAN_MANAGER_ENABLE_FILE_LOG=false uv run plan-manager --reload
+uv run plan-manager
 ```
+
+The server will start on `http://localhost:3000/mcp`.
+
+Automatic server reload for the dev environment is configured in the `devcontainer.json` by setting `PLAN_MANAGER_RELOAD` to `true`.
 
 Note: After MCP server is reloaded, Cursor (the client) does not reconnect automatically. To make Cursor reconnect, flip the MCP server switch in Cursor settings to off, then on.
-
-Alternatively, with logging
-
-```bash
-uv run plan-manager --reload
-```
-
-The server will start on `http://localhost:8000/mcp`.
-
-Optional flags if needed:
-
-```bash
-  uv run plan-manager --reload \
-    --reload-dir src \
-    --reload-include '*.py' \
-    --reload-exclude 'logs/*' \
-    --graceful-timeout 2 \
-    --timeout-keep-alive 2
-```
 
 ### Testing the Server
 
@@ -71,7 +56,7 @@ You can verify that the server is running by sending requests to its endpoints:
 
 ```bash
 # This should return a 404 Not Found, which is expected.
-curl -i http://localhost:8000/
+curl -i http://localhost:3000/
 ```
 
 JSON responce is expected on the below request.
@@ -90,12 +75,12 @@ curl -sN \
       "clientInfo":{"name":"curl","version":"0"}
     }
   }' \
-  http://localhost:8000/mcp \
+  http://localhost:3000/mcp \
 | sed -n 's/^data: //p' \
 | jq
 ```
 
-### Configuration for Cursor
+### Configuration for Cursor IDE
 
 To allow Cursor to communicate with this server, ensure your global `.cursor/mcp.json` file has an entry like this:
 
@@ -103,26 +88,25 @@ To allow Cursor to communicate with this server, ensure your global `.cursor/mcp
 {
   "mcpServers": {
       "plan-manager": {
-        "url": "http://localhost:8000/mcp"
+        "url": "http://localhost:3000/mcp"
       }
   }
 }
 ```
 
-If accessing from another Cursor instance on the same Windows host, point to the Docker-host bridge DNS:
+If accessing from another Cursor instance (devcontainer) on the same host, point to the Docker-host bridge DNS:
 
 ```json
 {
   "mcpServers": {
     "plan-manager": {
-      "transport": "sse",
-      "url": "http://host.docker.internal:8000/mcp"
+      "url": "http://host.docker.internal:3000/mcp"
     }
   }
 }
 ```
 
-### Viewing Logs
+### Logging
 
--   **Application Log**: The server's detailed application logs are written to `logs/mcp_server_app.log`.
--   **Terminal Output**: The `uvicorn` server prints live logs directly to the terminal where you ran the `uv run plan-manager` command.
+-   **Terminal Output**: By default the logs are written to stdout as [recommended](https://12factor.net/logs).
+-   **Log file**: If you need the logs in a file, set `PLAN_MANAGER_ENABLE_FILE_LOG` to `true` in the devcontainer.json. The server's detailed application logs will be written to `logs/mcp_server_app.log` (configurable).

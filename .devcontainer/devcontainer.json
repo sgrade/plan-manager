@@ -34,8 +34,9 @@
 		}
 	},
 
-    "containerEnv": {
-        "PLAN_MANAGER_ENABLE_FILE_LOG": "true"
+    "remoteEnv": {
+        "PLAN_MANAGER_ENABLE_FILE_LOG": "false",
+        "PLAN_MANAGER_RELOAD": "true"
     },
 
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
@@ -49,10 +50,10 @@
 	// "remoteUser": "vscode",
 
     "forwardPorts": [
-        8000
+        3000
     ],
     "portsAttributes": {
-        "8000": {
+        "3000": {
             "name": "plan-manager-mcp-server"
         }
     }
