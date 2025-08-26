@@ -57,6 +57,7 @@ def main():
     
     uvicorn.run(
         "plan_manager.mcp_server:starlette_app",
+        factory=True,
         host=args.host,
         port=args.port,
         log_level=args.log_level,
