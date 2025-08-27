@@ -9,10 +9,9 @@ from mcp.server.fastmcp import FastMCP
 
 from starlette.applications import Starlette
 
-from plan_manager.stories import register_story_tools
+from plan_manager.story import register_story_tools
+from plan_manager.stories import register_stories_tools
 from plan_manager.archive import register_archive_tools
-from plan_manager.plan import register_plan_tools
-from plan_manager.config import LOG_FILE_PATH
 
 logger = logging.getLogger(__name__)
 
@@ -26,8 +25,8 @@ def starlette_app() -> Starlette:
         )
         
     register_story_tools(mcp)
+    register_stories_tools(mcp)
     register_archive_tools(mcp)
-    register_plan_tools(mcp)
 
     app = mcp.streamable_http_app()
 

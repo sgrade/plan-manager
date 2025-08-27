@@ -29,7 +29,7 @@ def main():
     )
 
     uvicorn.run(
-        "plan_manager.mcp_server:starlette_app",
+        "plan_manager.server:starlette_app",
         factory=True,
         log_config=None,  # IMPORTANT: This tells uvicorn to use our configuration above.
         host=config.HOST,

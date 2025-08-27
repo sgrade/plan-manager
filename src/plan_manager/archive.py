@@ -7,17 +7,21 @@ import logging
 import yaml
 from pydantic import ValidationError
 from datetime import datetime, timedelta, timezone
-from plan_manager.plan_utils import load_plan_data, load_archive_plan_data, save_plan_data, save_archive_plan_data, find_story_by_id, remove_archived_story
-from plan_manager.story_model import story
+from plan_manager.plan import load_plan_data, load_archive_plan_data, save_plan_data, save_archive_plan_data, remove_archived_story
+from plan_manager.stories_utils import find_story_by_id
+from plan_manager.story_model import Story
 from plan_manager.config import ARCHIVED_DETAILS_DIR_PATH, _workspace_root
 import collections
 
+
 logger = logging.getLogger(__name__)
+
 
 def register_archive_tools(mcp_instance) -> None:
     """Register archive tools with the given FastMCP instance."""
     mcp_instance.tool()(archive_done_stories)
     mcp_instance.tool()(delete_archived_story)
+
 
 def archive_done_stories(
     older_than_days_str: str, # String representation of int, or empty string for no filter
@@ -87,7 +91,7 @@ def archive_done_stories(
                     for dep_id in story.depends_on:
                         active_story_dependencies[dep_id].append(story.id)
 
-        stories_to_potentially_archive: List[story] = []
+        stories_to_potentially_archive: List[Story] = []
 
         # 4. Identify DONE stories in main plan
         for story in main_plan.stories:
@@ -120,7 +124,7 @@ def archive_done_stories(
         stories_to_potentially_archive.sort(key=lambda t: (t.completion_time is None, t.completion_time))
 
         # 7. If max_stories_to_archive, limit the number
-        stories_to_archive_this_run: List[story] = []
+        stories_to_archive_this_run: List[Story] = []
         if max_stories_to_archive is not None and max_stories_to_archive >= 0: # Allow 0 to mean "archive none"
             stories_to_archive_this_run = stories_to_potentially_archive[:max_stories_to_archive]
         else:
@@ -235,6 +239,7 @@ def archive_done_stories(
             "skipped_ids_due_to_dependencies": skipped_ids_due_to_dependencies,
             "errors": errors_encountered + [f"Critical: {str(e)}"]
         }
+
 
 def delete_archived_story(story_id: str) -> dict:
     """Deletes a story from the archive plan (plan_archive.yaml) by its ID.

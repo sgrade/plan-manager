@@ -2,11 +2,12 @@ from typing import Optional, List
 from datetime import datetime
 from pydantic import BaseModel, Field, field_validator
 
+
 # Allowed status values for stories
 ALLOWED_STATUSES = {"TODO", "IN_PROGRESS", "DONE", "BLOCKED", "DEFERRED"}
 
 
-class story(BaseModel):
+class Story(BaseModel):
     id: str
     title: str
     status: str
@@ -32,5 +33,3 @@ class story(BaseModel):
         if value is not None and not (0 <= value <= 5):
             raise ValueError("Priority must be between 0 and 5 (inclusive) if provided.")
         return value
-
-
