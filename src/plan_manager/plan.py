@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field, ValidationError, model_validator, Validat
 
 from plan_manager.story_model import Story
 from plan_manager.stories_utils import find_story_by_id, find_story_index_by_id
-from plan_manager.config import PLAN_FILE_PATH, ARCHIVE_PLAN_FILE_PATH, ARCHIVE_DIR_PATH, ARCHIVED_DETAILS_DIR_PATH, _workspace_root
+from plan_manager.config import PLAN_FILE_PATH, ARCHIVE_PLAN_FILE_PATH, ARCHIVE_DIR_PATH, ARCHIVED_DETAILS_DIR_PATH, WORKSPACE_ROOT
 
 
 logger = logging.getLogger(__name__)
@@ -27,6 +27,18 @@ class Plan(BaseModel):
             return self
 
         story_ids = {story.id for story in self.stories}
+        # Build a set of all fully-qualified task IDs: storyId:taskId
+        task_ids: Set[str] = set()
+        for s in self.stories:
+            for t in (s.tasks or []):
+                try:
+                    tid = t.id if hasattr(t, 'id') else None
+                    if tid:
+                        task_ids.add(tid)
+                except Exception:
+                    # If tasks contain legacy formats, skip strict checks here
+                    pass
+
         for story in self.stories:
             if story.depends_on:
                 for dep_id in story.depends_on:
@@ -35,6 +47,32 @@ class Plan(BaseModel):
                 # Basic cycle check (story depending on itself)
                 if story.id in story.depends_on:
                     raise ValueError(f"story '{story.id}' cannot depend on itself.")
+            # Validate task dependencies inside this story
+            for task in (story.tasks or []):
+                if not hasattr(task, 'depends_on'):
+                    continue
+                if task.depends_on:
+                    for dep in task.depends_on:
+                        if not isinstance(dep, str) or not dep.strip():
+                            raise ValueError(f"task '{task.id}' in story '{story.id}' has invalid dependency entry: {dep}")
+                        dep_str = dep.strip()
+                        if ':' in dep_str:
+                            # Fully-qualified task dependency
+                            if dep_str == getattr(task, 'id', None):
+                                raise ValueError(f"task '{task.id}' cannot depend on itself.")
+                            if dep_str not in task_ids:
+                                raise ValueError(f"task '{task.id}' depends on unknown task '{dep_str}'.")
+                        else:
+                            # Either a story-level dependency or a local task id
+                            if dep_str in story_ids:
+                                # Dependency on a story is allowed
+                                continue
+                            # Local task id within the same story
+                            fq = f"{story.id}:{dep_str}"
+                            if fq == getattr(task, 'id', None):
+                                raise ValueError(f"task '{task.id}' cannot depend on itself.")
+                            if fq not in task_ids:
+                                raise ValueError(f"task '{task.id}' depends on unknown task '{dep_str}' in story '{story.id}'.")
             # TODO: Implement a more robust graph-based cycle detection if needed
         return self
 
@@ -242,7 +280,8 @@ def add_story_to_plan(
     title: str,
     depends_on_str: Optional[str] = None, # Comma-separated string
     notes: Optional[str] = None,
-    priority: Optional[int] = None
+    priority: Optional[int] = None,
+    details_path_to_store: Optional[str] = None
 ) -> Story:
     """Adds a new story to the plan. 
        The details file path is automatically generated as todo/lowercase_id.md.
@@ -266,11 +305,6 @@ def add_story_to_plan(
     # Check if story ID already exists
     if find_story_by_id(plan.stories, story_id):
         raise ValueError(f"story with ID '{story_id}' already exists.")
-
-    # Always auto-generate filename: todo/lowercase_story_id.md
-    details_filename = f"{story_id.lower()}.md"
-    details_path_to_store = os.path.join('todo', details_filename) # Relative path for storage
-    logger.info(f"Determined details path: {details_path_to_store}")
 
     # --- Dependency Handling (remains the same) ---
     depends_on_list: List[str] = []
@@ -304,31 +338,6 @@ def add_story_to_plan(
     # Save the plan first
     save_plan_data(plan) 
     logger.info(f"Successfully added new story '{story_id}' to plan.yaml.")
-
-    # --- Attempt to create the details file (best effort) ---
-    try:
-        # Construct absolute path for file creation
-        # Ensure details_path_to_store is treated as relative to workspace root
-        abs_details_path = os.path.join(_workspace_root, details_path_to_store)
-        
-        if not os.path.exists(abs_details_path):
-            logger.info(f"Details file does not exist, attempting to create: {abs_details_path}")
-            # Ensure directory exists (e.g., if details='new_dir/story.md')
-            details_dir = os.path.dirname(abs_details_path)
-            if details_dir: # Only create if not in root
-                os.makedirs(details_dir, exist_ok=True)
-            # Create empty file
-            with open(abs_details_path, 'w', encoding='utf-8') as f:
-                f.write("") # Write empty string to ensure file is created
-            logger.info(f"Successfully created empty details file: {abs_details_path}")
-        else:
-            logger.info(f"Details file already exists, skipping creation: {abs_details_path}")
-            
-    except OSError as e:
-        logger.warning(f"Could not create details file '{abs_details_path}': {e}. story entry in plan.yaml is still created.")
-    except Exception as e:
-        # Catch any other unexpected errors during file creation
-        logger.warning(f"Unexpected error creating details file '{details_path_to_store}': {e}. story entry in plan.yaml is still created.")
 
     # Return the story object regardless of file creation success/failure
     return new_story 
@@ -371,7 +380,7 @@ def remove_story_from_plan(story_id: str) -> bool:
         
         # Attempt to delete the associated details file (best effort)
         if details_file:
-            abs_details_path = os.path.join(_workspace_root, details_file)
+            abs_details_path = os.path.join(WORKSPACE_ROOT, details_file)
             try:
                 if os.path.exists(abs_details_path):
                     os.remove(abs_details_path)
@@ -432,9 +441,9 @@ def remove_archived_story(story_id: str) -> bool:
         
         # Attempt to delete the associated archived details file (best effort)
         if story_details_path:
-            # Ensure _workspace_root is accessible or passed if this util is moved
+            # Ensure WORKSPACE_ROOT is accessible or passed if this util is moved
             # For now, it's a global in plan_utils.py
-            abs_details_path = os.path.join(_workspace_root, story_details_path) 
+            abs_details_path = os.path.join(WORKSPACE_ROOT, story_details_path) 
             try:
                 if os.path.exists(abs_details_path):
                     # Check if the path is within the expected archived details directory for safety

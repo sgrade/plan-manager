@@ -8,10 +8,11 @@ from pydantic import ValidationError
 from datetime import datetime, timezone
 
 from plan_manager.story_model import Story, ALLOWED_STATUSES
+from plan_manager.story_utils import save_story_to_file, update_story_file
 from plan_manager.plan import Plan, load_plan_data, save_plan_data, add_story_to_plan, remove_story_from_plan
 from plan_manager.stories import load_stories
 from plan_manager.stories_utils import find_story_by_id
-from plan_manager.config import _workspace_root
+from plan_manager.config import WORKSPACE_ROOT
 
 
 logger = logging.getLogger(__name__)
@@ -30,7 +31,7 @@ def create_story(
     priority: str,                 # Priority is now a REQUIRED string. Sentinel value "6" means not set.
     depends_on: str,               # Depends_on is now a REQUIRED string. Sentinel value "" means not set.
     notes: str,                    # Notes is now a REQUIRED string. Sentinel value "" means not set.
-    details_content: str = ""      # Optional: initial markdown content for the details file
+    # details_content: str = ""      # Optional: initial markdown content for the details file
 ) -> dict:
     """Creates a new story in the plan.yaml file.
      The story ID and details file path will be automatically generated from the title.
@@ -87,24 +88,22 @@ def create_story(
         generated_id = _generate_id_from_title(title)
         logging.info(f"Generated ID '{generated_id}' from title '{title}'")
 
+        # Always auto-generate filename: todo/<story_id>/story.md (folder layout)
+        details_path_to_store = os.path.join('todo', generated_id, 'story.md')
+        logger.info(f"Determined details path: {details_path_to_store}")
+
         # Call the utility function to add the story
         created_story_model: Story = add_story_to_plan(
             story_id=generated_id,
             title=title,
             depends_on_str=actual_depends_on, # Pass processed string or None
             notes=actual_notes,               # Pass processed string or None
-            priority=numeric_priority
+            priority=numeric_priority,
+            details_path_to_store=details_path_to_store
         )
 
-        # If initial details content provided, write it now so remote clients don't need direct FS access
-        try:
-            if details_content is not None and created_story_model.details:
-                abs_details_path = os.path.join(_workspace_root, created_story_model.details)
-                os.makedirs(os.path.dirname(abs_details_path), exist_ok=True)
-                with open(abs_details_path, 'w', encoding='utf-8') as f:
-                    _ = f.write(details_content)
-        except Exception as e_write:
-            logging.warning(f"Failed to write initial details content for story '{created_story_model.id}': {e_write}")
+        # --- Attempt to create the details file (best effort) ---
+        save_story_to_file(details_path_to_store, created_story_model)
 
         msg = f"Successfully created story '{created_story_model.id}' with title '{created_story_model.title}'. Details file: {created_story_model.details}"
         logging.info(msg)
@@ -137,7 +136,7 @@ def get_story(story_id: str) -> dict:
             raise KeyError(f"story with ID '{story_id}' not found.")
         return story.model_dump(mode='json', exclude_none=True)
     except Exception as e:
-        logging.exception("Unexpected error during get_story")
+        logging.exception("Unexpected error during get_story") 
         raise e
 
 
@@ -234,6 +233,14 @@ def update_story(
         plan.stories[target_index] = story_obj
         save_plan_data(plan)
 
+        # Best-effort: sync story file front matter with latest values
+        if story_obj.details:
+            try:
+                update_story_file(story_obj.details, story_obj)
+            except Exception:
+                # Non-fatal; log at info level, errors already handled in util
+                logging.info(f"Best-effort update of story file failed for '{story_id}'.")
+
         return story_obj.model_dump(mode='json', exclude_none=True)
 
     except Exception as e:
@@ -302,7 +309,7 @@ def _generate_id_from_title(title: str) -> str:
     id_str = re.sub(r'\s+', '_', id_str.strip())
 
     # Convert to uppercase
-    generated_id = id_str.upper()
+    generated_id = id_str.lower()
 
     if not generated_id:
         raise ValueError(f"Title '{title}' resulted in an empty ID after processing.")
