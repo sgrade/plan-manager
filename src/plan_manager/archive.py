@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, timezone
 from plan_manager.plan import load_plan_data, load_archive_plan_data, save_plan_data, save_archive_plan_data, remove_archived_story
 from plan_manager.stories_utils import find_story_by_id
 from plan_manager.story_model import Story
-from plan_manager.config import ARCHIVED_DETAILS_DIR_PATH, _workspace_root
+from plan_manager.config import ARCHIVED_DETAILS_DIR_PATH, WORKSPACE_ROOT
 import collections
 
 
@@ -169,9 +169,9 @@ def archive_done_stories(
 
                 # c. Move detail file
                 if story_to_archive.details:
-                    # Construct absolute paths: _workspace_root comes from plan_utils
+                    # Construct absolute paths: WORKSPACE_ROOT comes from plan_utils
                     source_detail_path_rel = story_to_archive.details # e.g., todo/story_id.md
-                    source_detail_path_abs = os.path.join(_workspace_root, source_detail_path_rel)
+                    source_detail_path_abs = os.path.join(WORKSPACE_ROOT, source_detail_path_rel)
 
                     # Destination path construction
                     detail_filename = os.path.basename(source_detail_path_rel)
@@ -182,7 +182,7 @@ def archive_done_stories(
                             shutil.move(source_detail_path_abs, dest_detail_path_abs)
                             logging.info(f"Moved detail file for {story_to_archive.id} from {source_detail_path_abs} to {dest_detail_path_abs}")
                             # Update story's details path to reflect new location in the archived copy
-                            story_to_archive.details = os.path.relpath(dest_detail_path_abs, _workspace_root).replace(os.sep, '/')
+                            story_to_archive.details = os.path.relpath(dest_detail_path_abs, WORKSPACE_ROOT).replace(os.sep, '/')
 
                         except Exception as e_move:
                             logging.error(f"Error moving detail file {source_detail_path_abs} for story {story_to_archive.id}: {e_move}")

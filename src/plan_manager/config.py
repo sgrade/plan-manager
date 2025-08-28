@@ -9,17 +9,17 @@ def _env_bool(name: str, default: bool = False) -> bool:
 
 # --- Core Paths ---
 # Determine the workspace root, which serves as the default base for other paths.
-_workspace_root = os.getcwd()
+WORKSPACE_ROOT = os.getcwd()
 
 # --- Configurable Paths (from environment with sensible defaults) ---
-TODO_DIR = os.getenv("TODO_DIR", os.path.join(_workspace_root, 'todo'))
+TODO_DIR = os.getenv("TODO_DIR", os.path.join(WORKSPACE_ROOT, 'todo'))
 PLAN_FILE_PATH = os.path.join(TODO_DIR, 'plan.yaml')
 
 ARCHIVE_DIR_PATH = os.path.join(TODO_DIR, 'archive')
 ARCHIVE_PLAN_FILE_PATH = os.path.join(ARCHIVE_DIR_PATH, 'plan_archive.yaml')
 ARCHIVED_DETAILS_DIR_PATH = os.path.join(ARCHIVE_DIR_PATH, 'details')
 
-LOG_DIR = os.getenv("LOG_DIR", os.path.join(_workspace_root, 'logs'))
+LOG_DIR = os.getenv("LOG_DIR", os.path.join(WORKSPACE_ROOT, 'logs'))
 LOG_FILE_PATH = os.path.join(LOG_DIR, 'mcp_server_app.log')
 
 # --- Logging Configuration ---
