@@ -5,15 +5,23 @@ All notable changes to the Plan Manager project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.3.0] - 2025-08-28
 
 ### Added
-
+- `plan_manager.domain.validation` module for domain-layer dependency validation.
 
 ### Changed
-- 
+- Separated domain models from orchestration (services vs. data models)
+- Centralized dependency validation and status transitions
+- Encapsulated file mirroring concerns
+- Enabled safer plan writes and easier testing
+- Archive tools now use the repository API exclusively: `archive.delete_archived_story` performs loads/saves via `services.plan_repository`.
+- Story deletion now also removes the entire story directory (`todo/<story_id>/`) best-effort, with guardrails to prevent unsafe deletes.
+- Domain models refined: `Plan` validator defers dependency validation import to avoid cycles and keep domain layer pure.
+- Improved typing, docstrings, and logging consistency
 
 ### Removed
+- Removed legacy implementations related to the changed functionality
 - Removed outdated CLI tools for simplicity.
 
 ## [0.2.3] - 2025-08-26

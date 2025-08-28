@@ -118,25 +118,6 @@ completion_time:
   - Task depends on story: `storyB`
 - Validate existence; disallow self-dependency.
 
-### Migration Plan (Incremental, Low Risk)
-1. Phase 1 (models + plan only)
-   - Introduce `WorkItem` base and `Task` model; keep `Story` standalone.
-   - Extend Plan to hold `tasks` under each `Story` (embedded models).
-   - Add CRUD for tasks operating solely on `plan.yaml`.
-
-2. Phase 2 (file mirroring)
-   - Implement generic file helpers and integrate into create/update/delete for stories and tasks.
-   - Existing `todo/<id>.md` story files remain valid; on touch, migrate to story folder layout.
-
-3. Phase 3 (optional tooling)
-   - Add "sync from files" command for manual imports.
-   - Add lightweight search/index tooling over front matter for agent prompts.
-
-### Rollback & Safety
-- All mirroring is best-effort; plan operations succeed even if file I/O fails.
-- Atomic writes prevent partial files.
-- Logging at info/warn levels for observability.
-
 ### Notes and Backlog
 - Decision: `Story.tasks` embeds `Task` objects in the plan; story front matter lists only task IDs.
 - Potential additions: labels/tags, epic links, story points, `assignee` on `Task`.

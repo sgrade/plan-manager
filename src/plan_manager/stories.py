@@ -6,9 +6,8 @@ from typing import List, Optional, Dict
 
 from pydantic import ValidationError
 
-from plan_manager.config import PLAN_FILE_PATH
-from plan_manager.plan import load_plan_data
-from plan_manager.story_model import Story
+from plan_manager.domain import Story
+from plan_manager.services import plan_repository as plan_repo
 
 
 logger = logging.getLogger(__name__)
@@ -162,11 +161,7 @@ def list_stories(statuses: str, unblocked: bool = False) -> list[dict]:
         raise e
 
 
-def load_stories(file_path: str = PLAN_FILE_PATH) -> List[Story]:
-    """Loads and validates the plan, returning just the list of story objects.
-    
-    Raises: (Propagated from load_plan_data)
-        FileNotFoundError, yaml.YAMLError, ValidationError, Exception
-    """
-    plan = load_plan_data(file_path)
+def load_stories() -> List[Story]:
+    """Load the plan and return the list of stories."""
+    plan = plan_repo.load()
     return plan.stories

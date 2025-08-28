@@ -4,13 +4,11 @@ from typing import Optional, List, Dict
 import os
 import shutil
 import logging
-import yaml
-from pydantic import ValidationError
 from datetime import datetime, timedelta, timezone
-from plan_manager.plan import load_plan_data, load_archive_plan_data, save_plan_data, save_archive_plan_data, remove_archived_story
+from plan_manager.services import plan_repository as plan_repo
 from plan_manager.stories_utils import find_story_by_id
-from plan_manager.story_model import Story
-from plan_manager.config import ARCHIVED_DETAILS_DIR_PATH, WORKSPACE_ROOT
+from plan_manager.domain.models import Story
+from plan_manager.config import ARCHIVED_DETAILS_DIR_PATH, WORKSPACE_ROOT, ARCHIVE_PLAN_FILE_PATH
 import collections
 
 
@@ -71,9 +69,9 @@ def archive_done_stories(
 
     try:
         # 1. Load main plan
-        main_plan = load_plan_data()
+        main_plan = plan_repo.load()
         # 2. Load or initialize archive plan
-        archive_plan = load_archive_plan_data()
+        archive_plan = plan_repo.load_archive()
 
         # 3. Ensure archive directories exist
         # ARCHIVE_DIR_PATH is ensured by save_archive_plan_data
@@ -206,8 +204,8 @@ def archive_done_stories(
 
         # 9. Save both plan.yaml and plan_archive.yaml
         if archived_ids: # Only save if something actually changed
-            save_plan_data(main_plan)
-            save_archive_plan_data(archive_plan)
+            plan_repo.save(main_plan)
+            plan_repo.save_archive(archive_plan)
             logging.info(f"Successfully saved main and archive plans after archiving {len(archived_ids)} stories.")
         else:
             logging.info("No stories were actually moved to archive, skipping save operations.")
@@ -242,32 +240,28 @@ def archive_done_stories(
 
 
 def delete_archived_story(story_id: str) -> dict:
-    """Deletes a story from the archive plan (plan_archive.yaml) by its ID.
-       Also attempts to delete the associated archived detail file.
-
-    Args:
-        story_id: The unique ID of the story to delete from the archive.
-
-    Returns:
-        A dictionary indicating success or failure.
-        Example: {"success": True, "message": "Archived story 'ID' deleted."}
-    """
+    """Delete a story from the archive plan and its archived details file (best effort)."""
     logging.info(f"Handling delete_archived_story: id='{story_id}'")
-    try:
-        # remove_archived_story returns True on success or raises exceptions on failure
-        remove_archived_story(story_id)
-        msg = f"Successfully deleted archived story '{story_id}'."
-        logging.info(msg)
-        return {"success": True, "message": msg}
-    except KeyError as e:
-        # story not found in archive
-        logging.warning(f"Failed to delete archived story '{story_id}': {e}")
-        raise e # Let FastMCP handle KeyError, it will translate to an error for the client
-    except (FileNotFoundError, yaml.YAMLError, ValidationError, IOError, RuntimeError) as e:
-        # Handle errors from loading/saving archive plan or inconsistency during remove
-        logging.exception(f"Failed to delete archived story '{story_id}': {e}")
-        raise e # Let FastMCP handle these
-    except Exception as e:
-        # Catch-all for other unexpected errors
-        logging.exception(f"Unexpected error deleting archived story '{story_id}': {e}")
-        raise e
+    archive_plan = plan_repo.load_archive()
+    idx = None
+    for i, story in enumerate(archive_plan.stories):
+        if story.id == story_id:
+            idx = i
+            details_path = story.details
+            break
+    if idx is None:
+        raise KeyError(f"story with ID '{story_id}' not found in the archive plan ({ARCHIVE_PLAN_FILE_PATH}).")
+
+    del archive_plan.stories[idx]
+    plan_repo.save_archive(archive_plan)
+    if details_path:
+        try:
+            abs_details = os.path.join(WORKSPACE_ROOT, details_path)
+            if os.path.exists(abs_details):
+                os.remove(abs_details)
+                logging.info(f"Successfully deleted archived detail file: {abs_details}")
+        except OSError as e:
+            logging.warning(f"Could not delete archived detail file '{details_path}': {e}")
+    msg = f"Successfully deleted archived story '{story_id}'."
+    logging.info(msg)
+    return {"success": True, "message": msg}

@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from plan_manager.story_model import Story
+from plan_manager.domain.models import Story
 
 
 def find_story_index_by_id(stories: List[Story], story_id: str) -> Optional[int]:

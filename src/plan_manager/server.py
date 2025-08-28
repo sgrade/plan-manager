@@ -9,10 +9,10 @@ from mcp.server.fastmcp import FastMCP
 
 from starlette.applications import Starlette
 
-from plan_manager.story import register_story_tools
+from plan_manager.tools.story_tools import register_story_tools
 from plan_manager.stories import register_stories_tools
 from plan_manager.archive import register_archive_tools
-from plan_manager.tasks import register_task_tools
+from plan_manager.tools.task_tools import register_task_tools
 
 logger = logging.getLogger(__name__)
 
