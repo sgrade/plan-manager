@@ -6,6 +6,9 @@ from datetime import datetime
 from pydantic import BaseModel, Field, field_validator, model_validator, ValidationInfo
 
 
+logger = logging.getLogger(__name__)
+
+
 class Status(str, Enum):
     TODO = "TODO"
     IN_PROGRESS = "IN_PROGRESS"
@@ -58,9 +61,6 @@ class Task(WorkItem):
 Story.model_rebuild()
 
 
-logger = logging.getLogger(__name__)
-
-
 class Plan(BaseModel):
     stories: List[Story] = Field(default_factory=list)
 
@@ -73,5 +73,3 @@ class Plan(BaseModel):
         validation_module = importlib.import_module("plan_manager.domain.validation")
         validation_module.validate_plan_dependencies(self.stories)
         return self
-
-

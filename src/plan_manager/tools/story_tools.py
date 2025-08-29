@@ -35,5 +35,3 @@ def update_story(
 
 def delete_story(story_id: str) -> dict:
     return svc_delete_story(story_id)
-
-

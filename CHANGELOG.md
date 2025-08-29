@@ -5,29 +5,39 @@ All notable changes to the Plan Manager project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- Changed implicit imports from plan_manager.domain (__init__.py) to explicit imports from plan_manager.domain.models to avoid accidental re-exports, reduce surface area, and lower risk of circular imports.
+- Changed uvicorn config: TIMEOUT_GRACEFUL_SHUTDOWN from 2 to 30 and TIMEOUT_KEEP_ALIVE from 2 to 5 to avoid "ERROR - uvicorn.error:414 - Exception in ASGI application".
+
+### Fixed
+- Logging config was not imported.
+- There were three empty lines in the end of the python files instead of one.
+
 ## [0.3.0] - 2025-08-28
 
 ### Added
 - `plan_manager.domain.validation` module for domain-layer dependency validation.
 
 ### Changed
-- Separated domain models from orchestration (services vs. data models)
-- Centralized dependency validation and status transitions
-- Encapsulated file mirroring concerns
-- Enabled safer plan writes and easier testing
+- Separated domain models from orchestration (services vs. data models).
+- Centralized dependency validation and status transitions.
+- Encapsulated file mirroring concerns.
+- Enabled safer plan writes and easier testing.
 - Archive tools now use the repository API exclusively: `archive.delete_archived_story` performs loads/saves via `services.plan_repository`.
 - Story deletion now also removes the entire story directory (`todo/<story_id>/`) best-effort, with guardrails to prevent unsafe deletes.
 - Domain models refined: `Plan` validator defers dependency validation import to avoid cycles and keep domain layer pure.
-- Improved typing, docstrings, and logging consistency
+- Improved typing, docstrings, and logging consistency.
 
 ### Removed
-- Removed legacy implementations related to the changed functionality
+- Removed legacy implementations related to the changed functionality.
 - Removed outdated CLI tools for simplicity.
 
 ## [0.2.3] - 2025-08-26
 
 ### Changed
-- SSE transport is replaced by Streamable HTTP
+- SSE transport is replaced by Streamable HTTP.
 - Refactored application configuration to follow Twelve-Factor App principles. All settings are now sourced from environment variables with sensible defaults. Command-line arguments have been removed for simplicity.
 - Configuration logic has been consolidated into the `plan_manager.config` module.
 - The logging system has been unified. All modules now use a consistent, centrally configured logger that inherits its settings from the main entrypoint.
@@ -79,37 +89,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0] - 2025-07-28
 
 ### Added
-- Initial release of Plan Manager
-- MCP server implementation for AI assistant integration
-- Task management with YAML-based storage (`todo/plan.yaml`)
-- Dependency tracking and topological sorting
-- Priority-based task ordering (0-5 scale)
-- Task status management (TODO, IN_PROGRESS, DONE, BLOCKED, DEFERRED)
-- Archive functionality for completed tasks
+- Initial release of Plan Manager.
+- MCP server implementation for AI assistant integration.
+- Task management with YAML-based storage (`todo/plan.yaml`).
+- Dependency tracking and topological sorting.
+- Priority-based task ordering (0-5 scale).
+- Task status management (TODO, IN_PROGRESS, DONE, BLOCKED, DEFERRED).
+- Archive functionality for completed tasks.
 - CLI tools for direct task management:
-  - `list_tasks.py` - List and filter tasks
-  - `show_task.py` - Display task details
-  - `update_task_status.py` - Update task status
-- Comprehensive logging system
-- Pydantic-based data validation
-- SSE transport support for MCP communication
-- Development container configuration
-- Comprehensive documentation and setup instructions
+  - `list_tasks.py` - List and filter tasks.
+  - `show_task.py` - Display task details.
+  - `update_task_status.py` - Update task status.
+- Comprehensive logging system.
+- Pydantic-based data validation.
+- SSE transport support for MCP communication.
+- Development container configuration.
+- Comprehensive documentation and setup instructions.
 
 ### Features
-- **Task Management**: Create, read, update, delete operations
-- **Dependency Management**: Define task dependencies with cycle detection
-- **Priority System**: 6-level priority system (0=highest, 5=lowest, null=no priority)
-- **Status Tracking**: Five status types with validation
-- **Archive System**: Move completed tasks to archive with detail preservation
-- **AI Integration**: Full MCP server implementation for AI assistants
-- **Data Validation**: Robust schema validation using Pydantic models
-- **Logging**: Comprehensive logging to both files and stderr
-- **CLI Interface**: Direct command-line access to all functionality
+- **Task Management**: Create, read, update, delete operations.
+- **Dependency Management**: Define task dependencies with cycle detection.
+- **Priority System**: 6-level priority system (0=highest, 5=lowest, null=no priority).
+- **Status Tracking**: Five status types with validation.
+- **Archive System**: Move completed tasks to archive with detail preservation.
+- **AI Integration**: Full MCP server implementation for AI assistants.
+- **Data Validation**: Robust schema validation using Pydantic models.
+- **Logging**: Comprehensive logging to both files and stderr.
+- **CLI Interface**: Direct command-line access to all functionality.
 
 ### Technical Details
-- Python 3.11+ required
-- Built with FastMCP, Starlette, and Uvicorn
-- YAML-based data storage with backup/archive support
-- Type hints throughout codebase
-- Comprehensive error handling and validation
+- Python 3.11+ required.
+- Built with FastMCP, Starlette, and Uvicorn.
+- YAML-based data storage with backup/archive support.
+- Type hints throughout codebase.
+- Comprehensive error handling and validation.

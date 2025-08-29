@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from typing import Protocol
 
-from plan_manager.domain import Status
+from plan_manager.domain.models import Status
 
 
 class HasStatus(Protocol):
@@ -35,5 +35,3 @@ def rollup_story_status(task_statuses: list[Status | str]) -> Status:
     if any(v == 'IN_PROGRESS' for v in values):
         return Status.IN_PROGRESS
     return Status.TODO
-
-

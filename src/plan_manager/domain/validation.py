@@ -1,4 +1,8 @@
+import logging
 from typing import Set, Any
+
+
+logger = logging.getLogger(__name__)
 
 
 def validate_plan_dependencies(stories: list[Any]) -> None:
@@ -43,5 +47,3 @@ def validate_plan_dependencies(stories: list[Any]) -> None:
                         raise ValueError(f"task '{task.id}' cannot depend on itself.")
                     if fq not in task_ids:
                         raise ValueError(f"task '{task.id}' depends on unknown task '{dep_str}' in story '{story.id}'.")
-
-

@@ -6,7 +6,7 @@ from typing import List, Optional, Dict
 
 from pydantic import ValidationError
 
-from plan_manager.domain import Story
+from plan_manager.domain.models import Story
 from plan_manager.services import plan_repository as plan_repo
 
 
@@ -38,7 +38,7 @@ def list_stories(statuses: str, unblocked: bool = False) -> list[dict]:
         # --- Topological Sort ---
         adj: Dict[str, List[str]] = collections.defaultdict(list)
         in_degree: Dict[str, int] = collections.defaultdict(int)
-        story_map: Dict[str, story] = {story.id: story for story in all_stories}
+        story_map: Dict[str, Story] = {story.id: story for story in all_stories} # Map of id to story
 
         for story in all_stories:
             # Ensure all stories are in in_degree, even if they have no dependencies listed

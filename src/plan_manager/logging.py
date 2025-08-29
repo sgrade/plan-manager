@@ -11,6 +11,10 @@ import os
 import sys
 from plan_manager import config
 
+
+logger = logging.getLogger(__name__)
+
+
 # Apply the logging configuration using settings from the config module.
 level = getattr(logging, config.LOG_LEVEL, logging.INFO)
 
@@ -30,4 +34,4 @@ logging.basicConfig(
 
 # A simple log message to confirm that the configuration has been applied.
 # This will be one of the first messages seen when the application starts.
-logging.getLogger(__name__).info("Logging configured. Level: %s, File logging enabled: %s", config.LOG_LEVEL, config.ENABLE_FILE_LOG)
+logger.info("Logging configured. Level: %s, File logging enabled: %s", config.LOG_LEVEL, config.ENABLE_FILE_LOG)

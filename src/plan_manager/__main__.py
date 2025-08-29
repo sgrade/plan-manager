@@ -8,14 +8,16 @@ Usage:
     uv run plan-manager
 """
 
+import logging
+import uvicorn
+
 # --- Configuration Bootstrap ---
 # This is the first and only place where these modules should be imported to
 # ensure that configuration and logging are set up exactly once, as soon as
 # the application starts. The order is critical.
 from plan_manager import config
-
-import logging
-import uvicorn
+from importlib import import_module
+import_module("plan_manager.logging")   # To prevent the warning: Import "plan_manager.logging" is not accessed
 
 logger = logging.getLogger(__name__)
 

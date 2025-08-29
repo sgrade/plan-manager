@@ -6,6 +6,7 @@ import yaml
 
 from plan_manager.config import WORKSPACE_ROOT
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -108,5 +109,3 @@ def delete_item_file(details_path: str) -> None:
             logger.info(f"Deleted details file: {abs_path}")
     except Exception as e:
         logger.warning(f"Best-effort delete failed for '{details_path}': {e}")
-
-

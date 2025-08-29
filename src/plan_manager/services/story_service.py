@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 
 from pydantic import ValidationError
 
-from plan_manager.domain import Story, Status
+from plan_manager.domain.models import Story, Status
 from plan_manager.services import plan_repository as plan_repo
 from plan_manager.io.paths import story_file_path, slugify
 from plan_manager.io.file_mirror import save_item_to_file, delete_item_file
@@ -192,5 +192,3 @@ def delete_story(story_id: str) -> dict:
 
 def _generate_id_from_title(title: str) -> str:
     return slugify(title)
-
-

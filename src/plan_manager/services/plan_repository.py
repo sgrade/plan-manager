@@ -4,7 +4,7 @@ import logging
 
 from pydantic import ValidationError
 
-from plan_manager.domain import Plan
+from plan_manager.domain.models import Plan
 from plan_manager.config import PLAN_FILE_PATH, ARCHIVE_PLAN_FILE_PATH
 
 
@@ -60,5 +60,3 @@ def save_archive(plan: Plan) -> None:
     os.makedirs(os.path.dirname(ARCHIVE_PLAN_FILE_PATH), exist_ok=True)
     with open(ARCHIVE_PLAN_FILE_PATH, 'w', encoding='utf-8') as f:
         yaml.safe_dump(data, f, default_flow_style=False, sort_keys=False)
-
-

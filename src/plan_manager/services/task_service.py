@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 from pydantic import ValidationError
 
-from plan_manager.domain import Task, Story, Status
+from plan_manager.domain.models import Task, Story, Status
 from plan_manager.services import plan_repository as plan_repo
 from plan_manager.io.paths import task_file_path, slugify
 from plan_manager.io.file_mirror import save_item_to_file, read_item_file, delete_item_file
@@ -352,5 +352,3 @@ def explain_task_blockers(story_id: str, task_id: str) -> dict:
         'blockers': blockers,
         'unblocked': len(blockers) == 0,
     }
-
-

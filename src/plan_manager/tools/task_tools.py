@@ -48,5 +48,3 @@ def list_tasks(statuses: str, story_id: Optional[str] = None) -> list[dict]:
 
 def explain_task_blockers(story_id: str, task_id: str) -> dict:
     return svc_explain_task_blockers(story_id, task_id)
-
-
