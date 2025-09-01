@@ -2,14 +2,5 @@
 ARG VARIANT=3-bookworm
 FROM python:${VARIANT}
 
-RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
-    # Remove imagemagick due to https://security-tracker.debian.org/tracker/CVE-2019-10131
-    && apt-get purge -y imagemagick imagemagick-6-common
-
-RUN python3 -m pip install --upgrade \
-    setuptools \
-    gitpython \
-    pip
-
 # Install uv - https://docs.astral.sh/uv/guides/integration/docker/#installing-uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/

@@ -1,4 +1,5 @@
-from typing import Optional
+from typing import List
+
 from plan_manager.services.task_service import (
     create_task as svc_create_task,
     get_task as svc_get_task,
@@ -7,6 +8,10 @@ from plan_manager.services.task_service import (
     list_tasks as svc_list_tasks,
     explain_task_blockers as svc_explain_task_blockers,
 )
+from plan_manager.schemas.inputs import (
+    CreateTaskIn, GetTaskIn, UpdateTaskIn, DeleteTaskIn, ListTasksIn, ExplainTaskBlockersIn,
+)
+from plan_manager.schemas.outputs import TaskOut, TaskListItem, OperationResult, TaskBlockersOut
 
 
 def register_task_tools(mcp_instance) -> None:
@@ -18,33 +23,39 @@ def register_task_tools(mcp_instance) -> None:
     mcp_instance.tool()(explain_task_blockers)
 
 
-def create_task(story_id: str, title: str, priority: str, depends_on: str, notes: str) -> dict:
-    return svc_create_task(story_id, title, priority, depends_on, notes)
+def create_task(payload: CreateTaskIn) -> TaskOut:
+    """Create a task under a story."""
+    data = svc_create_task(payload.story_id, payload.title,
+                           payload.priority, payload.depends_on, payload.notes)
+    return TaskOut(**data)
 
 
-def get_task(story_id: str, task_id: str) -> dict:
-    return svc_get_task(story_id, task_id)
+def get_task(payload: GetTaskIn) -> TaskOut:
+    """Fetch a task by ID (local or FQ) within a story."""
+    data = svc_get_task(payload.story_id, payload.task_id)
+    return TaskOut(**data)
 
 
-def update_task(
-    story_id: str,
-    task_id: str,
-    title: Optional[str] = None,
-    notes: Optional[str] = None,
-    depends_on: Optional[str] = None,
-    priority: Optional[str] = None,
-    status: Optional[str] = None,
-) -> dict:
-    return svc_update_task(story_id, task_id, title, notes, depends_on, priority, status)
+def update_task(payload: UpdateTaskIn) -> TaskOut:
+    """Update mutable fields of a task."""
+    data = svc_update_task(payload.story_id, payload.task_id, payload.title,
+                           payload.notes, payload.depends_on, payload.priority, payload.status)
+    return TaskOut(**data)
 
 
-def delete_task(story_id: str, task_id: str) -> dict:
-    return svc_delete_task(story_id, task_id)
+def delete_task(payload: DeleteTaskIn) -> OperationResult:
+    """Delete a task by ID (fails if other items depend on it)."""
+    data = svc_delete_task(payload.story_id, payload.task_id)
+    return OperationResult(**data)
 
 
-def list_tasks(statuses: str, story_id: Optional[str] = None) -> list[dict]:
-    return svc_list_tasks(statuses, story_id)
+def list_tasks(payload: ListTasksIn) -> List[TaskListItem]:
+    """List tasks, optionally filtering by status set and story."""
+    data = svc_list_tasks(payload.statuses, payload.story_id)
+    return [TaskListItem(**d) for d in data]
 
 
-def explain_task_blockers(story_id: str, task_id: str) -> dict:
-    return svc_explain_task_blockers(story_id, task_id)
+def explain_task_blockers(payload: ExplainTaskBlockersIn) -> TaskBlockersOut:
+    """Explain why a task is blocked based on its dependencies."""
+    data = svc_explain_task_blockers(payload.story_id, payload.task_id)
+    return TaskBlockersOut(**data)

@@ -4,10 +4,11 @@
         "context": "."
     },
     "features": {
-        "ghcr.io/devcontainers/features/common-utils:2":{
+        "ghcr.io/devcontainers/features/common-utils:2": {
             // "installZsh": "true",
             // #########################################################
-            // Docker Desktop for Windows: Inside the container, any mounted files/folders will appear as if they are owned by root - https://code.visualstudio.com/remote/advancedcontainers/add-nonroot-user
+            // Docker Desktop for Windows: Inside the container, any mounted files/folders will appear as if they are owned by root 
+            // https://code.visualstudio.com/remote/advancedcontainers/add-nonroot-user
             // Because of this, there is the error in git: "fatal: detected dubious ownership in repository at '/workspaces/plan-manager'"
             // So, we don't use the non-root user.
             // "username": "vscode",
@@ -16,39 +17,63 @@
             // #########################################################
             "upgradePackages": "true"
         },
-        "ghcr.io/devcontainers/features/python:1": "none",
-        "ghcr.io/devcontainers/features/node:1": "none",
+        "ghcr.io/devcontainers/features/python:1": "none", // We use uv (venv replacement) for python
         "ghcr.io/devcontainers/features/git:1": {
             "version": "latest",
             "ppa": "false"
+        },
+        "ghcr.io/devcontainers/features/node:1": {} // For mcp-inspector
+    },
+    // Configure tool-specific properties.
+    "customizations": {
+        // Configure properties specific to VS Code.
+        "vscode": {
+            "extensions": [
+                // The following extensions are installed by devcontainer feature python: 
+                // "ms-python.python",
+                // "ms-python.vscode-pylance",
+                // "ms-python.autopep8",
+                "ms-azuretools.vscode-docker",
+                "ms-python.debugpy",
+                "charliermarsh.ruff",
+                "anysphere.cursorpyright" // If using Cursor IDE
+            ],
+            // Set *default* container specific settings.json values on container create.
+            "settings": {
+                // Uses this Python for debugger, etc.
+                // Note: Changes to the python.defaultInterpreterPath setting are not picked up after an interpreter has already been selected for a workspace; 
+                // any changes to the setting will be ignored once an initial interpreter is selected for the workspace.
+                // https://code.visualstudio.com/docs/python/environments#_manually-specify-an-interpreter
+                // How the extension chooses an environment automatically
+                // https://code.visualstudio.com/docs/python/environments#_how-the-extension-chooses-an-environment-automatically
+                "python.defaultInterpreterPath": "${containerWorkspaceFolder}/.venv/bin/python",
+                // Black formatter
+                "python.formatting.provider": "black",
+                "editor.formatOnSave": true,
+                "python.formatting.blackArgs": [
+                    "--line-length",
+                    "88"
+                ],
+                // PyLint
+                "python.linting.enabled": true,
+                "python.linting.pylintEnabled": true,
+                "python.linting.lintOnSave": true,
+                // Type checking
+                "python.linting.mypyEnabled": true
+            }
         }
     },
-	// Configure tool-specific properties.
-	"customizations": {
-		// Configure properties specific to VS Code.
-		"vscode": {
-			// Set *default* container specific settings.json values on container create.
-			"settings": {
-				"python.defaultInterpreterPath": "/usr/local/bin/python"
-            }
-		}
-	},
-
     "remoteEnv": {
         "PLAN_MANAGER_ENABLE_FILE_LOG": "false",
         "PLAN_MANAGER_RELOAD": "true"
     },
-
-	// Use 'forwardPorts' to make a list of ports inside the container available locally.
-	// "forwardPorts": [],
-
-	// Use 'postCreateCommand' to run commands after the container is created.
-	"postCreateCommand": "uv sync",
-
-	// // Set `remoteUser` to `root` to connect as root instead. More info: https://aka.ms/vscode-remote/containers/non-root.
+    // Use 'forwardPorts' to make a list of ports inside the container available locally.
+    // "forwardPorts": [],
+    // Use 'postCreateCommand' to run commands after the container is created.
+    "postCreateCommand": "uv sync",
+    // // Set `remoteUser` to `root` to connect as root instead. More info: https://aka.ms/vscode-remote/containers/non-root.
     // Docker Desktop for Windows: If we use the non-root user, we can't use the git command in the terminal.
-	// "remoteUser": "vscode",
-
+    // "remoteUser": "vscode",
     "forwardPorts": [
         3000
     ],

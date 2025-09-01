@@ -2,7 +2,7 @@ from typing import Optional, List
 import logging
 import importlib
 from enum import Enum
-from datetime import datetime
+from datetime import datetime, timezone
 from pydantic import BaseModel, Field, field_validator, model_validator, ValidationInfo
 
 
@@ -20,10 +20,11 @@ class Status(str, Enum):
 class WorkItem(BaseModel):
     id: str
     title: str
-    status: Status
+    status: Status = Field(default=Status.TODO)
     depends_on: Optional[List[str]] = Field(default_factory=list)
     notes: Optional[str] = None
-    creation_time: Optional[datetime] = None
+    creation_time: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc))
     completion_time: Optional[datetime] = None
     priority: Optional[int] = None
 
@@ -44,7 +45,8 @@ class WorkItem(BaseModel):
     @classmethod
     def priority_must_be_in_range(cls, value: Optional[int]) -> Optional[int]:
         if value is not None and not (0 <= value <= 5):
-            raise ValueError("Priority must be between 0 and 5 (inclusive) if provided.")
+            raise ValueError(
+                "Priority must be between 0 and 5 (inclusive) if provided.")
         return value
 
 
@@ -67,9 +69,11 @@ class Plan(BaseModel):
     @model_validator(mode='after')
     def check_dependencies_exist_and_no_cycles(self, info: ValidationInfo) -> 'Plan':
         if info.context and info.context.get("skip_dependency_check"):
-            logger.debug("Skipping dependency check for Plan validation based on context.")
+            logger.debug(
+                "Skipping dependency check for Plan validation based on context.")
             return self
         # Load validation at runtime to avoid import resolution issues
-        validation_module = importlib.import_module("plan_manager.domain.validation")
+        validation_module = importlib.import_module(
+            "plan_manager.domain.validation")
         validation_module.validate_plan_dependencies(self.stories)
         return self

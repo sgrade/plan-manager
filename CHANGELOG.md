@@ -5,15 +5,25 @@ All notable changes to the Plan Manager project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Testing with mcp-inspector
+
+### Changed
+- Tweak Dockerfile and devcontainer.json to automate dev environment setup for Python.
+- Unify Story/Task CRUD, reduce duplication, and tighten types.
+- Structured input and output.
+
 ## [0.3.1]
 
 ### Changed
-- Changed implicit imports from plan_manager.domain (__init__.py) to explicit imports from plan_manager.domain.models to avoid accidental re-exports, reduce surface area, and lower risk of circular imports.
-- Changed uvicorn config: TIMEOUT_GRACEFUL_SHUTDOWN from 2 to 30 and TIMEOUT_KEEP_ALIVE from 2 to 5 to avoid "ERROR - uvicorn.error:414 - Exception in ASGI application".
+- Implicit imports from plan_manager.domain (__init__.py) to explicit imports from plan_manager.domain.models to avoid accidental re-exports, reduce surface area, and lower risk of circular imports.
+- Uvicorn config: TIMEOUT_GRACEFUL_SHUTDOWN from 2 to 30 and TIMEOUT_KEEP_ALIVE from 2 to 5 to avoid "ERROR - uvicorn.error:414 - Exception in ASGI application".
 
 ### Fixed
-- Logging config was not imported.
-- There were three empty lines in the end of the python files instead of one.
+- Import logging config.
+- One empty line in the end of files instead of three.
 
 ## [0.3.0] - 2025-08-28
 
@@ -21,41 +31,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `plan_manager.domain.validation` module for domain-layer dependency validation.
 
 ### Changed
-- Separated domain models from orchestration (services vs. data models).
-- Centralized dependency validation and status transitions.
-- Encapsulated file mirroring concerns.
-- Enabled safer plan writes and easier testing.
+- Separate domain models from orchestration (services vs. data models).
+- Centralize dependency validation and status transitions.
+- Encapsulate file mirroring concerns.
+- Enable safer plan writes and easier testing.
 - Archive tools now use the repository API exclusively: `archive.delete_archived_story` performs loads/saves via `services.plan_repository`.
 - Story deletion now also removes the entire story directory (`todo/<story_id>/`) best-effort, with guardrails to prevent unsafe deletes.
-- Domain models refined: `Plan` validator defers dependency validation import to avoid cycles and keep domain layer pure.
-- Improved typing, docstrings, and logging consistency.
+- Refine domain models: `Plan` validator defers dependency validation import to avoid cycles and keep domain layer pure.
+- Improve typing, docstrings, and logging consistency.
 
 ### Removed
-- Removed legacy implementations related to the changed functionality.
-- Removed outdated CLI tools for simplicity.
+- egacy implementations related to the changed functionality.
+- Outdated CLI tools.
 
 ## [0.2.3] - 2025-08-26
 
 ### Changed
-- SSE transport is replaced by Streamable HTTP.
-- Refactored application configuration to follow Twelve-Factor App principles. All settings are now sourced from environment variables with sensible defaults. Command-line arguments have been removed for simplicity.
-- Configuration logic has been consolidated into the `plan_manager.config` module.
-- The logging system has been unified. All modules now use a consistent, centrally configured logger that inherits its settings from the main entrypoint.
+- Replace SSE transport by Streamable HTTP.
+- Refactor application configuration to follow Twelve-Factor App principles. All settings are now sourced from environment variables with sensible defaults. Command-line arguments have been removed for simplicity.
+- Consolidate configuration logic has been into the `plan_manager.config` module.
+- Unify the logging system: modules now use a consistent, centrally configured logger that inherits its settings from the main entrypoint.
 - Logging now defaults to writing to `stdout` as an event stream, adhering to Twelve-Factor principles. File-based logging is now an opt-in feature for development.
 
 ### Added
 - The `PLAN_MANAGER_ENABLE_FILE_LOG` variable is now set in `.devcontainer/devcontainer.json` to automatically enable file logging for a better development experience.
-- Added `logs/` directory to `.gitignore` to prevent log files from being committed.
+- Add `logs/` directory to `.gitignore` to prevent log files from being committed.
 
 ### Fixed
-- Suppressed ASGI app factory warning from Uvicorn by adding `factory=True` to the `uvicorn.run()` call.
+- Suppress ASGI app factory warning from Uvicorn by adding `factory=True` to the `uvicorn.run()` call.
 
 ## [0.2.2] - 2025-08-23
 
 ### Changed
-- Refactor: split modules into `story_model.py`, `stories.py`, `plan.py`, `archive.py` for clarity.
+- Split modules into `story_model.py`, `stories.py`, `plan.py`, `archive.py` for clarity.
 - Explicit MCP tool registration (stories, plan, archive) from `mcp_server.py`.
-- Cleaned imports, removed sys.path hacks, and fixed circular imports.
+- Clean imports, removed sys.path hacks, and fixed circular imports.
 
 ### Fixed
 - Lint issues and missing imports; server starts cleanly with autoreload.
@@ -71,7 +81,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Empty `status`/`priority` in `update_task` are treated as “no change” to ease client calls.
 
 ### Removed
-- Specialized `update_task_status_handler` and `update_task_priority_handler` in favor of `update_task`.
+- Specialize `update_task_status_handler` and `update_task_priority_handler` in favor of `update_task`.
 
 ## [0.2.0] - 2025-08-22
 

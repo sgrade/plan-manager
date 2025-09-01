@@ -41,7 +41,7 @@ This project is configured to run inside a [Dev Container](https://containers.de
 Once the dev container is running, start the MCP server from the VS Code terminal:
 
 ```bash
-uv run plan-manager
+uv run pm
 ```
 
 The server will start on `http://localhost:3000/mcp`.

@@ -1,11 +1,14 @@
 import os
 
 # --- Helper for parsing boolean env vars ---
+
+
 def _env_bool(name: str, default: bool = False) -> bool:
     val = os.getenv(name)
     if val is None:
         return default
     return val.strip().lower() in ("1", "true", "yes", "on")
+
 
 # --- Core Paths ---
 # Determine the workspace root, which serves as the default base for other paths.
@@ -33,5 +36,5 @@ RELOAD = _env_bool("PLAN_MANAGER_RELOAD")
 RELOAD_DIRS = os.getenv("RELOAD_DIRS", "src").split(",")
 RELOAD_INCLUDES = os.getenv("RELOAD_INCLUDE", "*.py").split(",")
 RELOAD_EXCLUDES = os.getenv("RELOAD_EXCLUDE", "logs/*").split(",")
-TIMEOUT_GRACEFUL_SHUTDOWN = int(os.getenv("TIMEOUT_GRACEFUL_SHUTDOWN", "30"))
+TIMEOUT_GRACEFUL_SHUTDOWN = int(os.getenv("TIMEOUT_GRACEFUL_SHUTDOWN", "3"))
 TIMEOUT_KEEP_ALIVE = int(os.getenv("TIMEOUT_KEEP_ALIVE", "5"))
