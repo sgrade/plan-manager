@@ -14,10 +14,10 @@ def generate_slug(title: str) -> str:
     return slugify(title)
 
 
-def normalize_notes(notes: Optional[str]) -> Optional[str]:
-    if notes is None:
+def normalize_notes(description: Optional[str]) -> Optional[str]:
+    if description is None:
         return None
-    text = notes.strip()
+    text = description.strip()
     return text if text else None
 
 

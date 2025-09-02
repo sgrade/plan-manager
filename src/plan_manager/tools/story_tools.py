@@ -35,12 +35,12 @@ def create_story(payload: CreateStoryIn) -> StoryOut:
     - title: Story title
     - priority: 0..5 or None
     - depends_on: List of story IDs this story depends on
-    - notes: Optional freeform notes
+    - description: Optional freeform description
 
     Returns: StoryOut
     """
     data = svc_create_story(payload.title, payload.priority,
-                            payload.depends_on, payload.notes)
+                            payload.depends_on, payload.description)
     return StoryOut(**data)
 
 
@@ -55,14 +55,14 @@ def update_story(payload: UpdateStoryIn) -> StoryOut:
 
     Parameters:
     - story_id: Story ID
-    - title, notes: Optional updates
+    - title, description: Optional updates
     - depends_on: Optional new list of story IDs
     - priority: Optional new priority (0..5 or None)
     - status: Optional new status
 
     Returns: StoryOut
     """
-    data = svc_update_story(payload.story_id, payload.title, payload.notes,
+    data = svc_update_story(payload.story_id, payload.title, payload.description,
                             payload.depends_on, payload.priority, payload.status)
     return StoryOut(**data)
 

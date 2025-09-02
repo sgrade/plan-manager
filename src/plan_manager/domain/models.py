@@ -22,7 +22,7 @@ class WorkItem(BaseModel):
     title: str
     status: Status = Field(default=Status.TODO)
     depends_on: Optional[List[str]] = Field(default_factory=list)
-    notes: Optional[str] = None
+    description: Optional[str] = None
     creation_time: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc))
     completion_time: Optional[datetime] = None

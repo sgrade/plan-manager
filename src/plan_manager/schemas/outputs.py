@@ -19,10 +19,9 @@ class StoryOut(BaseModel):
     id: str
     title: str
     status: Status
-    # file_path: Optional[str] = None
     priority: Optional[int] = None
     creation_time: Optional[str] = None
-    notes: Optional[str] = None
+    description: Optional[str] = None
     depends_on: List[str] = []
 
 
@@ -38,7 +37,7 @@ class TaskOut(BaseModel):
     priority: Optional[int] = None
     creation_time: Optional[str] = None
     completion_time: Optional[str] = None
-    notes: Optional[str] = None
+    description: Optional[str] = None
     depends_on: List[str] = []
 
 

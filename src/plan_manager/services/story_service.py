@@ -22,7 +22,7 @@ from plan_manager.config import WORKSPACE_ROOT
 logger = logging.getLogger(__name__)
 
 
-def create_story(title: str, priority: Optional[int], depends_on: List[str], notes: Optional[str]) -> dict:
+def create_story(title: str, priority: Optional[int], depends_on: List[str], description: Optional[str]) -> dict:
     generated_id = generate_slug(title)
     plan = plan_repo.load()
     if any(s.id == generated_id for s in plan.stories):
@@ -35,7 +35,7 @@ def create_story(title: str, priority: Optional[int], depends_on: List[str], not
             title=title,
             file_path=details_path,
             depends_on=depends_on or [],
-            notes=notes,
+            description=description,
             priority=priority,
         )
     except ValidationError as e:
@@ -53,7 +53,7 @@ def create_story(title: str, priority: Optional[int], depends_on: List[str], not
         logger.info(
             f"Best-effort creation of story file failed for '{generated_id}'.")
 
-    return new_story.model_dump(mode='json', include={'id', 'title', 'status', 'file_path', 'priority', 'creation_time', 'notes', 'depends_on'}, exclude_none=True)
+    return new_story.model_dump(mode='json', include={'id', 'title', 'status', 'file_path', 'priority', 'creation_time', 'description', 'depends_on'}, exclude_none=True)
 
 
 def get_story(story_id: str) -> dict:
@@ -67,7 +67,7 @@ def get_story(story_id: str) -> dict:
 def update_story(
     story_id: str,
     title: Optional[str] = None,
-    notes: Optional[str] = None,
+    description: Optional[str] = None,
     depends_on: Optional[List[str]] = None,
     priority: Optional[int] = None,
     status: Optional[Status] = None,
@@ -81,8 +81,8 @@ def update_story(
 
     if title is not None:
         story_obj.title = title
-    if notes is not None:
-        story_obj.notes = notes
+    if description is not None:
+        story_obj.description = description
     if depends_on is not None:
         story_obj.depends_on = depends_on
     if priority is not None:

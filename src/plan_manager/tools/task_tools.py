@@ -26,7 +26,7 @@ def register_task_tools(mcp_instance) -> None:
 def create_task(payload: CreateTaskIn) -> TaskOut:
     """Create a task under a story."""
     data = svc_create_task(payload.story_id, payload.title,
-                           payload.priority, payload.depends_on, payload.notes)
+                           payload.priority, payload.depends_on, payload.description)
     return TaskOut(**data)
 
 
@@ -39,7 +39,7 @@ def get_task(payload: GetTaskIn) -> TaskOut:
 def update_task(payload: UpdateTaskIn) -> TaskOut:
     """Update mutable fields of a task."""
     data = svc_update_task(payload.story_id, payload.task_id, payload.title,
-                           payload.notes, payload.depends_on, payload.priority, payload.status)
+                           payload.description, payload.depends_on, payload.priority, payload.status)
     return TaskOut(**data)
 
 

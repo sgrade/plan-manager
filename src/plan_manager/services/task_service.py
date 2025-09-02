@@ -25,7 +25,7 @@ def _generate_task_id_from_title(title: str) -> str:
     return generate_slug(title)
 
 
-def create_task(story_id: str, title: str, priority: Optional[int], depends_on: List[str], notes: Optional[str]) -> dict:
+def create_task(story_id: str, title: str, priority: Optional[int], depends_on: List[str], description: Optional[str]) -> dict:
     logger.info(
         f"Handling create_task: story_id='{story_id}', title='{title}', priority='{priority}', depends_on={depends_on}"
     )
@@ -46,7 +46,7 @@ def create_task(story_id: str, title: str, priority: Optional[int], depends_on: 
             id=fq_task_id,
             title=title,
             depends_on=depends_on,
-            notes=notes,
+            description=description,
             priority=priority,
             story_id=story_id,
         )
@@ -71,7 +71,7 @@ def create_task(story_id: str, title: str, priority: Optional[int], depends_on: 
         logger.info(
             f"Best-effort update of story file tasks list failed for '{story_id}'.")
 
-    return task.model_dump(include={'id', 'title', 'status', 'priority', 'creation_time', 'notes', 'depends_on'}, exclude_none=True)
+    return task.model_dump(include={'id', 'title', 'status', 'priority', 'creation_time', 'description', 'depends_on'}, exclude_none=True)
 
 
 def get_task(story_id: str, task_id: str) -> dict:
@@ -87,7 +87,7 @@ def get_task(story_id: str, task_id: str) -> dict:
     task_obj = next((t for t in story.tasks if t.id == fq_task_id), None)
     if task_obj:
         base = task_obj.model_dump(include={
-                                   'id', 'title', 'status', 'priority', 'creation_time', 'notes', 'depends_on'}, exclude_none=True)
+                                   'id', 'title', 'status', 'priority', 'creation_time', 'description', 'depends_on'}, exclude_none=True)
         local_task_id = fq_task_id.split(':', 1)[1]
         task_details_path = task_file_path(story_id, local_task_id)
         return merge_frontmatter_defaults(task_details_path, base)
@@ -97,7 +97,7 @@ def get_task(story_id: str, task_id: str) -> dict:
     if front:
         out = {'id': front.get('id', fq_task_id), 'title': front.get(
             'title', local_task_id.replace('_', ' ')), 'status': front.get('status', 'TODO')}
-        for k in ('priority', 'creation_time', 'notes', 'depends_on'):
+        for k in ('priority', 'creation_time', 'description', 'depends_on'):
             if front.get(k) is not None:
                 out[k] = front.get(k)
         return out
@@ -108,7 +108,7 @@ def update_task(
     story_id: str,
     task_id: str,
     title: Optional[str] = None,
-    notes: Optional[str] = None,
+    description: Optional[str] = None,
     depends_on: Optional[List[str]] = None,
     priority: Optional[int] = None,
     status: Optional[Status] = None,
@@ -127,8 +127,8 @@ def update_task(
 
     if title is not None:
         task_obj.title = title
-    if notes is not None:
-        task_obj.notes = notes
+    if description is not None:
+        task_obj.description = description
     if depends_on is not None:
         task_obj.depends_on = depends_on
     if priority is not None:
@@ -159,7 +159,7 @@ def update_task(
             logger.info(
                 f"Best-effort rollup update of story file failed for '{story_id}'.")
 
-    return task_obj.model_dump(include={'id', 'title', 'status', 'priority', 'creation_time', 'completion_time', 'notes', 'depends_on'}, exclude_none=True)
+    return task_obj.model_dump(include={'id', 'title', 'status', 'priority', 'creation_time', 'completion_time', 'description', 'depends_on'}, exclude_none=True)
 
 
 def delete_task(story_id: str, task_id: str) -> dict:

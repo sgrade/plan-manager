@@ -14,13 +14,15 @@ class CreateStoryIn(BaseModel):
     priority: Optional[int] = Field(None, description="Priority 0..5 or None")
     depends_on: List[str] = Field(
         default_factory=list, description="Story IDs this story depends on")
-    notes: Optional[str] = Field(None, description="Optional freeform notes")
+    description: Optional[str] = Field(
+        None, description="Optional freeform description")
 
 
 class UpdateStoryIn(BaseModel):
     story_id: str = Field(..., description="Story ID")
     title: Optional[str] = Field(None, description="New title")
-    notes: Optional[str] = Field(None, description="New notes (None to clear)")
+    description: Optional[str] = Field(
+        None, description="New description (None to clear)")
     depends_on: Optional[List[str]] = Field(
         None, description="New dependency list")
     priority: Optional[int] = Field(
@@ -42,14 +44,16 @@ class CreateTaskIn(BaseModel):
     priority: Optional[int] = Field(None, description="Priority 0..5 or None")
     depends_on: List[str] = Field(
         default_factory=list, description="Story or task IDs this task depends on")
-    notes: Optional[str] = Field(None, description="Optional freeform notes")
+    description: Optional[str] = Field(
+        None, description="Optional freeform description")
 
 
 class UpdateTaskIn(BaseModel):
     story_id: str = Field(..., description="Parent story ID")
     task_id: str = Field(..., description="Local task ID or FQ ID")
     title: Optional[str] = Field(None, description="New title")
-    notes: Optional[str] = Field(None, description="New notes (None to clear)")
+    description: Optional[str] = Field(
+        None, description="New description (None to clear)")
     depends_on: Optional[List[str]] = Field(
         None, description="New dependency list (story or task IDs)")
     priority: Optional[int] = Field(
