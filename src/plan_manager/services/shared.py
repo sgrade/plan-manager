@@ -14,11 +14,21 @@ def generate_slug(title: str) -> str:
     return slugify(title)
 
 
-def normalize_notes(description: Optional[str]) -> Optional[str]:
-    if description is None:
-        return None
-    text = description.strip()
-    return text if text else None
+def ensure_unique_id_from_set(base_id: str, existing_ids: List[str] | set[str]) -> str:
+    """Ensure a unique ID by appending -2, -3, ... if base_id is taken.
+
+    The caller provides the set/list of existing IDs in the relevant scope
+    (plans index, plan.stories, or story-local task IDs).
+    """
+    taken = set(existing_ids)
+    if base_id not in taken:
+        return base_id
+    counter = 2
+    while True:
+        candidate = f"{base_id}-{counter}"
+        if candidate not in taken:
+            return candidate
+        counter += 1
 
 
 def parse_status(value: Optional[str | Status]) -> Optional[Status]:

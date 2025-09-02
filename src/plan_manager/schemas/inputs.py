@@ -12,7 +12,6 @@ from plan_manager.domain.models import Status
 # --- Plan Schemas ---
 
 class CreatePlanIn(BaseModel):
-    plan_id: str = Field(..., description="Plan ID")
     title: str = Field(..., description="Plan title")
     description: Optional[str] = Field(
         None, description="Optional description")
@@ -84,6 +83,8 @@ class ListStoriesIn(BaseModel):
         False, description="If true, only TODO stories whose dependencies are DONE")
 
 
+# --- Task Schemas ---
+
 class CreateTaskIn(BaseModel):
     story_id: str = Field(..., description="Parent story ID")
     title: str = Field(..., description="Task title")
@@ -93,8 +94,6 @@ class CreateTaskIn(BaseModel):
     description: Optional[str] = Field(
         None, description="Optional freeform description")
 
-
-# --- Task Schemas ---
 
 class GetTaskIn(BaseModel):
     story_id: str = Field(..., description="Parent story ID")

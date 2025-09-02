@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 from plan_manager.services.plan_service import (
     create_plan as svc_create_plan,
@@ -24,8 +24,8 @@ def register_plan_tools(mcp_instance) -> None:
 
 
 def create_plan(payload: CreatePlanIn) -> PlanOut:
-    data = svc_create_plan(payload.plan_id, payload.title,
-                           payload.description, payload.priority)
+    data = svc_create_plan(
+        payload.title, payload.description, payload.priority)
     return PlanOut(**data)
 
 
@@ -45,8 +45,9 @@ def delete_plan(payload: DeletePlanIn) -> OperationResult:
     return OperationResult(**data)
 
 
-def list_plans(payload: ListPlansIn) -> List[PlanListItem]:
-    data = svc_list_plans(payload.statuses)
+def list_plans(payload: Optional[ListPlansIn] = None) -> List[PlanListItem]:
+    statuses = payload.statuses if payload else None
+    data = svc_list_plans(statuses)
     return [PlanListItem(**d) for d in data]
 
 

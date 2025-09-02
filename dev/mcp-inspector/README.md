@@ -2,15 +2,29 @@
 
 See [https://github.com/modelcontextprotocol/inspector](https://github.com/modelcontextprotocol/inspector)
 
-## CLI
+## Prerequisites
 
-Get tools
+Make sure you have the dependencies installed (it will be done automatically if you are in the devcontainer). 
+Then. 
+
 ```sh
-npx @modelcontextprotocol/inspector --cli http://host.docker.internal:3000/mcp --transport http --method tools/list
+cd dev/mcp-inspector
 ```
 
 ## Web UI
 
 ```sh
+npx @modelcontextprotocol/inspector --config mcp.json
+```
+
+## CLI
+
+Get tools
+```sh
 npx @modelcontextprotocol/inspector --config mcp.json --cli  --method tools/list
+```
+
+List plans
+```sh
+npx @modelcontextprotocol/inspector --config mcp.json --cli  --method tools/call --tool-name list_plans
 ```

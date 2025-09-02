@@ -11,6 +11,7 @@ from plan_manager.io.paths import story_file_path
 from plan_manager.io.file_mirror import save_item_to_file, delete_item_file
 from plan_manager.services.shared import (
     generate_slug,
+    ensure_unique_id_from_set,
     validate_and_save,
     write_story_details,
 )
@@ -25,8 +26,8 @@ logger = logging.getLogger(__name__)
 def create_story(title: str, priority: Optional[int], depends_on: List[str], description: Optional[str]) -> dict:
     generated_id = generate_slug(title)
     plan = plan_repo.load_current()
-    if any(s.id == generated_id for s in plan.stories):
-        raise ValueError(f"story with ID '{generated_id}' already exists.")
+    existing_ids = [s.id for s in plan.stories]
+    generated_id = ensure_unique_id_from_set(generated_id, existing_ids)
 
     details_path = story_file_path(generated_id)
     try:

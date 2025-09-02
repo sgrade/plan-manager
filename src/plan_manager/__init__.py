@@ -9,4 +9,4 @@ Key components:
 - CLI scripts: Direct command-line story management
 """
 
-__version__ = "0.2.2"
+__version__ = "0.4.0"

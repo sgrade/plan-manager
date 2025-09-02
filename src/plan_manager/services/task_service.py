@@ -10,6 +10,7 @@ from plan_manager.io.file_mirror import save_item_to_file, read_item_file, delet
 from plan_manager.services.status import rollup_story_status, apply_status_change
 from plan_manager.services.shared import (
     generate_slug,
+    ensure_unique_id_from_set,
     validate_and_save,
     write_task_details,
     write_story_details,
@@ -37,9 +38,10 @@ def create_task(story_id: str, title: str, priority: Optional[int], depends_on: 
 
     task_local_id = _generate_task_id_from_title(title)
     fq_task_id = f"{story_id}:{task_local_id}"
-    if story.tasks and any(t.id == fq_task_id for t in story.tasks):
-        raise ValueError(
-            f"task with ID '{fq_task_id}' already exists in story '{story_id}'.")
+    existing_locals = [t.id.split(
+        ':', 1)[1] if ':' in t.id else t.id for t in (story.tasks or [])]
+    task_local_id = ensure_unique_id_from_set(task_local_id, existing_locals)
+    fq_task_id = f"{story_id}:{task_local_id}"
 
     try:
         task = Task(
