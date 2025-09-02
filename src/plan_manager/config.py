@@ -20,7 +20,7 @@ PLAN_FILE_PATH = os.path.join(TODO_DIR, 'plan.yaml')
 
 ARCHIVE_DIR_PATH = os.path.join(TODO_DIR, 'archive')
 ARCHIVE_PLAN_FILE_PATH = os.path.join(ARCHIVE_DIR_PATH, 'plan_archive.yaml')
-ARCHIVED_DETAILS_DIR_PATH = os.path.join(ARCHIVE_DIR_PATH, 'details')
+ARCHIVED_DETAILS_DIR_PATH = os.path.join(ARCHIVE_DIR_PATH, 'file_path')
 
 LOG_DIR = os.getenv("LOG_DIR", os.path.join(WORKSPACE_ROOT, 'logs'))
 LOG_FILE_PATH = os.path.join(LOG_DIR, 'mcp_server_app.log')

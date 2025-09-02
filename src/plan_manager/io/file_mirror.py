@@ -63,7 +63,8 @@ def _to_iso_z(val: Any) -> Any:  # type: ignore[name-defined]
     return val
 
 
-def save_item_to_file(details_path: str, front_source: Any, content: Optional[str] = None, overwrite: bool = False) -> None:  # type: ignore[name-defined]
+# type: ignore[name-defined]
+def save_item_to_file(details_path: str, front_source: Any, content: Optional[str] = None, overwrite: bool = False) -> None:
     abs_path = os.path.join(WORKSPACE_ROOT, details_path)
     try:
         existing_front, existing_body = ({}, '')
@@ -76,27 +77,31 @@ def save_item_to_file(details_path: str, front_source: Any, content: Optional[st
             # If this is a Story-like object, ensure tasks are written as a list of IDs
             try:
                 if isinstance(front.get('tasks', None), list) and front_source.__class__.__name__ in ('Story',):
-                    front['tasks'] = [t.get('id') if isinstance(t, dict) else getattr(t, 'id', None) for t in front['tasks']]
+                    front['tasks'] = [t.get('id') if isinstance(
+                        t, dict) else getattr(t, 'id', None) for t in front['tasks']]
                     front['tasks'] = [tid for tid in front['tasks'] if tid]
             except Exception:
                 pass
         elif isinstance(front_source, dict):
             front = {k: v for k, v in front_source.items() if v is not None}
         else:
-            front = {k: v for k, v in vars(front_source).items() if v is not None}
+            front = {k: v for k, v in vars(
+                front_source).items() if v is not None}
 
         # Normalize datetimes
         for key in ('creation_time', 'completion_time'):
             if key in front and front[key] is not None:
                 front[key] = _to_iso_z(front[key])
 
-        merged: Dict[str, Any] = dict(existing_front) if (os.path.exists(abs_path) and not overwrite) else {}
+        merged: Dict[str, Any] = dict(existing_front) if (
+            os.path.exists(abs_path) and not overwrite) else {}
         merged.update(front)
         merged.setdefault('schema_version', 1)
 
-        rendered = render_with_front_matter(merged, existing_body if content is None else content)
+        rendered = render_with_front_matter(
+            merged, existing_body if content is None else content)
         atomic_write(abs_path, rendered)
-        logger.info(f"Wrote details file: {abs_path}")
+        logger.info(f"Wrote file_path file: {abs_path}")
     except Exception as e:
         logger.warning(f"Best-effort write failed for '{abs_path}': {e}")
 
@@ -106,6 +111,6 @@ def delete_item_file(details_path: str) -> None:
         abs_path = os.path.join(WORKSPACE_ROOT, details_path)
         if os.path.exists(abs_path):
             os.remove(abs_path)
-            logger.info(f"Deleted details file: {abs_path}")
+            logger.info(f"Deleted file_path file: {abs_path}")
     except Exception as e:
         logger.warning(f"Best-effort delete failed for '{details_path}': {e}")

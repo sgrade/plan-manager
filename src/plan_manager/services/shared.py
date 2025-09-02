@@ -70,13 +70,13 @@ def validate_and_save(plan: Plan) -> None:
 
 
 def write_story_details(story: Story) -> None:
-    if getattr(story, 'details', None):
+    if getattr(story, 'file_path', None):
         try:
-            save_item_to_file(story.details, story,
+            save_item_to_file(story.file_path, story,
                               content=None, overwrite=False)
         except Exception:
             logger.info(
-                f"Best-effort write of story details failed for '{story.id}'.")
+                f"Best-effort write of story file_path failed for '{story.id}'.")
 
 
 def write_task_details(task: Task) -> None:
@@ -92,12 +92,12 @@ def write_task_details(task: Task) -> None:
             local_task_id = slugify(task_id)
         if not story_id or not local_task_id:
             raise ValueError(
-                "Cannot determine story_id or local_task_id for task details path.")
+                "Cannot determine story_id or local_task_id for task file_path path.")
         path = task_file_path(story_id, local_task_id)
         save_item_to_file(path, task, content=None, overwrite=False)
     except Exception:
         logger.info(
-            f"Best-effort write of task details failed for '{getattr(task, 'id', 'unknown')}'.")
+            f"Best-effort write of task file_path failed for '{getattr(task, 'id', 'unknown')}'.")
 
 
 def merge_frontmatter_defaults(path: str, base: Dict[str, Any]) -> Dict[str, Any]:

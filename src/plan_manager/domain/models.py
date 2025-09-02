@@ -51,12 +51,12 @@ class WorkItem(BaseModel):
 
 
 class Story(WorkItem):
-    details: Optional[str] = None
+    file_path: Optional[str] = None
     tasks: List['Task'] = Field(default_factory=list)
 
 
 class Task(WorkItem):
-    details: Optional[str] = None
+    file_path: Optional[str] = None
     story_id: Optional[str] = None
 
 

@@ -151,9 +151,9 @@ def update_task(
         [t.status for t in (story.tasks or [])])
     apply_status_change(story, next_story_status)
     plan_repo.save(plan)
-    if story.details:
+    if story.file_path:
         try:
-            save_item_to_file(story.details, story,
+            save_item_to_file(story.file_path, story,
                               content=None, overwrite=False)
         except Exception:
             logger.info(
@@ -189,8 +189,8 @@ def delete_task(story_id: str, task_id: str) -> dict:
         logger.info(
             f"Best-effort delete of task file failed for '{fq_task_id}'.")
     try:
-        if story.details:
-            save_item_to_file(story.details, story,
+        if story.file_path:
+            save_item_to_file(story.file_path, story,
                               content=None, overwrite=False)
     except Exception:
         logger.info(

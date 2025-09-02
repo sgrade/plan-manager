@@ -33,7 +33,7 @@ def create_story(title: str, priority: Optional[int], depends_on: List[str], not
         new_story = Story(
             id=generated_id,
             title=title,
-            details=details_path,
+            file_path=details_path,
             depends_on=depends_on or [],
             notes=notes,
             priority=priority,
@@ -53,7 +53,7 @@ def create_story(title: str, priority: Optional[int], depends_on: List[str], not
         logger.info(
             f"Best-effort creation of story file failed for '{generated_id}'.")
 
-    return new_story.model_dump(mode='json', include={'id', 'title', 'status', 'details', 'priority', 'creation_time', 'notes', 'depends_on'}, exclude_none=True)
+    return new_story.model_dump(mode='json', include={'id', 'title', 'status', 'file_path', 'priority', 'creation_time', 'notes', 'depends_on'}, exclude_none=True)
 
 
 def get_story(story_id: str) -> dict:
@@ -93,9 +93,9 @@ def update_story(
     plan.stories[idx] = story_obj
     validate_and_save(plan)
 
-    if story_obj.details:
+    if story_obj.file_path:
         try:
-            save_item_to_file(story_obj.details, story_obj,
+            save_item_to_file(story_obj.file_path, story_obj,
                               content=None, overwrite=False)
         except Exception:
             logger.info(
@@ -117,15 +117,15 @@ def delete_story(story_id: str) -> dict:
             f"Cannot delete story '{story_id}' because it is a dependency of: {', '.join(deps)}"
         )
     story_to_remove = plan.stories[idx]
-    details = story_to_remove.details
+    file_path = story_to_remove.file_path
     del plan.stories[idx]
     plan_repo.save(plan)
-    # Best-effort removal of story details file and directory tree
+    # Best-effort removal of story file_path file and directory tree
     abs_details_path: Optional[str] = None
-    if details:
+    if file_path:
         try:
-            delete_item_file(details)
-            abs_details_path = os.path.join(WORKSPACE_ROOT, details)
+            delete_item_file(file_path)
+            abs_details_path = os.path.join(WORKSPACE_ROOT, file_path)
         except Exception:
             logger.info(
                 f"Best-effort delete of story file failed for '{story_id}'.")

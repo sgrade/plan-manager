@@ -19,7 +19,7 @@ class StoryOut(BaseModel):
     id: str
     title: str
     status: Status
-    details: Optional[str] = None
+    # file_path: Optional[str] = None
     priority: Optional[int] = None
     creation_time: Optional[str] = None
     notes: Optional[str] = None
