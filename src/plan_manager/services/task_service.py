@@ -198,44 +198,32 @@ def delete_task(story_id: str, task_id: str) -> dict:
     return {"success": True, "message": f"Successfully deleted task '{fq_task_id}'."}
 
 
-def list_tasks(statuses: Optional[List[str]], story_id: Optional[str] = None) -> list[dict]:
+def list_tasks(statuses: Optional[List[Status]], story_id: Optional[str] = None) -> List[Task]:
     plan = plan_repo.load()
-    tasks_index: List[tuple[Story, Task]] = []
+    tasks: List[Task] = []
     for s in plan.stories:
         if story_id and s.id != story_id:
             continue
         for t in (s.tasks or []):
             if isinstance(t, Task):
-                tasks_index.append((s, t))
+                tasks.append(t)
 
-    normalized_statuses = None
-    if statuses:
-        tokens = [t.strip().upper() for t in statuses if t and t.strip()]
-        if tokens:
-            normalized_statuses = set(tokens)
+    allowed_statuses = set(statuses) if statuses else None
 
-    results: List[dict] = []
-    for s, t in tasks_index:
-        sid, lid = s.id, t.id.split(':', 1)[1] if ':' in t.id else t.id
-        base = t.model_dump(
-            include={'id', 'title', 'status', 'priority', 'creation_time'}, exclude_none=True)
-        path = task_file_path(sid, lid)
-        item = merge_frontmatter_defaults(path, base)
-        status_val = item.get('status')
-        status_str = status_val.value if isinstance(
-            status_val, Status) else (status_val or 'TODO')
-        if normalized_statuses is None or status_str in normalized_statuses:
-            results.append(item)
+    filtered: List[Task] = []
+    for t in tasks:
+        if allowed_statuses is not None and t.status not in allowed_statuses:
+            continue
+        filtered.append(t)
 
-    def _prio_key(v):
-        p = v.get('priority')
-        return p if p is not None else 6
+    def _prio_key(task: Task):
+        return task.priority if task.priority is not None else 6
 
-    def _ctime_key(v):
-        return (v.get('creation_time') is None, v.get('creation_time') or '9999')
+    def _ctime_key(task: Task):
+        return (task.creation_time is None, task.creation_time or '9999')
 
-    results.sort(key=lambda v: (_prio_key(v), _ctime_key(v), v['id']))
-    return results
+    filtered.sort(key=lambda t: (_prio_key(t), _ctime_key(t), t.id))
+    return filtered
 
 
 def explain_task_blockers(story_id: str, task_id: str) -> dict:

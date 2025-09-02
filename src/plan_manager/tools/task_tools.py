@@ -51,8 +51,19 @@ def delete_task(payload: DeleteTaskIn) -> OperationResult:
 
 def list_tasks(payload: ListTasksIn) -> List[TaskListItem]:
     """List tasks, optionally filtering by status set and story."""
-    data = svc_list_tasks(payload.statuses, payload.story_id)
-    return [TaskListItem(**d) for d in data]
+    tasks = svc_list_tasks(payload.statuses, payload.story_id)
+    items: List[TaskListItem] = []
+    for t in tasks:
+        items.append(
+            TaskListItem(
+                id=t.id,
+                title=t.title,
+                status=t.status,
+                priority=t.priority,
+                creation_time=t.creation_time.isoformat() if t.creation_time else None,
+            )
+        )
+    return items
 
 
 def explain_task_blockers(payload: ExplainTaskBlockersIn) -> TaskBlockersOut:

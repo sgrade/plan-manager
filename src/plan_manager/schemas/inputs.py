@@ -68,8 +68,8 @@ class DeleteTaskIn(BaseModel):
 
 
 class ListTasksIn(BaseModel):
-    statuses: Optional[List[str]] = Field(
-        None, description="Optional set of uppercase statuses to filter")
+    statuses: Optional[List[Status]] = Field(
+        None, description="Optional set of statuses to filter")
     story_id: Optional[str] = Field(None, description="Optional story filter")
 
 
