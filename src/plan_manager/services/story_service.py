@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 def create_story(title: str, priority: Optional[int], depends_on: List[str], description: Optional[str]) -> dict:
     generated_id = generate_slug(title)
-    plan = plan_repo.load()
+    plan = plan_repo.load_current()
     if any(s.id == generated_id for s in plan.stories):
         raise ValueError(f"story with ID '{generated_id}' already exists.")
 
@@ -57,7 +57,7 @@ def create_story(title: str, priority: Optional[int], depends_on: List[str], des
 
 
 def get_story(story_id: str) -> dict:
-    plan = plan_repo.load()
+    plan = plan_repo.load_current()
     story = next((s for s in plan.stories if s.id == story_id), None)
     if not story:
         raise KeyError(f"story with ID '{story_id}' not found.")
@@ -72,7 +72,7 @@ def update_story(
     priority: Optional[int] = None,
     status: Optional[Status] = None,
 ) -> dict:
-    plan = plan_repo.load()
+    plan = plan_repo.load_current()
     idx = next((i for i, s in enumerate(
         plan.stories) if s.id == story_id), None)
     if idx is None:
@@ -119,7 +119,7 @@ def delete_story(story_id: str) -> dict:
     story_to_remove = plan.stories[idx]
     file_path = story_to_remove.file_path
     del plan.stories[idx]
-    plan_repo.save(plan)
+    plan_repo.save(plan, plan_id=plan.id)
     # Best-effort removal of story file_path file and directory tree
     abs_details_path: Optional[str] = None
     if file_path:
@@ -137,7 +137,7 @@ def delete_story(story_id: str) -> dict:
         else:
             # Fall back to the conventional story directory under workspace
             story_dir_candidate = os.path.join(
-                WORKSPACE_ROOT, 'todo', story_id)
+                WORKSPACE_ROOT, 'todo', plan.id, story_id)
 
         norm_story_dir = os.path.normpath(story_dir_candidate)
         norm_ws_root = os.path.normpath(WORKSPACE_ROOT)
@@ -160,7 +160,7 @@ def list_stories(statuses: Optional[List[Status]], unblocked: bool = False) -> L
     - Filters by allowed statuses if provided.
     - If unblocked=True, includes only TODO stories whose dependencies are all DONE.
     """
-    plan = plan_repo.load()
+    plan = plan_repo.load_current()
     stories: List[Story] = plan.stories or []
     if not stories:
         return []

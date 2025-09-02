@@ -10,6 +10,34 @@ from pydantic import BaseModel
 from plan_manager.domain.models import Status
 
 
+class OperationResult(BaseModel):
+    """Generic result payload for mutation tools (delete, archive, etc.)."""
+    success: bool
+    message: str
+
+
+# --- Plan Schemas ---
+
+class PlanOut(BaseModel):
+    id: str
+    title: str
+    status: Status
+    priority: Optional[int] = None
+    creation_time: Optional[str] = None
+    completion_time: Optional[str] = None
+    description: Optional[str] = None
+
+
+class PlanListItem(BaseModel):
+    id: str
+    title: str
+    status: Status
+    priority: Optional[int] = None
+    creation_time: Optional[str] = None
+
+
+# --- Story Schemas ---
+
 class StoryOut(BaseModel):
     """Structured story output returned by MCP tools.
 
@@ -24,6 +52,21 @@ class StoryOut(BaseModel):
     description: Optional[str] = None
     depends_on: List[str] = []
 
+
+class StoryListItem(BaseModel):
+    """Compact listing shape for stories.
+
+    Optimized for lists and tables; excludes heavy or rarely used fields.
+    """
+    id: str
+    title: str
+    status: Status
+    priority: Optional[int] = None
+    creation_time: Optional[str] = None
+    completion_time: Optional[str] = None
+
+
+# --- Task Schemas ---
 
 class TaskOut(BaseModel):
     """Structured task output returned by MCP tools.
@@ -53,12 +96,6 @@ class TaskListItem(BaseModel):
     creation_time: Optional[str] = None
 
 
-class OperationResult(BaseModel):
-    """Generic result payload for mutation tools (delete, archive, etc.)."""
-    success: bool
-    message: str
-
-
 class TaskBlocker(BaseModel):
     """Represents a single unresolved dependency blocking a task."""
     type: str
@@ -74,16 +111,3 @@ class TaskBlockersOut(BaseModel):
     status: str
     blockers: List[TaskBlocker]
     unblocked: bool
-
-
-class StoryListItem(BaseModel):
-    """Compact listing shape for stories.
-
-    Optimized for lists and tables; excludes heavy or rarely used fields.
-    """
-    id: str
-    title: str
-    status: Status
-    priority: Optional[int] = None
-    creation_time: Optional[str] = None
-    completion_time: Optional[str] = None

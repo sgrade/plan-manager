@@ -18,6 +18,9 @@ WORKSPACE_ROOT = os.getcwd()
 TODO_DIR = os.getenv("TODO_DIR", os.path.join(WORKSPACE_ROOT, 'todo'))
 PLAN_FILE_PATH = os.path.join(TODO_DIR, 'plan.yaml')
 
+# Multi-plan support (plans are stored under todo/<plan_id>/plan.yaml)
+PLANS_INDEX_FILE_PATH = os.path.join(TODO_DIR, 'plans', 'index.yaml')
+
 ARCHIVE_DIR_PATH = os.path.join(TODO_DIR, 'archive')
 ARCHIVE_PLAN_FILE_PATH = os.path.join(ARCHIVE_DIR_PATH, 'plan_archive.yaml')
 ARCHIVED_DETAILS_DIR_PATH = os.path.join(ARCHIVE_DIR_PATH, 'file_path')

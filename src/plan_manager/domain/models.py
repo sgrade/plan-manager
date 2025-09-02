@@ -63,11 +63,16 @@ class Task(WorkItem):
 Story.model_rebuild()
 
 
-class Plan(BaseModel):
+class Plan(WorkItem):
     stories: List[Story] = Field(default_factory=list)
 
     @model_validator(mode='after')
     def check_dependencies_exist_and_no_cycles(self, info: ValidationInfo) -> 'Plan':
+        # For now, forbids plan-level dependencies to avoid cross-plan graphs
+        if getattr(self, 'depends_on', None):
+            raise ValueError(
+                "Plan.depends_on is not supported; plans cannot depend on other plans. This is intentional.")
+
         if info.context and info.context.get("skip_dependency_check"):
             logger.debug(
                 "Skipping dependency check for Plan validation based on context.")

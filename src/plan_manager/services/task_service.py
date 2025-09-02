@@ -29,7 +29,7 @@ def create_task(story_id: str, title: str, priority: Optional[int], depends_on: 
     logger.info(
         f"Handling create_task: story_id='{story_id}', title='{title}', priority='{priority}', depends_on={depends_on}"
     )
-    plan = plan_repo.load()
+    plan = plan_repo.load_current()
     story: Optional[Story] = next(
         (s for s in plan.stories if s.id == story_id), None)
     if not story:
@@ -75,7 +75,7 @@ def create_task(story_id: str, title: str, priority: Optional[int], depends_on: 
 
 
 def get_task(story_id: str, task_id: str) -> dict:
-    plan = plan_repo.load()
+    plan = plan_repo.load_current()
     story: Optional[Story] = next(
         (s for s in plan.stories if s.id == story_id), None)
     if not story:
@@ -113,7 +113,7 @@ def update_task(
     priority: Optional[int] = None,
     status: Optional[Status] = None,
 ) -> dict:
-    plan = plan_repo.load()
+    plan = plan_repo.load_current()
     story: Optional[Story] = next(
         (s for s in plan.stories if s.id == story_id), None)
     if not story:
@@ -150,7 +150,7 @@ def update_task(
     next_story_status = rollup_story_status(
         [t.status for t in (story.tasks or [])])
     apply_status_change(story, next_story_status)
-    plan_repo.save(plan)
+    plan_repo.save(plan, plan_id=plan.id)
     if story.file_path:
         try:
             save_item_to_file(story.file_path, story,
@@ -163,7 +163,7 @@ def update_task(
 
 
 def delete_task(story_id: str, task_id: str) -> dict:
-    plan = plan_repo.load()
+    plan = plan_repo.load_current()
     story: Optional[Story] = next(
         (s for s in plan.stories if s.id == story_id), None)
     if not story:

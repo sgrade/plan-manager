@@ -9,6 +9,45 @@ from pydantic import BaseModel, Field
 from plan_manager.domain.models import Status
 
 
+# --- Plan Schemas ---
+
+class CreatePlanIn(BaseModel):
+    plan_id: str = Field(..., description="Plan ID")
+    title: str = Field(..., description="Plan title")
+    description: Optional[str] = Field(
+        None, description="Optional description")
+    priority: Optional[int] = Field(None, description="Priority 0..5 or None")
+
+
+class GetPlanIn(BaseModel):
+    plan_id: str = Field(..., description="Plan ID")
+
+
+class UpdatePlanIn(BaseModel):
+    plan_id: str = Field(..., description="Plan ID")
+    title: Optional[str] = Field(None, description="New title")
+    description: Optional[str] = Field(
+        None, description="New description (None to clear)")
+    priority: Optional[int] = Field(
+        None, description="New priority 0..5 or None")
+    status: Optional[Status] = Field(None, description="New status")
+
+
+class DeletePlanIn(BaseModel):
+    plan_id: str = Field(..., description="Plan ID")
+
+
+class ListPlansIn(BaseModel):
+    statuses: Optional[List[Status]] = Field(
+        None, description="Optional set of statuses to include")
+
+
+class SetCurrentPlanIn(BaseModel):
+    plan_id: str = Field(..., description="Plan ID to set as current")
+
+
+# --- Story Schemas ---
+
 class CreateStoryIn(BaseModel):
     title: str = Field(..., description="Story title")
     priority: Optional[int] = Field(None, description="Priority 0..5 or None")
@@ -16,6 +55,10 @@ class CreateStoryIn(BaseModel):
         default_factory=list, description="Story IDs this story depends on")
     description: Optional[str] = Field(
         None, description="Optional freeform description")
+
+
+class GetStoryIn(BaseModel):
+    story_id: str = Field(..., description="Story ID")
 
 
 class UpdateStoryIn(BaseModel):
@@ -30,12 +73,15 @@ class UpdateStoryIn(BaseModel):
     status: Optional[Status] = Field(None, description="New status")
 
 
-class GetStoryIn(BaseModel):
-    story_id: str = Field(..., description="Story ID")
-
-
 class DeleteStoryIn(BaseModel):
     story_id: str = Field(..., description="Story ID")
+
+
+class ListStoriesIn(BaseModel):
+    statuses: Optional[List[Status]] = Field(
+        None, description="Optional set of statuses to include")
+    unblocked: bool = Field(
+        False, description="If true, only TODO stories whose dependencies are DONE")
 
 
 class CreateTaskIn(BaseModel):
@@ -46,6 +92,13 @@ class CreateTaskIn(BaseModel):
         default_factory=list, description="Story or task IDs this task depends on")
     description: Optional[str] = Field(
         None, description="Optional freeform description")
+
+
+# --- Task Schemas ---
+
+class GetTaskIn(BaseModel):
+    story_id: str = Field(..., description="Parent story ID")
+    task_id: str = Field(..., description="Local task ID or FQ ID")
 
 
 class UpdateTaskIn(BaseModel):
@@ -59,11 +112,6 @@ class UpdateTaskIn(BaseModel):
     priority: Optional[int] = Field(
         None, description="New priority 0..5 or None")
     status: Optional[Status] = Field(None, description="New status")
-
-
-class GetTaskIn(BaseModel):
-    story_id: str = Field(..., description="Parent story ID")
-    task_id: str = Field(..., description="Local task ID or FQ ID")
 
 
 class DeleteTaskIn(BaseModel):
@@ -80,10 +128,3 @@ class ListTasksIn(BaseModel):
 class ExplainTaskBlockersIn(BaseModel):
     story_id: str = Field(..., description="Parent story ID")
     task_id: str = Field(..., description="Local task ID or FQ ID")
-
-
-class ListStoriesIn(BaseModel):
-    statuses: Optional[List[Status]] = Field(
-        None, description="Optional set of statuses to include")
-    unblocked: bool = Field(
-        False, description="If true, only TODO stories whose dependencies are DONE")

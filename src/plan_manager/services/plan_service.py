@@ -1,0 +1,84 @@
+import logging
+from typing import Optional, List, Dict, Any
+
+from pydantic import ValidationError
+
+from plan_manager.domain.models import Plan, Status
+from plan_manager.services import plan_repository as repo
+
+
+logger = logging.getLogger(__name__)
+
+
+def create_plan(plan_id: str, title: str, description: Optional[str], priority: Optional[int]) -> Dict[str, Any]:
+    logger.info(f"Handling create_plan: id='{plan_id}', title='{title}'")
+    # Ensure not already exists in index
+    existing = [p for p in repo.list_plans() if p.get('id') == plan_id]
+    if existing:
+        raise ValueError(f"plan with ID '{plan_id}' already exists")
+
+    try:
+        plan = Plan(id=plan_id, title=title,
+                    description=description, priority=priority)
+    except ValidationError as e:
+        logger.exception(f"Validation error creating plan '{plan_id}': {e}")
+        raise ValueError(
+            f"Validation error creating plan '{plan_id}': {e}") from e
+
+    repo.save(plan, plan_id)
+    return plan.model_dump(mode='json', exclude_none=True)
+
+
+def get_plan(plan_id: str) -> Dict[str, Any]:
+    plan = repo.load(plan_id)
+    return plan.model_dump(mode='json', exclude_none=True)
+
+
+def update_plan(plan_id: str, title: Optional[str], description: Optional[str], priority: Optional[int], status: Optional[Status]) -> Dict[str, Any]:
+    plan = repo.load(plan_id)
+    if title is not None:
+        plan.title = title
+    if description is not None:
+        plan.description = description
+    if priority is not None:
+        plan.priority = priority
+    if status is not None:
+        plan.status = status
+    repo.save(plan, plan_id)
+    return plan.model_dump(mode='json', exclude_none=True)
+
+
+def delete_plan(plan_id: str) -> Dict[str, Any]:
+    # Remove from index strictly; do not delete directory/files to avoid data loss surprises
+    plans = repo.list_plans()
+    if plan_id not in [p.get('id') for p in plans]:
+        raise KeyError(f"plan with ID '{plan_id}' not found")
+
+    # Update index
+    from plan_manager.config import PLANS_INDEX_FILE_PATH
+    import yaml
+    with open(PLANS_INDEX_FILE_PATH, 'r', encoding='utf-8') as f:
+        idx = yaml.safe_load(f) or {}
+    idx['plans'] = [p for p in (idx.get('plans') or [])
+                    if p.get('id') != plan_id]
+    with open(PLANS_INDEX_FILE_PATH, 'w', encoding='utf-8') as f:
+        yaml.safe_dump(idx, f, default_flow_style=False, sort_keys=False)
+
+    return {"success": True, "message": f"Successfully deleted plan '{plan_id}' from index."}
+
+
+def list_plans(statuses: Optional[List[Status]] = None) -> List[Dict[str, Any]]:
+    items = repo.list_plans()
+    if statuses:
+        allowed = set(s.value if hasattr(s, 'value') else s for s in statuses)
+        items = [p for p in items if p.get('status') in allowed]
+    # Sort by priority asc (None last), creation_time asc (string ISO ok), id asc
+
+    def prio_key(v):
+        p = v.get('priority')
+        return p if p is not None else 6
+
+    def ctime_key(v):
+        return (v.get('creation_time') is None, v.get('creation_time') or '9999')
+    items.sort(key=lambda v: (prio_key(v), ctime_key(v), v.get('id')))
+    return items

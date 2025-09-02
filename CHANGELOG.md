@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Structured input and output.
 - Refactored list_tasks service and tool for stricter structured output.
 - Refactored list_stories service and tool for structured input and output.
+- Plan management is unified with Story and Task management.
 
 ## [0.3.1]
 
