@@ -5,24 +5,25 @@ All notable changes to the Plan Manager project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.4.0] - 2025-09-02
 
 ### Added
 - Testing with mcp-inspector
 
 ### Changed
 - Tweak Dockerfile and devcontainer.json to automate dev environment setup for Python.
-- Added testing with mcp-inspector.
+- Add testing with mcp-inspector.
 - Unify Story/Task CRUD, reduce duplication, and tighten types.
-- Structured input and output.
-- Refactored list_tasks service and tool for stricter structured output.
-- Refactored list_stories service and tool for structured input and output.
-- Plan management is unified with Story and Task management.
+- Structure input and output.
+- Refactor list_tasks service and tool for stricter structured output.
+- Refactor list_stories service and tool for structured input and output.
+- Unify plan management is unified with story and task management.
+- Deprecate plan archive - use unified plan management instead.
 
-## [0.3.1]
+## [0.3.1] - 2025-08-29
 
 ### Changed
-- Implicit imports from plan_manager.domain (__init__.py) to explicit imports from plan_manager.domain.models to avoid accidental re-exports, reduce surface area, and lower risk of circular imports.
+- Replace implicit imports from plan_manager.domain (__init__.py) with explicit imports from plan_manager.domain.models to avoid accidental re-exports, reduce surface area, and lower risk of circular imports.
 - Uvicorn config: TIMEOUT_GRACEFUL_SHUTDOWN from 2 to 30 and TIMEOUT_KEEP_ALIVE from 2 to 5 to avoid "ERROR - uvicorn.error:414 - Exception in ASGI application".
 
 ### Fixed

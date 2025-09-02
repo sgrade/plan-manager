@@ -10,7 +10,6 @@ from mcp.server.fastmcp import FastMCP
 from starlette.applications import Starlette
 
 from plan_manager.tools.story_tools import register_story_tools
-from plan_manager.archive import register_archive_tools
 from plan_manager.tools.task_tools import register_task_tools
 from plan_manager.tools.plan_tools import register_plan_tools
 
@@ -29,7 +28,6 @@ def starlette_app() -> Starlette:
     register_plan_tools(mcp)
     register_story_tools(mcp)
     register_task_tools(mcp)
-    register_archive_tools(mcp)
 
     app = mcp.streamable_http_app()
 

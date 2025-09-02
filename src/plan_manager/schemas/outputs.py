@@ -11,7 +11,7 @@ from plan_manager.domain.models import Status
 
 
 class OperationResult(BaseModel):
-    """Generic result payload for mutation tools (delete, archive, etc.)."""
+    """Generic result payload for mutation tools (create, update, delete)."""
     success: bool
     message: str
 
