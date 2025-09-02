@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tweak Dockerfile and devcontainer.json to automate dev environment setup for Python.
 - Unify Story/Task CRUD, reduce duplication, and tighten types.
 - Structured input and output.
+- Refactored list_tasks service and tool for stricter structured output.
+- Refactored list_stories service and tool for structured input and output.
 
 ## [0.3.1]
 

@@ -26,7 +26,7 @@ def _generate_task_id_from_title(title: str) -> str:
 
 
 def create_task(story_id: str, title: str, priority: Optional[int], depends_on: List[str], notes: Optional[str]) -> dict:
-    logging.info(
+    logger.info(
         f"Handling create_task: story_id='{story_id}', title='{title}', priority='{priority}', depends_on={depends_on}"
     )
     plan = plan_repo.load()
@@ -51,7 +51,7 @@ def create_task(story_id: str, title: str, priority: Optional[int], depends_on: 
             story_id=story_id,
         )
     except ValidationError as e:
-        logging.exception(
+        logger.exception(
             f"Validation error creating new task '{fq_task_id}': {e}")
         raise ValueError(
             f"Validation error creating new task '{fq_task_id}': {e}") from e
@@ -62,13 +62,13 @@ def create_task(story_id: str, title: str, priority: Optional[int], depends_on: 
     try:
         write_task_details(task)
     except Exception:
-        logging.info(
+        logger.info(
             f"Best-effort creation of task file failed for '{fq_task_id}'.")
 
     try:
         write_story_details(story)
     except Exception:
-        logging.info(
+        logger.info(
             f"Best-effort update of story file tasks list failed for '{story_id}'.")
 
     return task.model_dump(include={'id', 'title', 'status', 'priority', 'creation_time', 'notes', 'depends_on'}, exclude_none=True)
@@ -144,7 +144,7 @@ def update_task(
         save_item_to_file(task_details_path, task_obj,
                           content=None, overwrite=False)
     except Exception:
-        logging.info(
+        logger.info(
             f"Best-effort update of task file failed for '{fq_task_id}'.")
 
     next_story_status = rollup_story_status(
@@ -156,7 +156,7 @@ def update_task(
             save_item_to_file(story.details, story,
                               content=None, overwrite=False)
         except Exception:
-            logging.info(
+            logger.info(
                 f"Best-effort rollup update of story file failed for '{story_id}'.")
 
     return task_obj.model_dump(include={'id', 'title', 'status', 'priority', 'creation_time', 'completion_time', 'notes', 'depends_on'}, exclude_none=True)
@@ -186,14 +186,14 @@ def delete_task(story_id: str, task_id: str) -> dict:
         task_details_path = task_file_path(story_id, local_task_id)
         delete_item_file(task_details_path)
     except Exception:
-        logging.info(
+        logger.info(
             f"Best-effort delete of task file failed for '{fq_task_id}'.")
     try:
         if story.details:
             save_item_to_file(story.details, story,
                               content=None, overwrite=False)
     except Exception:
-        logging.info(
+        logger.info(
             f"Best-effort update of story file tasks list failed for '{story_id}'.")
     return {"success": True, "message": f"Successfully deleted task '{fq_task_id}'."}
 

@@ -75,3 +75,16 @@ class TaskBlockersOut(BaseModel):
     status: str
     blockers: List[TaskBlocker]
     unblocked: bool
+
+
+class StoryListItem(BaseModel):
+    """Compact listing shape for stories.
+
+    Optimized for lists and tables; excludes heavy or rarely used fields.
+    """
+    id: str
+    title: str
+    status: Status
+    priority: Optional[int] = None
+    creation_time: Optional[str] = None
+    completion_time: Optional[str] = None

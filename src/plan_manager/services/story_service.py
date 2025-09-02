@@ -39,7 +39,7 @@ def create_story(title: str, priority: Optional[int], depends_on: List[str], not
             priority=priority,
         )
     except ValidationError as e:
-        logging.exception(
+        logger.exception(
             f"Validation error creating new story '{generated_id}': {e}")
         raise ValueError(
             f"Validation error creating new story '{generated_id}': {e}") from e
@@ -50,7 +50,7 @@ def create_story(title: str, priority: Optional[int], depends_on: List[str], not
     try:
         write_story_details(new_story)
     except Exception:
-        logging.info(
+        logger.info(
             f"Best-effort creation of story file failed for '{generated_id}'.")
 
     return new_story.model_dump(mode='json', include={'id', 'title', 'status', 'details', 'priority', 'creation_time', 'notes', 'depends_on'}, exclude_none=True)
@@ -98,7 +98,7 @@ def update_story(
             save_item_to_file(story_obj.details, story_obj,
                               content=None, overwrite=False)
         except Exception:
-            logging.info(
+            logger.info(
                 f"Best-effort update of story file failed for '{story_id}'.")
 
     return story_obj.model_dump(mode='json', exclude_none=True)
@@ -127,7 +127,7 @@ def delete_story(story_id: str) -> dict:
             delete_item_file(details)
             abs_details_path = os.path.join(WORKSPACE_ROOT, details)
         except Exception:
-            logging.info(
+            logger.info(
                 f"Best-effort delete of story file failed for '{story_id}'.")
     # Attempt to remove the entire story directory (e.g., todo/<story_id>/) safely
     try:
@@ -145,12 +145,76 @@ def delete_story(story_id: str) -> dict:
         if norm_story_dir.startswith(os.path.join(norm_ws_root, 'todo') + os.sep) and os.path.basename(norm_story_dir) == story_id:
             if os.path.exists(norm_story_dir):
                 shutil.rmtree(norm_story_dir, ignore_errors=True)
-                logging.info(f"Deleted story directory: {norm_story_dir}")
+                logger.info(f"Deleted story directory: {norm_story_dir}")
     except Exception as e:
-        logging.warning(
+        logger.warning(
             f"Best-effort directory delete failed for story '{story_id}': {e}")
     return {"success": True, "message": f"Successfully deleted story '{story_id}'."}
 
 
-def _generate_id_from_title(title: str) -> str:
-    return generate_slug(title)
+def list_stories(statuses: Optional[List[Status]], unblocked: bool = False) -> List[Story]:
+    """Return domain stories after topological sort and filtering.
+
+    - Topo sorts by dependencies (Kahn's algorithm).
+    - Within each ready set, sorts by priority asc (None last), creation_time asc (None last), id asc.
+    - Filters by allowed statuses if provided.
+    - If unblocked=True, includes only TODO stories whose dependencies are all DONE.
+    """
+    plan = plan_repo.load()
+    stories: List[Story] = plan.stories or []
+    if not stories:
+        return []
+
+    # Build graph
+    adj: dict[str, list[str]] = {}
+    in_deg: dict[str, int] = {}
+    by_id: dict[str, Story] = {s.id: s for s in stories}
+    for s in stories:
+        in_deg.setdefault(s.id, 0)
+        for dep in (s.depends_on or []):
+            adj.setdefault(dep, []).append(s.id)
+            in_deg[s.id] = in_deg.get(s.id, 0) + 1
+
+    # Initialize queue with zero in-degree
+    ready: List[Story] = [by_id[sid]
+                          for sid in by_id if in_deg.get(sid, 0) == 0]
+    sorted_list: List[Story] = []
+
+    def sort_key(s: Story):
+        prio = s.priority if s.priority is not None else 6
+        ctime_key = (s.creation_time is None, s.creation_time or '9999')
+        return (prio, ctime_key, s.id)
+
+    while ready:
+        ready.sort(key=sort_key)
+        current = ready.pop(0)
+        sorted_list.append(current)
+        for nxt in adj.get(current.id, []):
+            in_deg[nxt] -= 1
+            if in_deg[nxt] == 0:
+                ready.append(by_id[nxt])
+
+    if len(sorted_list) != len(stories):
+        missing = set(by_id) - set(s.id for s in sorted_list)
+        logger.error(
+            f"Cycle detected or inconsistency in story dependencies. total={len(stories)} sorted={len(sorted_list)} missing={missing}")
+
+    allowed = set(statuses) if statuses else None
+    out: List[Story] = []
+    for s in sorted_list:
+        if allowed is not None and s.status not in allowed:
+            continue
+        if unblocked:
+            if s.status != Status.TODO:
+                continue
+            deps_ok = True
+            for dep_id in (s.depends_on or []):
+                dep_s = by_id.get(dep_id)
+                if not dep_s or dep_s.status != Status.DONE:
+                    deps_ok = False
+                    break
+            if not deps_ok:
+                continue
+        out.append(s)
+
+    return out

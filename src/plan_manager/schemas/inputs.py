@@ -76,3 +76,10 @@ class ListTasksIn(BaseModel):
 class ExplainTaskBlockersIn(BaseModel):
     story_id: str = Field(..., description="Parent story ID")
     task_id: str = Field(..., description="Local task ID or FQ ID")
+
+
+class ListStoriesIn(BaseModel):
+    statuses: Optional[List[Status]] = Field(
+        None, description="Optional set of statuses to include")
+    unblocked: bool = Field(
+        False, description="If true, only TODO stories whose dependencies are DONE")
