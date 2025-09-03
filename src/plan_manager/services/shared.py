@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 def generate_slug(title: str) -> str:
+    """Generate a slug from a title."""
     return slugify(title)
 
 
@@ -32,6 +33,7 @@ def ensure_unique_id_from_set(base_id: str, existing_ids: List[str] | set[str]) 
 
 
 def parse_status(value: Optional[str | Status]) -> Optional[Status]:
+    """Parse a status input string."""
     if value is None:
         return None
     if isinstance(value, Status):
@@ -48,6 +50,7 @@ def parse_status(value: Optional[str | Status]) -> Optional[Status]:
 
 
 def parse_priority_input(priority: str) -> Optional[int]:
+    """Parse a priority input string."""
     if priority == "6":
         return None
     if priority == "":
@@ -62,6 +65,7 @@ def parse_priority_input(priority: str) -> Optional[int]:
 
 
 def parse_csv_list(csv: str) -> List[str]:
+    """Parse a CSV list of strings."""
     if not csv:
         return []
     tokens = [t.strip() for t in csv.split(',') if t.strip()]
@@ -69,6 +73,7 @@ def parse_csv_list(csv: str) -> List[str]:
 
 
 def validate_and_save(plan: Plan) -> None:
+    """Validate and save the plan."""
     try:
         # Import here to avoid potential import cycles
         from plan_manager.domain.validation import validate_plan_dependencies
@@ -80,6 +85,7 @@ def validate_and_save(plan: Plan) -> None:
 
 
 def write_story_details(story: Story) -> None:
+    """Write story details to file."""
     if getattr(story, 'file_path', None):
         try:
             save_item_to_file(story.file_path, story,
@@ -90,6 +96,7 @@ def write_story_details(story: Story) -> None:
 
 
 def write_task_details(task: Task) -> None:
+    """Write task details to file."""
     try:
         story_id = getattr(task, 'story_id', None)
         local_task_id = None
@@ -111,6 +118,7 @@ def write_task_details(task: Task) -> None:
 
 
 def merge_frontmatter_defaults(path: str, base: Dict[str, Any]) -> Dict[str, Any]:
+    """Merge default values with frontmatter values."""
     try:
         front, _ = read_item_file(path)
         result = dict(base)

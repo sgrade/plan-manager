@@ -19,6 +19,7 @@ class OperationResult(BaseModel):
 # --- Plan Schemas ---
 
 class PlanOut(BaseModel):
+    """Structured plan output returned by MCP tools."""
     id: str
     title: str
     status: Status
@@ -29,11 +30,19 @@ class PlanOut(BaseModel):
 
 
 class PlanListItem(BaseModel):
+    """Compact listing shape for plans."""
     id: str
     title: str
     status: Status
     priority: Optional[int] = None
     creation_time: Optional[str] = None
+
+
+class CurrentContextOut(BaseModel):
+    """Current context output returned by MCP tools."""
+    plan_id: str
+    current_story_id: Optional[str] = None
+    current_task_id: Optional[str] = None
 
 
 # --- Story Schemas ---

@@ -1,5 +1,5 @@
 import logging
-from typing import List
+from typing import List, Optional
 
 from pydantic import ValidationError
 
@@ -12,15 +12,17 @@ from plan_manager.services.story_service import (
     list_stories as svc_list_stories,
 )
 from plan_manager.schemas.inputs import (
-    CreateStoryIn, GetStoryIn, UpdateStoryIn, DeleteStoryIn, ListStoriesIn,
+    CreateStoryIn, GetStoryIn, UpdateStoryIn, DeleteStoryIn, ListStoriesIn, SetCurrentStoryIn,
 )
 from plan_manager.schemas.outputs import StoryOut, OperationResult, StoryListItem
+from plan_manager.services.state_repository import set_current_story_id, get_current_story_id
 
 
 logger = logging.getLogger(__name__)
 
 
 def register_story_tools(mcp_instance) -> None:
+    """Register story tools with the MCP instance."""
     mcp_instance.tool()(create_story)
     mcp_instance.tool()(get_story)
     mcp_instance.tool()(update_story)
@@ -44,9 +46,13 @@ def create_story(payload: CreateStoryIn) -> StoryOut:
     return StoryOut(**data)
 
 
-def get_story(payload: GetStoryIn) -> StoryOut:
-    """Fetch a story by ID."""
-    data = svc_get_story(payload.story_id)
+def get_story(payload: Optional[GetStoryIn] = None) -> StoryOut:
+    """Fetch a story by ID or the current story if none provided."""
+    story_id = payload.story_id if payload else get_current_story_id()
+    if not story_id:
+        raise ValueError(
+            "No current story set. Call set_current_story or provide story_id.")
+    data = svc_get_story(story_id)
     return StoryOut(**data)
 
 
@@ -73,13 +79,14 @@ def delete_story(payload: DeleteStoryIn) -> OperationResult:
     return OperationResult(**data)
 
 
-def list_stories(payload: ListStoriesIn) -> List[StoryListItem]:
+def list_stories(payload: Optional[ListStoriesIn] = None) -> List[StoryListItem]:
     """List stories with topological sort and structured filters."""
+    statuses = payload.statuses if payload else None
+    unblocked = payload.unblocked if payload else False
     logger.info(
-        f"Handling list_stories: statuses={payload.statuses}, unblocked={payload.unblocked}")
+        f"Handling list_stories: statuses={statuses}, unblocked={unblocked}")
     try:
-        stories: List[Story] = svc_list_stories(
-            payload.statuses, payload.unblocked)
+        stories: List[Story] = svc_list_stories(statuses, unblocked)
         items: List[StoryListItem] = []
         for s in stories:
             items.append(
@@ -102,3 +109,9 @@ def list_stories(payload: ListStoriesIn) -> List[StoryListItem]:
     except Exception as e:
         logger.exception("Unexpected error during list_stories")
         raise e
+
+
+def set_current_story(payload: SetCurrentStoryIn) -> OperationResult:
+    """Set the current story."""
+    set_current_story_id(payload.story_id)
+    return OperationResult(success=True, message=f"Current story set to '{payload.story_id}'")

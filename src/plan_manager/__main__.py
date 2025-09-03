@@ -17,7 +17,9 @@ import uvicorn
 # the application starts. The order is critical.
 from plan_manager import config
 from importlib import import_module
-import_module("plan_manager.logging")   # To prevent the warning: Import "plan_manager.logging" is not accessed
+# To prevent the warning: Import "plan_manager.logging" is not accessed
+import_module("plan_manager.logging")
+
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +35,8 @@ def main():
     uvicorn.run(
         "plan_manager.server:starlette_app",
         factory=True,
-        log_config=None,  # IMPORTANT: This tells uvicorn to use our configuration above.
+        # IMPORTANT: This tells uvicorn to use our configuration above.
+        log_config=None,
         host=config.HOST,
         port=config.PORT,
         reload=config.RELOAD,
