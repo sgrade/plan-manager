@@ -48,21 +48,21 @@ Notes
 
 ### MCP feature integration (beyond tools)
 - Prompts (server feature) [MCP Spec, 2025-06-18](https://modelcontextprotocol.io/specification/2025-06-18)
-  - Provide templates to prefill execution_intent and execution_summary, plus lightweight review/commit templates
-  - Keep prompts small and composable; they’re UI conveniences, not logic
+  - Provide minimal templates to prefill execution_intent and execution_summary, plus a lightweight review checklist
+  - Keep prompts small and composable; they’re UI conveniences, not logic or storage
 
 - Roots (client feature) [Cursor MCP support](https://docs.cursor.com/en/context/mcp#protocol-support)
-  - When a proposal references files, request a root to constrain edits to the relevant subtree
-  - Keeps operations safe and auditable; supports limited-scope refactors
+  - Client requests/approves roots and enforces edit scoping
+  - Server does not implement roots or scope validation; at most, it may suggest paths (advisory)
 
 - Elicitation (client feature) [Cursor MCP support](https://docs.cursor.com/en/context/mcp#protocol-support)
-  - For PENDING_APPROVAL proposals missing key details, issue structured follow-ups (e.g., missing edge cases, acceptance criteria)
-  - Keep queries minimal; aim to converge quickly and maintain agent flow
+  - For PENDING_APPROVAL proposals missing key details, the client may issue structured follow-ups
+  - Server may offer an optional prompt to scaffold such follow-ups; avoid server-side branching logic
 
 Design principles
 - Tools remain the primary integration point; prompts/roots/elicitation are opt-in accelerators
 - No hidden side effects; proposals, approvals, and state transitions are explicit via tools
-- Maintainability: keep prompts simple; avoid coupling prompts to storage formats
+- Maintainability: keep prompts simple; avoid coupling prompts to storage formats or server-side state
 
 ### Defaults and current-context behavior (unchanged, documented)
 - get_plan(payload?) → current plan if omitted
