@@ -13,6 +13,8 @@ from plan_manager.tools.story_tools import register_story_tools
 from plan_manager.tools.task_tools import register_task_tools
 from plan_manager.tools.plan_tools import register_plan_tools
 from plan_manager.tools.context_tools import register_context_tools
+from plan_manager.tools.approval_tools import register_approval_tools
+from plan_manager.tools.changelog_tools import register_changelog_tools
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +33,8 @@ def starlette_app() -> Starlette:
     register_story_tools(mcp)
     register_task_tools(mcp)
     register_context_tools(mcp)
+    register_approval_tools(mcp)
+    register_changelog_tools(mcp)
 
     app = mcp.streamable_http_app()
 

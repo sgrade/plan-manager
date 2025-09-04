@@ -45,6 +45,19 @@ class CurrentContextOut(BaseModel):
     current_task_id: Optional[str] = None
 
 
+class WorkflowStatusOut(BaseModel):
+    """Workflow status output showing current state and next actions."""
+    current_task: Optional[dict] = None
+    workflow_state: dict
+    compliance: dict
+    next_actions: List[str]
+
+
+class ChangelogPreviewOut(BaseModel):
+    """Structured changelog preview output."""
+    markdown: str
+
+
 # --- Story Schemas ---
 
 class StoryOut(BaseModel):

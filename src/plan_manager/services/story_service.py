@@ -14,10 +14,12 @@ from plan_manager.services.shared import (
     ensure_unique_id_from_set,
     validate_and_save,
     write_story_details,
+    guard_approval_before_progress,
 )
 from plan_manager.services.shared import find_dependents
 from plan_manager.services.status import apply_status_change
 from plan_manager.config import WORKSPACE_ROOT
+from plan_manager.services.activity_repository import append_event
 
 
 logger = logging.getLogger(__name__)
@@ -72,6 +74,7 @@ def update_story(
     depends_on: Optional[List[str]] = None,
     priority: Optional[int] = None,
     status: Optional[Status] = None,
+    execution_summary: Optional[str] = None,
 ) -> dict:
     plan = plan_repo.load_current()
     idx = next((i for i, s in enumerate(
@@ -89,7 +92,15 @@ def update_story(
     if priority is not None:
         story_obj.priority = priority
     if status is not None:
+        guard_approval_before_progress(
+            story_obj.status, status, getattr(story_obj, 'approval', None))
+        prev = story_obj.status
         apply_status_change(story_obj, status)
+        if prev != story_obj.status:
+            append_event(plan.id, 'story_status_changed', {'story_id': story_obj.id}, {
+                         'from': prev.value if hasattr(prev, 'value') else prev, 'to': story_obj.status.value if hasattr(story_obj.status, 'value') else story_obj.status})
+    if execution_summary is not None:
+        story_obj.execution_summary = execution_summary
 
     plan.stories[idx] = story_obj
     validate_and_save(plan)

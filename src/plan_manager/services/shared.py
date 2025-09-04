@@ -4,7 +4,7 @@ from typing import Optional, List, Dict, Any
 from plan_manager.io.paths import slugify, task_file_path
 from plan_manager.io.file_mirror import save_item_to_file, read_item_file
 from plan_manager.services import plan_repository as plan_repo
-from plan_manager.domain.models import Status, Story, Task, Plan
+from plan_manager.domain.models import Status, Story, Task, Plan, Approval
 
 
 logger = logging.getLogger(__name__)
@@ -30,6 +30,31 @@ def ensure_unique_id_from_set(base_id: str, existing_ids: List[str] | set[str]) 
         if candidate not in taken:
             return candidate
         counter += 1
+
+
+def guard_approval_before_progress(
+    current_status: Status,
+    target_status: Optional[Status],
+    approval: Optional[Approval],
+    enabled: Optional[bool] = None,
+) -> None:
+    """Enforce approval before progressing from TODO to IN_PROGRESS/DONE.
+
+    - If `enabled` is None, reads the default from config.
+    - No-op when `target_status` is None.
+    - Raises ValueError when guard fails.
+    """
+    if enabled is None:
+        try:
+            from plan_manager.config import REQUIRE_APPROVAL_BEFORE_PROGRESS as _DEFAULT_FLAG
+        except Exception:
+            _DEFAULT_FLAG = True
+        enabled = _DEFAULT_FLAG
+    if not enabled or target_status is None:
+        return
+    if current_status == Status.TODO and target_status in (Status.IN_PROGRESS, Status.DONE):
+        if not (approval and approval.approved_at):
+            raise ValueError("Approval required before progressing from TODO.")
 
 
 def parse_status(value: Optional[str | Status]) -> Optional[Status]:
@@ -78,7 +103,7 @@ def validate_and_save(plan: Plan) -> None:
         # Import here to avoid potential import cycles
         from plan_manager.domain.validation import validate_plan_dependencies
         validate_plan_dependencies(plan.stories)
-        plan_repo.save(plan)
+        plan_repo.save(plan, plan.id)
     except Exception:
         logger.exception("Plan validation failed; changes were not saved.")
         raise

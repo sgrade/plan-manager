@@ -34,8 +34,10 @@ def save(plan: Plan, plan_id: str = 'default') -> None:
         idx = yaml.safe_load(idxf) or {}
     plans_list = idx.get('plans') or []
     if plan_id not in [p.get('id') for p in plans_list]:
+        status = getattr(plan, 'status', 'TODO')
+        status_value = status.value if hasattr(status, 'value') else status
         plans_list.append({"id": plan_id, "title": getattr(
-            plan, 'title', plan_id), "status": getattr(plan, 'status', 'TODO')})
+            plan, 'title', plan_id), "status": status_value})
         idx['plans'] = plans_list
         with open(PLANS_INDEX_FILE_PATH, 'w', encoding='utf-8') as idxf:
             yaml.safe_dump(idx, idxf, default_flow_style=False,

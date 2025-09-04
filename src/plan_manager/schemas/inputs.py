@@ -91,6 +91,8 @@ class UpdateStoryIn(BaseModel):
     priority: Optional[int] = Field(
         None, description="New priority 0..5 or None")
     status: Optional[Status] = Field(None, description="New status")
+    execution_summary: Optional[str] = Field(
+        None, description="Brief outcome summary after completion (what changed, where)")
 
 
 class DeleteStoryIn(BaseModel):
@@ -137,6 +139,8 @@ class UpdateTaskIn(BaseModel):
     priority: Optional[int] = Field(
         None, description="New priority 0..5 or None")
     status: Optional[Status] = Field(None, description="New status")
+    execution_summary: Optional[str] = Field(
+        None, description="Brief outcome summary after completion (what changed, where)")
 
 
 class DeleteTaskIn(BaseModel):
@@ -156,3 +160,58 @@ class ExplainTaskBlockersIn(BaseModel):
     """Structured input for explaining task blockers."""
     story_id: str = Field(..., description="Parent story ID")
     task_id: str = Field(..., description="Local task ID or FQ ID")
+
+
+# --- Approval Schemas ---
+
+class RequestApprovalIn(BaseModel):
+    """Request approval for a story or task before progressing.
+
+    item_id may be omitted to default to the current story/task.
+    """
+    item_type: str = Field(..., description="'story' or 'task'")
+    item_id: Optional[str] = Field(
+        None, description="If omitted, defaults to current story/task")
+    execution_intent: str = Field(...,
+                                  description="Brief how/now plan for this iteration")
+
+
+class ApproveItemIn(BaseModel):
+    """Approve or reject a story or task for progress.
+
+    item_id may be omitted to default to the current story/task.
+    """
+    item_type: str = Field(..., description="'story' or 'task'")
+    item_id: Optional[str] = Field(
+        None, description="If omitted, defaults to current story/task")
+    approved: bool = Field(...,
+                           description="Approve or reject the item for progress")
+    notes: Optional[str] = Field(None, description="Optional reviewer notes")
+
+
+# --- Changelog Schemas ---
+
+class PreviewChangelogIn(BaseModel):
+    """Preview a changelog snippet generated from recent activity."""
+    version: Optional[str] = Field(
+        None, description="Optional version header, e.g., 0.1.0")
+    date: Optional[str] = Field(
+        None, description="Optional date (YYYY-MM-DD). Defaults to today.")
+
+
+class GenerateChangelogIn(BaseModel):
+    """Generate a changelog snippet (same as preview, returned as markdown)."""
+    version: Optional[str] = Field(
+        None, description="Optional version header, e.g., 0.1.0")
+    date: Optional[str] = Field(
+        None, description="Optional date (YYYY-MM-DD). Defaults to today.")
+
+
+class PublishChangelogIn(BaseModel):
+    """Append a generated changelog snippet to a file (default CHANGELOG.md)."""
+    version: Optional[str] = Field(
+        None, description="Optional version header, e.g., 0.1.0")
+    date: Optional[str] = Field(
+        None, description="Optional date (YYYY-MM-DD). Defaults to today.")
+    target_path: Optional[str] = Field(
+        'CHANGELOG.md', description="Target file path to append to")

@@ -8,6 +8,8 @@ from plan_manager.services import plan_repository as plan_repo
 from plan_manager.io.paths import task_file_path
 from plan_manager.io.file_mirror import save_item_to_file, read_item_file, delete_item_file
 from plan_manager.services.status import rollup_story_status, apply_status_change
+from plan_manager.services.shared import guard_approval_before_progress
+from plan_manager.services.activity_repository import append_event
 from plan_manager.services.shared import (
     generate_slug,
     ensure_unique_id_from_set,
@@ -73,7 +75,7 @@ def create_task(story_id: str, title: str, priority: Optional[int], depends_on: 
         logger.info(
             f"Best-effort update of story file tasks list failed for '{story_id}'.")
 
-    return task.model_dump(include={'id', 'title', 'status', 'priority', 'creation_time', 'description', 'depends_on'}, exclude_none=True)
+    return task.model_dump(mode='json', include={'id', 'title', 'status', 'priority', 'creation_time', 'description', 'depends_on'}, exclude_none=True)
 
 
 def get_task(story_id: str, task_id: str) -> dict:
@@ -114,6 +116,7 @@ def update_task(
     depends_on: Optional[List[str]] = None,
     priority: Optional[int] = None,
     status: Optional[Status] = None,
+    execution_summary: Optional[str] = None,
 ) -> dict:
     plan = plan_repo.load_current()
     story: Optional[Story] = next(
@@ -136,7 +139,15 @@ def update_task(
     if priority is not None:
         task_obj.priority = priority
     if status is not None:
+        guard_approval_before_progress(
+            task_obj.status, status, getattr(task_obj, 'approval', None))
+        prev = task_obj.status
         apply_status_change(task_obj, status)
+        if prev != task_obj.status:
+            append_event(plan.id, 'task_status_changed', {'task_id': task_obj.id}, {
+                         'from': prev.value if hasattr(prev, 'value') else prev, 'to': task_obj.status.value if hasattr(task_obj.status, 'value') else task_obj.status})
+    if execution_summary is not None:
+        task_obj.execution_summary = execution_summary
 
     validate_and_save(plan)
 
@@ -161,7 +172,7 @@ def update_task(
             logger.info(
                 f"Best-effort rollup update of story file failed for '{story_id}'.")
 
-    return task_obj.model_dump(include={'id', 'title', 'status', 'priority', 'creation_time', 'completion_time', 'description', 'depends_on'}, exclude_none=True)
+    return task_obj.model_dump(mode='json', include={'id', 'title', 'status', 'priority', 'creation_time', 'completion_time', 'description', 'depends_on'}, exclude_none=True)
 
 
 def delete_task(story_id: str, task_id: str) -> dict:
@@ -201,7 +212,7 @@ def delete_task(story_id: str, task_id: str) -> dict:
 
 
 def list_tasks(statuses: Optional[List[Status]], story_id: Optional[str] = None) -> List[Task]:
-    plan = plan_repo.load()
+    plan = plan_repo.load_current()
     tasks: List[Task] = []
     for s in plan.stories:
         if story_id and s.id != story_id:

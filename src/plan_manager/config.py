@@ -24,6 +24,11 @@ LOG_FILE_PATH = os.path.join(LOG_DIR, 'mcp_server_app.log')
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 ENABLE_FILE_LOG = _env_bool("PLAN_MANAGER_ENABLE_FILE_LOG")
 
+# --- Workflow Guardrails ---
+# Require approval before moving a Story/Task off TODO (to IN_PROGRESS/DONE)
+REQUIRE_APPROVAL_BEFORE_PROGRESS = _env_bool(
+    "REQUIRE_APPROVAL_BEFORE_PROGRESS", True)
+
 # --- Uvicorn Configuration ---
 HOST = os.getenv("HOST", "127.0.0.1")
 PORT = int(os.getenv("PORT", "3000"))

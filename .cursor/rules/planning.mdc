@@ -1,0 +1,14 @@
+---
+alwaysApply: false
+---
+
+Code changes are allowed in the follwoing cases:
+1. Aligned with the plan documented via plan-manager MCP server
+2. Deviations are discussed, reflected in the plan, and approved
+3. Explicit user request to perform a task outside plan-manager
+
+Development workflow:
+- Before each task: write execution_intent (objective, scope, acceptance), request approval
+- After each task: write execution_summary (what changed, where), request review, record changelog entry
+- Default context: current plan → current story → current task
+- Use context tools to select/advance (no parallel execution)

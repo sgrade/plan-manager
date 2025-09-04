@@ -31,16 +31,7 @@ def register_story_tools(mcp_instance) -> None:
 
 
 def create_story(payload: CreateStoryIn) -> StoryOut:
-    """Create a story.
-
-    Parameters:
-    - title: Story title
-    - priority: 0..5 or None
-    - depends_on: List of story IDs this story depends on
-    - description: Optional freeform description
-
-    Returns: StoryOut
-    """
+    """Create a story."""
     data = svc_create_story(payload.title, payload.priority,
                             payload.depends_on, payload.description)
     return StoryOut(**data)
@@ -57,17 +48,7 @@ def get_story(payload: Optional[GetStoryIn] = None) -> StoryOut:
 
 
 def update_story(payload: UpdateStoryIn) -> StoryOut:
-    """Update mutable fields of a story.
-
-    Parameters:
-    - story_id: Story ID
-    - title, description: Optional updates
-    - depends_on: Optional new list of story IDs
-    - priority: Optional new priority (0..5 or None)
-    - status: Optional new status
-
-    Returns: StoryOut
-    """
+    """Update mutable fields of a story."""
     data = svc_update_story(payload.story_id, payload.title, payload.description,
                             payload.depends_on, payload.priority, payload.status)
     return StoryOut(**data)

@@ -1,6 +1,4 @@
-from typing import Optional
-
-from plan_manager.schemas.outputs import CurrentContextOut, TaskOut, StoryOut, OperationResult
+from plan_manager.schemas.outputs import CurrentContextOut, TaskOut, StoryOut, WorkflowStatusOut
 from plan_manager.services.plan_repository import get_current_plan_id
 from plan_manager.services.state_repository import (
     get_current_story_id,
@@ -9,8 +7,7 @@ from plan_manager.services.state_repository import (
     set_current_task_id,
 )
 from plan_manager.services import plan_repository as plan_repo
-from plan_manager.services.story_service import get_story as svc_get_story
-from plan_manager.services.task_service import get_task as svc_get_task, list_tasks as svc_list_tasks
+from plan_manager.services.task_service import list_tasks as svc_list_tasks
 from plan_manager.domain.models import Status
 
 
@@ -20,10 +17,14 @@ def register_context_tools(mcp_instance) -> None:
     mcp_instance.tool()(select_first_story)
     mcp_instance.tool()(select_first_unblocked_task)
     mcp_instance.tool()(advance_to_next_task)
+    mcp_instance.tool()(workflow_status)
 
 
 def current_context() -> CurrentContextOut:
-    """Get the current context of the current plan."""
+    """Get the current context of the current plan.
+
+    Answers the question "Where am I?"
+    """
     pid = get_current_plan_id()
     return CurrentContextOut(
         plan_id=pid,
@@ -49,7 +50,8 @@ def select_first_unblocked_task() -> TaskOut:
     if not sid:
         raise ValueError(
             "No current story set. Call select_first_story or set_current_story.")
-    tasks = svc_list_tasks(statuses=None, story_id=sid)
+    tasks = svc_list_tasks(statuses=[
+                           Status.TODO, Status.IN_PROGRESS, Status.BLOCKED, Status.DEFERRED], story_id=sid)
     for t in tasks:
         if t.status in (Status.TODO, Status.IN_PROGRESS):
             set_current_task_id(t.id, pid)
@@ -65,7 +67,8 @@ def advance_to_next_task() -> TaskOut:
         raise ValueError(
             "No current story set. Call select_first_story or set_current_story.")
     current_tid = get_current_task_id(pid)
-    tasks = svc_list_tasks(statuses=None, story_id=sid)
+    tasks = svc_list_tasks(statuses=[
+                           Status.TODO, Status.IN_PROGRESS, Status.BLOCKED, Status.DEFERRED], story_id=sid)
     if not tasks:
         raise ValueError("Current story has no tasks.")
     # Find current index
@@ -81,3 +84,86 @@ def advance_to_next_task() -> TaskOut:
     nxt = tasks[next_i]
     set_current_task_id(nxt.id, pid)
     return TaskOut(**nxt.model_dump(mode='json', exclude_none=True))
+
+
+def workflow_status() -> WorkflowStatusOut:
+    """Get current workflow status and next required actions."""
+    pid = get_current_plan_id()
+    sid = get_current_story_id(pid)
+    tid = get_current_task_id(pid)
+
+    # Get current task details
+    current_task = None
+    workflow_state = {"approval_status": "none", "execution_intent": None}
+    compliance = {"ready_to_start": False, "blockers": []}
+    next_actions = []
+
+    if sid and tid:
+        try:
+            plan = plan_repo.load_current()
+            story = next((s for s in plan.stories if s.id == sid), None)
+            if story:
+                task = next(
+                    (t for t in (story.tasks or []) if t.id == tid), None)
+                if task:
+                    current_task = {
+                        "id": task.id,
+                        "title": task.title,
+                        "status": task.status.value,
+                        "description": task.description
+                    }
+
+                    # Check approval status
+                    approval = getattr(task, 'approval', None)
+                    if approval:
+                        if approval.approved_at:
+                            workflow_state["approval_status"] = "approved"
+                        elif approval.requested_at:
+                            workflow_state["approval_status"] = "pending"
+
+                    # Check execution intent
+                    workflow_state["execution_intent"] = getattr(
+                        task, 'execution_intent', None)
+
+                    # Determine next actions based on current state
+                    if task.status == Status.TODO:
+                        if not workflow_state["execution_intent"]:
+                            next_actions.append(
+                                "Set execution_intent via request_approval")
+                            compliance["blockers"].append(
+                                "Missing execution_intent")
+                        elif workflow_state["approval_status"] == "none":
+                            next_actions.append(
+                                "Request approval for this task")
+                            compliance["blockers"].append(
+                                "Approval not requested")
+                        elif workflow_state["approval_status"] == "pending":
+                            next_actions.append(
+                                "Wait for approval or approve the task")
+                            compliance["blockers"].append("Pending approval")
+                        elif workflow_state["approval_status"] == "approved":
+                            next_actions.append(
+                                "Start work - update status to IN_PROGRESS")
+                            compliance["ready_to_start"] = True
+                    elif task.status == Status.IN_PROGRESS:
+                        next_actions.append(
+                            "Complete work and update status to DONE with execution_summary")
+                        compliance["ready_to_start"] = True
+                    elif task.status == Status.DONE:
+                        next_actions.append(
+                            "Advance to next task or complete story")
+                        if not getattr(task, 'execution_summary', None):
+                            compliance["blockers"].append(
+                                "Missing execution_summary")
+        except Exception as e:
+            compliance["blockers"].append(f"Error loading task: {str(e)}")
+    else:
+        next_actions.append("Select a story and task to begin work")
+        compliance["blockers"].append("No current task selected")
+
+    return WorkflowStatusOut(
+        current_task=current_task,
+        workflow_state=workflow_state,
+        compliance=compliance,
+        next_actions=next_actions
+    )
