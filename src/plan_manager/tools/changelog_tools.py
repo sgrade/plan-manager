@@ -1,6 +1,6 @@
 from plan_manager.schemas.inputs import PreviewChangelogIn, GenerateChangelogIn, PublishChangelogIn
-from plan_manager.schemas.outputs import ChangelogPreviewOut, OperationResult
-from plan_manager.services.changelog_service import render_changelog, publish_changelog
+from plan_manager.schemas.outputs import ChangelogPreviewOut
+from plan_manager.services.changelog_service import render_changelog
 
 
 def register_changelog_tools(mcp_instance) -> None:
@@ -22,8 +22,12 @@ def generate_changelog(payload: GenerateChangelogIn) -> ChangelogPreviewOut:
     return ChangelogPreviewOut(markdown=md)
 
 
-def publish_changelog_tool(payload: PublishChangelogIn) -> OperationResult:
-    """Append a generated changelog snippet to a file (default CHANGELOG.md)."""
+def publish_changelog_tool(payload: PublishChangelogIn) -> ChangelogPreviewOut:
+    """Produce a changelog snippet for client-side append.
+
+    Note: In remote/HTTP deployments, the MCP client owns the local workspace
+    and changelog file. This tool returns markdown for the client to append
+    to its own changelog (e.g., CHANGELOG.md). The server does not write files.
+    """
     md = render_changelog(payload.version, payload.date)
-    publish_changelog(md, payload.target_path or 'CHANGELOG.md')
-    return OperationResult(success=True, message=f"Changelog appended to {payload.target_path or 'CHANGELOG.md'}")
+    return ChangelogPreviewOut(markdown=md)

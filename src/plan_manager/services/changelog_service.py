@@ -72,5 +72,10 @@ def _lookup_summary(plan_id: str, scope: dict) -> Optional[str]:
 
 
 def publish_changelog(markdown: str, target_path: str) -> None:
-    with open(target_path, 'a', encoding='utf-8') as f:
-        f.write("\n" + markdown)
+    """Deprecated: server-side file writes are not performed by MCP server.
+
+    The client (IDE) owns the local workspace and is responsible for appending
+    the returned markdown to its changelog file.
+    """
+    # Intentionally no-op in server context
+    return None

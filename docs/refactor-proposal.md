@@ -85,7 +85,7 @@ Design principles
 
 - tools
   - approval tools: request_approval_for_item, approve_item
-  - changelog tools: preview_changelog, generate_changelog, publish_changelog
+  - changelog tools: preview_changelog, generate_changelog, publish_changelog (returns markdown for client-side append)
 
 ### Guardrails (soft enforcement)
 - The Cursor agent follows planning rules; plan-manager records the state
@@ -99,7 +99,7 @@ Design principles
    - Tools:
      - preview_changelog() → render pending activity log entries as markdown sections grouped by date/version
      - generate_changelog(version?, date?) → produce consolidated markdown snippet from recent activity
-     - publish_changelog(target_path='CHANGELOG.md') → append or open PR-ready diff; idempotent by entry id
+     - publish_changelog(version?, date?) → return markdown; client appends to its local CHANGELOG.md
    - Activity → Changelog mapping:
      - Story/Task DONE with execution_summary → “Added/Changed/Fixed” bucket based on status/labels (simple heuristic)
      - Include scope ids and links to files touched (if provided in result_hint)
