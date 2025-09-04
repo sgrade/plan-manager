@@ -1,113 +1,127 @@
-## Refactor proposal: workflow-aligned plan-manager
+## Refactor proposal: planning/execution workflow with MCP integration
 
 ### Goals
-- Convenience-first development workflow driven by the MCP tools
-- Single active context with explicit defaults: current plan, story, task
-- Simple, maintainable data model; keep ephemeral UI/session state out of core models
-- Explicit propose/approve/complete cycle around each coding step
+- Convenience-first workflow for AI agents and humans; minimal typing for standard steps
+- Two clear phases: Planning (design/scope) and Execution (do/review/complete)
+- Keep server simple and maintainable; prompts are convenience-only; client owns roots and file IO
+- Enforce explicit propose → approve → execute → summarize cycle via tools and soft guardrails
 
-### Current capabilities (baseline)
-- Multi-plan storage under `todo/<plan_id>/plan.yaml` with strict index at `todo/plans/index.yaml`
-- Domain: `Plan(WorkItem)`, `Story(WorkItem)`, `Task(WorkItem)`; IDs derived from titles with unique suffixing
-- Context defaults: current plan (global), plus per-plan `state.yaml` with `current_story_id`, `current_task_id`
-- Tools: plan/story/task tools with optional payloads that default to current context; context tools to set/select and auto-advance
-- Archive removed; use plan status instead
+### Phase 1: Planning (SemVer-aligned)
+- Use Semantic Versioning guidance to decide the work item level (see `https://semver.org/`).
+  - MAJOR: Backward-incompatible or fundamental changes → create a new `Plan`
+  - MINOR: Backward-compatible feature additions → create a new `Story`
+  - PATCH: Bug fixes, maintenance, or small discrete units for an agent → create `Task`s
 
-### Workflow model (new)
-Use Story/Task as the unit of planned change, with per-item execution fields and an optional activity log:
+Flow:
+1) Human provides a short description of the desired change
+2) Agent proposes work item(s): Plan/Story/Tasks based on SemVer mapping
+3) Human reviews and edits titles/descriptions/scope
+4) Human approves work items → transition to Execution
 
-- Item-level fields on Story/Task (ephemeral, updated per iteration)
-  - execution_intent: short checklist before work (objective, scope, acceptance)
-  - execution_summary: short summary after work (what changed, where)
-  - approval: { requested_by?, approved_by?, approved_at?, notes? }
-  - status continues to drive flow (TODO → IN_PROGRESS → DONE; BLOCKED/DEFERRED as needed)
+Tooling in Planning:
+- Plans: `create_plan`, `get_plan`, `update_plan`, `list_plans`, `set_current_plan`
+- Stories: `create_story`, `update_story`, `list_stories`
+- Tasks: `create_task`, `list_tasks`
+- Approvals: `request_approval_tool`, `approve_item_tool`
 
-- Optional activity log: `todo/<plan_id>/activity.yaml`
-  - Append-only events (approval requested/granted, started, completed) with timestamps
-  - Keeps history separate from core plan data
+Prompts in Planning (server-side templates, optional):
+- `execution_intent_template` to help draft intent for approval
+- `review_checklist` to assist in pre-approval review
 
-### New tools
-- request_approval_for_item(item_type, item_id?, execution_intent) -> StoryOut/TaskOut
-  - item_id optional; defaults to current story/task
-  - saves execution_intent and marks approval.requested
-  - records an activity entry (required)
+Notes:
+- Prompts only produce text; they do not modify state
+- Client (IDE) owns roots and file access; server does not grant/validate roots
 
-- approve_item(item_type, item_id?, approved: bool, notes?) -> StoryOut/TaskOut
-  - sets approved metadata (and optional notes)
-  - records an activity entry (required)
+### Phase 2: Execution
+Principles:
+- Default to current plan → current story → current task context
+- Require approval before moving a TODO task to IN_PROGRESS (env-flag guardrail)
+- Agent should advance mostly autonomously with short human commands (e.g., "approved", "next")
 
-- Status transitions use existing update tools
-  - update_story/update_task change status to IN_PROGRESS or DONE and may set execution_summary
-  - each update that changes status records an activity entry (required)
+Flow (per Task):
+1) If not selected, `select_first_story` → `select_first_unblocked_task`
+2) Draft or retrieve `execution_intent` (prompt optional), then `request_approval_tool`
+3) After approval, `update_task(status=IN_PROGRESS)` and perform edits (within client-managed roots)
+4) Draft `execution_summary` (prompt optional), then `update_task(status=DONE, execution_summary)`
+5) Changelog: `generate_changelog` or `publish_changelog_tool` → returns markdown for client-side append
 
-- Changelog utilities (see below)
+Helpful Execution Tools:
+- Context: `current_context`, `select_first_story`, `select_first_unblocked_task`, `advance_to_next_task`, `workflow_status`
+- Tasks: `get_task`, `update_task`, `explain_task_blockers`, `set_current_task`
+- Approvals: `request_approval_tool`, `approve_item_tool`
+- Changelog: `preview_changelog`, `generate_changelog`, `publish_changelog_tool` (returns markdown)
 
-Notes
-- Tools should validate that referenced story/task exists in the current plan
-- Enforce a simple happy-path state machine; reject invalid transitions
+Prompts in Execution (optional):
+- `execution_intent_template`, `execution_summary_template`, `agent_usage_guide`
 
-### MCP feature integration (beyond tools)
-- Prompts (server feature) [MCP Spec, 2025-06-18](https://modelcontextprotocol.io/specification/2025-06-18)
-  - Provide minimal templates to prefill execution_intent and execution_summary, plus a lightweight review checklist
-  - Keep prompts small and composable; they’re UI conveniences, not logic or storage
+Short-command expectations (for humans):
+- "approved" → Agent calls `approve_item_tool` for current task/story
+- "next" → Agent calls `advance_to_next_task`
+- "status" → Agent calls `workflow_status` and summarizes next actions
+- "intent" → Agent calls prompt `execution_intent_template` and proposes text
+- "summary" → Agent calls prompt `execution_summary_template` and proposes text
 
-- Roots (client feature) [Cursor MCP support](https://docs.cursor.com/en/context/mcp#protocol-support)
-  - Client requests/approves roots and enforces edit scoping
-  - Server does not implement roots or scope validation; at most, it may suggest paths (advisory)
+### MCP feature adoption (beyond tools)
+- Prompts (server): minimal templates to reduce typing; no storage/logic coupling
+- Roots (client): client requests/approves roots; server does not validate file scope
+- Elicitation (client): client may ask follow-ups; server may offer optional prompts
 
-- Elicitation (client feature) [Cursor MCP support](https://docs.cursor.com/en/context/mcp#protocol-support)
-  - For PENDING_APPROVAL proposals missing key details, the client may issue structured follow-ups
-  - Server may offer an optional prompt to scaffold such follow-ups; avoid server-side branching logic
+### Guardrails
+- Env-flag to require approval before leaving TODO
+- `workflow_status` provides next actions and compliance hints
 
-Design principles
-- Tools remain the primary integration point; prompts/roots/elicitation are opt-in accelerators
-- No hidden side effects; proposals, approvals, and state transitions are explicit via tools
-- Maintainability: keep prompts simple; avoid coupling prompts to storage formats or server-side state
+### Orchestration and chaining
+Objective: Each prompt/tool should naturally lead to the next step with minimal human input (e.g., "approved", "next"). Keep orchestration light and client-driven.
 
-### Defaults and current-context behavior (unchanged, documented)
-- get_plan(payload?) → current plan if omitted
-- get_story(payload?) → current story of current plan if omitted; error if unset
-- list_tasks(payload?) → current story if story_id omitted; empty if no current story
-- get_task(payload?) → current task of current story if omitted; error if unset
-- context tools: `select_first_story`, `select_first_unblocked_task`, `advance_to_next_task`
+Recommended approach (client-driven):
+- Use `workflow_status` as the single source of truth to decide the next step. It already returns `next_actions` text; we will extend it to include structured action hints (tool name + payload fields) to reduce LLM mapping.
+- Prompts return text the client immediately feeds into the next tool (e.g., intent → request_approval; summary → update_task DONE).
+- Short human commands map to concrete actions (see below), the agent executes without re-asking.
 
-### Repositories and schemas (new)
-- activity_repository.py
-  - Append-only event log for `todo/<plan_id>/activity.yaml` (write/read/query by plan)
+Chained flow: Planning
+1) Human provides short description
+2) Prompt: planning_suggest_work_items (new) → proposes Plan/Story/Task classification (SemVer-aligned) with suggested titles/descriptions
+3) Agent creates items via tools: `create_plan`/`create_story`/`create_task`
+4) Prompt: review_checklist (optional) → human edits, then "approved"
+5) Agent calls `approve_item_tool` for the selected items → move to Execution
 
-- schemas/inputs.py (new types)
-  - RequestApprovalIn(item_type, item_id?, execution_intent)
-  - ApproveItemIn(item_type, item_id?, approved, notes?)
-  - Changelog inputs: GenerateChangelogIn(version?, date?), PublishChangelogIn(target_path?)
+Chained flow: Execution (per task)
+1) `workflow_status` → if missing intent, Prompt: execution_intent_template → agent calls `request_approval_tool`
+2) When approved, agent calls `update_task(status=IN_PROGRESS)` and proceeds with edits inside client-managed roots
+3) After work, Prompt: execution_summary_template → agent calls `update_task(status=DONE, execution_summary)`
+4) Agent calls `publish_changelog_tool` (returns markdown) → client appends locally
+5) Agent calls `advance_to_next_task` (on "next")
 
-- schemas/outputs.py (new types, optional)
-  - ActivityEventOut (for debugging/inspection), ChangelogPreviewOut
+Short commands → actions
+- "approved" → `approve_item_tool` for current item
+- "next" → `advance_to_next_task`
+- "status" → `workflow_status` and summarize next steps
+- "intent" → prompt execution_intent_template, then `request_approval_tool`
+- "summary" → prompt execution_summary_template, then `update_task` DONE
 
-- tools
-  - approval tools: request_approval_for_item, approve_item
-  - changelog tools: preview_changelog, generate_changelog, publish_changelog (returns markdown for client-side append)
+Server changes kept minimal:
+- Add one prompt: `planning_suggest_work_items` (returns structured JSON suggestion). Alternatively, keep as text with a fenced JSON block the agent parses.
+- Extend `WorkflowStatusOut` (non-breaking) with optional `actions: [{ id, label, tool, payload_hints }]` to cut ambiguity.
+- No server-side orchestrator; the client agent sequences calls based on hints and short commands.
 
-### Guardrails (soft enforcement)
-- The Cursor agent follows planning rules; plan-manager records the state
-- The server MUST enforce a precondition (env-flag controlled) that items must be APPROVED before status transitions off TODO (e.g., to IN_PROGRESS/DONE)
-
-### Implementation outline
-1) Add `activity_repository.py` (append-only per-plan event log)
-2) Add approval and changelog schemas/tools; register in `server.py`
-3) Document defaults for get/list tools and current-context tools
-4) Changelog integration
-   - Tools:
-     - preview_changelog() → render pending activity log entries as markdown sections grouped by date/version
-     - generate_changelog(version?, date?) → produce consolidated markdown snippet from recent activity
-     - publish_changelog(version?, date?) → return markdown; client appends to its local CHANGELOG.md
-   - Activity → Changelog mapping:
-     - Story/Task DONE with execution_summary → “Added/Changed/Fixed” bucket based on status/labels (simple heuristic)
-     - Include scope ids and links to files touched (if provided in result_hint)
-
-### Migration
-- Backward compatibility intentionally ignored; adopt new tools and storage layout
+### Refactoring plan (chained workflows)
+1) Documentation (this file)
+   - Document planning/execution flows with explicit chain points (done)
+   - Keep `docs/agent-usage-guide.md` aligned with short-command mapping (done)
+2) Prompts
+   - Add `planning_suggest_work_items` (new) for SemVer-aligned item proposals
+   - Keep minimal prompts: `execution_intent_template`, `execution_summary_template`, `review_checklist`, `agent_usage_guide` (done)
+3) Workflow status action hints
+   - Extend `WorkflowStatusOut` to include optional `actions` with `tool` and `payload_hints`
+   - Keep existing `next_actions` text for backward compatibility
+4) Changelog tooling
+   - Confirm `publish_changelog_tool` returns markdown only (done)
+5) Short-command behavior
+   - In agent guide, codify mapping from short commands to tool/prompt chains (done)
+6) Out of scope
+   - No server-side roots or orchestration executor; client owns both
 
 ### Rationale
-- Keeps domain clean; “current” and “workflow” live in simple per-plan sidecar files
-- Provides explicit propose/approve/complete steps that match the development workflow
-- Maintains simplicity: serial execution with context helpers
+- Aligns planning artifacts with change magnitude (SemVer)
+- Minimizes human typing and server complexity
+- Keeps the happy-path explicit and auditable via tools and approvals

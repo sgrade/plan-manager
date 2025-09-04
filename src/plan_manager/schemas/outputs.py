@@ -51,6 +51,7 @@ class WorkflowStatusOut(BaseModel):
     workflow_state: dict
     compliance: dict
     next_actions: List[str]
+    actions: Optional[List[dict]] = None
 
 
 class ChangelogPreviewOut(BaseModel):

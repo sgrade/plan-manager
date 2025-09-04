@@ -8,7 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Unreleased
 
 ### Added
-- MCP prompts for execution intent and summary, review checklist
+- MCP prompts for execution intent and summary, review checklist.
+- Break development workflow into planning and execution; related convenience features.
+
+### Changed
+- Refactor changelog tools to work with remote client.
 
 ## [0.5.0] - 2025-09-04
 

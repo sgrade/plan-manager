@@ -21,7 +21,7 @@ def register_context_tools(mcp_instance) -> None:
 
 
 def current_context() -> CurrentContextOut:
-    """Get the current context of the current plan.
+    """Get the current context of the current plan: plan_id, current_story_id, current_task_id.
 
     Answers the question "Where am I?"
     """
@@ -87,7 +87,7 @@ def advance_to_next_task() -> TaskOut:
 
 
 def workflow_status() -> WorkflowStatusOut:
-    """Get current workflow status and next required actions."""
+    """Get current workflow status and next actions."""
     pid = get_current_plan_id()
     sid = get_current_story_id(pid)
     tid = get_current_task_id(pid)
@@ -161,9 +161,84 @@ def workflow_status() -> WorkflowStatusOut:
         next_actions.append("Select a story and task to begin work")
         compliance["blockers"].append("No current task selected")
 
+    actions = []
+    # Populate structured action hints to reduce LLM mapping
+    if not sid:
+        # No story selected; suggest selecting the first story
+        actions.append({
+            "id": "select_first_story",
+            "label": "Select first story",
+            "tool": "select_first_story",
+            "payload_hints": {}
+        })
+    elif sid and not tid:
+        # Story selected but no task; suggest first unblocked task
+        actions.append({
+            "id": "select_first_unblocked_task",
+            "label": "Select first unblocked task",
+            "tool": "select_first_unblocked_task",
+            "payload_hints": {}
+        })
+    elif sid and tid and current_task:
+        if task.status == Status.TODO:
+            if not workflow_state["execution_intent"]:
+                actions.append({
+                    "id": "draft_intent",
+                    "label": "Draft execution intent",
+                    "prompt": "execution_intent_template",
+                    "payload_hints": {"task_title": task.title, "task_description": task.description}
+                })
+                actions.append({
+                    "id": "request_approval",
+                    "label": "Request approval",
+                    "tool": "request_approval_tool",
+                    "payload_hints": {"item_type": "task", "item_id": task.id, "execution_intent": "<from_prompt>"}
+                })
+            elif workflow_state["approval_status"] == "none":
+                actions.append({
+                    "id": "request_approval",
+                    "label": "Request approval",
+                    "tool": "request_approval_tool",
+                    "payload_hints": {"item_type": "task", "item_id": task.id, "execution_intent": workflow_state["execution_intent"]}
+                })
+            elif workflow_state["approval_status"] == "approved":
+                actions.append({
+                    "id": "start_work",
+                    "label": "Start work",
+                    "tool": "update_task",
+                    "payload_hints": {"story_id": sid, "task_id": task.id, "status": "IN_PROGRESS"}
+                })
+        elif task.status == Status.IN_PROGRESS:
+            actions.append({
+                "id": "complete_with_summary",
+                "label": "Complete task with summary",
+                "prompt": "execution_summary_template",
+                "payload_hints": {"task_title": task.title, "files_changed": "<fill_in>"}
+            })
+            actions.append({
+                "id": "mark_done",
+                "label": "Mark DONE",
+                "tool": "update_task",
+                "payload_hints": {"story_id": sid, "task_id": task.id, "status": "DONE", "execution_summary": "<from_prompt>"}
+            })
+        elif task.status == Status.DONE:
+            actions.append({
+                "id": "publish_changelog",
+                "label": "Generate changelog markdown",
+                "tool": "publish_changelog_tool",
+                "payload_hints": {"version": None, "date": None}
+            })
+            actions.append({
+                "id": "advance",
+                "label": "Advance to next task",
+                "tool": "advance_to_next_task",
+                "payload_hints": {}
+            })
+
     return WorkflowStatusOut(
         current_task=current_task,
         workflow_state=workflow_state,
         compliance=compliance,
-        next_actions=next_actions
+        next_actions=next_actions,
+        actions=actions or None,
     )

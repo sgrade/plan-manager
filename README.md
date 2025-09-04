@@ -29,6 +29,7 @@ Cursor agent may divide a task into [agent to-dos](https://docs.cursor.com/en/ag
 - **Priority System**: 0-5 priority levels (0 = highest priority)
 - **MCP Integration**: Server-side implementation for AI assistant integration
 - **Robust Validation**: Pydantic-based schema validation for data integrity
+- **Workflow Hints**: `workflow_status` returns structured `actions` to guide client agents
 
 ## Development Environment
 
@@ -92,6 +93,27 @@ To allow Cursor to communicate with this server, ensure your global `.cursor/mcp
       }
   }
 }
+```
+
+### Quickstart: Planning + Execution (for agents)
+
+- Planning:
+  - Use prompt `planning_suggest_work_items(description)` to classify MAJOR/MINOR/PATCH and propose Plan/Story/Tasks
+  - Create items with tools (`create_plan`, `create_story`, `create_task`) and approve via `approve_item_tool`
+
+- Execution (per task):
+  - Get `workflow_status` and follow `actions` (structured hints)
+  - If missing intent: prompt `execution_intent_template` → `request_approval_tool`
+  - After approval: `update_task(status=IN_PROGRESS)`
+  - After work: prompt `execution_summary_template` → `update_task(status=DONE, execution_summary)`
+  - Changelog: `publish_changelog_tool` returns markdown for client-side append
+
+### Guardrails
+
+- Approval requirement can be toggled via env var in the server:
+
+```bash
+REQUIRE_APPROVAL_BEFORE_PROGRESS=true  # default true
 ```
 
 If accessing from another Cursor instance (devcontainer) on the same host, point to the Docker-host bridge DNS:
