@@ -8,7 +8,7 @@ from plan_manager.services.plan_service import (
     list_plans as svc_list_plans,
 )
 from plan_manager.schemas.inputs import (
-    CreatePlanIn, GetPlanIn, UpdatePlanIn, DeletePlanIn, ListPlansIn, SetCurrentPlanIn,
+    CreatePlanIn, GetPlanIn, UpdatePlanIn, DeletePlanIn, ListPlansIn, SetCurrentPlanIn, SelectOrCreatePlanIn,
 )
 from plan_manager.schemas.outputs import PlanOut, PlanListItem, OperationResult
 from plan_manager.services.plan_repository import set_current_plan_id, get_current_plan_id
@@ -17,6 +17,7 @@ from plan_manager.services.plan_repository import set_current_plan_id, get_curre
 def register_plan_tools(mcp_instance) -> None:
     """Register plan tools with the MCP instance."""
     mcp_instance.tool()(create_plan)
+    mcp_instance.tool()(select_or_create_plan)
     mcp_instance.tool()(get_plan)
     mcp_instance.tool()(update_plan)
     mcp_instance.tool()(delete_plan)
@@ -56,10 +57,31 @@ def list_plans(payload: Optional[ListPlansIn] = None) -> List[PlanListItem]:
     """List plans."""
     statuses = payload.statuses if payload else None
     data = svc_list_plans(statuses)
-    return [PlanListItem(**d) for d in data]
+    items = [PlanListItem(**d) for d in data]
+    if payload:
+        start = max(0, payload.offset or 0)
+        end = None if payload.limit is None else start + max(0, payload.limit)
+        return items[start:end]
+    return items
 
 
 def set_current_plan(payload: SetCurrentPlanIn) -> OperationResult:
     """Set the current plan."""
     set_current_plan_id(payload.plan_id)
     return OperationResult(success=True, message=f"Current plan set to '{payload.plan_id}'")
+
+
+def select_or_create_plan(payload: SelectOrCreatePlanIn) -> PlanOut:
+    """Select a plan by title or create it if missing, then set as current."""
+    title = payload.title.strip()
+    # Try to find by title (case-insensitive)
+    existing = [p for p in svc_list_plans(None) if p.get(
+        'title', '').lower() == title.lower()]
+    if existing:
+        pid = existing[0]['id']
+        set_current_plan_id(pid)
+        return PlanOut(**svc_get_plan(pid))
+    # Create new
+    created = svc_create_plan(title, payload.description, payload.priority)
+    set_current_plan_id(created['id'])
+    return PlanOut(**created)

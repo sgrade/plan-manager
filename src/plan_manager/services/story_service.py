@@ -20,6 +20,11 @@ from plan_manager.services.shared import find_dependents
 from plan_manager.services.status import apply_status_change
 from plan_manager.config import WORKSPACE_ROOT
 from plan_manager.services.activity_repository import append_event
+from plan_manager.services.state_repository import (
+    get_current_story_id,
+    set_current_story_id,
+    set_current_task_id,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -113,6 +118,16 @@ def update_story(
             logger.info(
                 f"Best-effort update of story file failed for '{story_id}'.")
 
+    # Selection invariants: if current story changed to DONE, clear story/task selections
+    try:
+        if story_obj.status == Status.DONE:
+            current_sid = get_current_story_id(plan.id)
+            if current_sid == story_obj.id:
+                set_current_task_id(None, plan.id)
+                set_current_story_id(None, plan.id)
+    except Exception:
+        pass
+
     return story_obj.model_dump(mode='json', exclude_none=True)
 
 
@@ -161,6 +176,14 @@ def delete_story(story_id: str) -> dict:
     except Exception as e:
         logger.warning(
             f"Best-effort directory delete failed for story '{story_id}': {e}")
+    # Selection invariants: if deleted story was current, clear selections
+    try:
+        current_sid = get_current_story_id(plan.id)
+        if current_sid == story_id:
+            set_current_task_id(None, plan.id)
+            set_current_story_id(None, plan.id)
+    except Exception:
+        pass
     return {"success": True, "message": f"Successfully deleted story '{story_id}'."}
 
 

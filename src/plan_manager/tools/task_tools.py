@@ -9,7 +9,7 @@ from plan_manager.services.task_service import (
     explain_task_blockers as svc_explain_task_blockers,
 )
 from plan_manager.schemas.inputs import (
-    CreateTaskIn, GetTaskIn, UpdateTaskIn, DeleteTaskIn, ListTasksIn, ExplainTaskBlockersIn, SetCurrentTaskIn,
+    CreateTaskIn, GetTaskIn, UpdateTaskIn, DeleteTaskIn, ListTasksIn, ExplainTaskBlockersIn, SetCurrentTaskIn, SelectOrCreateTaskIn,
 )
 from plan_manager.schemas.outputs import TaskOut, TaskListItem, OperationResult, TaskBlockersOut
 from plan_manager.services.state_repository import get_current_story_id, set_current_task_id, get_current_task_id
@@ -24,6 +24,7 @@ def register_task_tools(mcp_instance) -> None:
     mcp_instance.tool()(list_tasks)
     mcp_instance.tool()(explain_task_blockers)
     mcp_instance.tool()(set_current_task)
+    mcp_instance.tool()(select_or_create_task)
 
 
 def create_task(payload: CreateTaskIn) -> TaskOut:
@@ -80,6 +81,10 @@ def list_tasks(payload: Optional[ListTasksIn] = None) -> List[TaskListItem]:
                 creation_time=t.creation_time.isoformat() if t.creation_time else None,
             )
         )
+    if payload:
+        start = max(0, payload.offset or 0)
+        end = None if payload.limit is None else start + max(0, payload.limit)
+        return items[start:end]
     return items
 
 
@@ -93,3 +98,22 @@ def set_current_task(payload: SetCurrentTaskIn) -> OperationResult:
     """Set the current task for the current story."""
     set_current_task_id(payload.task_id)
     return OperationResult(success=True, message=f"Current task set to '{payload.task_id}'")
+
+
+def select_or_create_task(payload: SelectOrCreateTaskIn) -> TaskOut:
+    """Select a task by title in a story or create it if missing; set current."""
+    story_id = payload.story_id or get_current_story_id()
+    if not story_id:
+        raise ValueError(
+            "No current story set. Provide story_id or set current story.")
+    # Load story tasks via service
+    tasks = svc_list_tasks(None, story_id)
+    title = payload.title.strip()
+    found = next((t for t in tasks if t.title.lower() == title.lower()), None)
+    if found:
+        set_current_task_id(found.id)
+        return TaskOut(**found.model_dump(mode='json', exclude_none=True))
+    created = svc_create_task(
+        story_id, title, payload.priority, payload.depends_on, payload.description)
+    set_current_task_id(created['id'])
+    return TaskOut(**created)

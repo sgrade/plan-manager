@@ -37,7 +37,15 @@ def select_first_story() -> StoryOut:
     """Select the first story in the current plan."""
     plan = plan_repo.load_current()
     if not plan.stories:
-        raise ValueError("No stories in current plan. Create a story first.")
+        # Auto-bootstrap: create a starter story and task
+        from plan_manager.services.story_service import create_story as svc_create_story
+        from plan_manager.services.task_service import create_task as svc_create_task
+        starter = svc_create_story("Getting Started", priority=5, depends_on=[
+        ], description="Bootstrap story created automatically")
+        # Create a starter task under the new story
+        _t = svc_create_task(starter['id'], "Select first task", priority=5, depends_on=[
+        ], description="Start here: select the first task to begin")
+        plan = plan_repo.load_current()
     first = plan.stories[0]
     set_current_story_id(first.id, plan.id)
     return StoryOut(**first.model_dump(mode='json', exclude_none=True))
@@ -52,6 +60,13 @@ def select_first_unblocked_task() -> TaskOut:
             "No current story set. Call select_first_story or set_current_story.")
     tasks = svc_list_tasks(statuses=[
                            Status.TODO, Status.IN_PROGRESS, Status.BLOCKED, Status.DEFERRED], story_id=sid)
+    # If no tasks exist, auto-bootstrap with a starter task
+    if not tasks:
+        from plan_manager.services.task_service import create_task as svc_create_task
+        created = svc_create_task(sid, "Starter task", priority=5, depends_on=[
+        ], description="Bootstrap task created automatically")
+        set_current_task_id(created['id'], pid)
+        return TaskOut(**created)
     for t in tasks:
         if t.status in (Status.TODO, Status.IN_PROGRESS):
             set_current_task_id(t.id, pid)
@@ -179,6 +194,27 @@ def workflow_status() -> WorkflowStatusOut:
             "tool": "select_first_unblocked_task",
             "payload_hints": {}
         })
+        # Suggest switching to a different story with unblocked tasks (if any)
+        try:
+            plan = plan_repo.load_current()
+            # Find any other story with TODO tasks and dependencies satisfied
+            from plan_manager.domain.models import Status as _S
+            for s in plan.stories:
+                if s.id == sid:
+                    continue
+                # Check for any TODO tasks
+                has_todo = any(t.status in (_S.TODO,) for t in (s.tasks or []))
+                if not has_todo:
+                    continue
+                actions.append({
+                    "id": "switch_story",
+                    "label": f"Switch to story: {s.title}",
+                    "tool": "set_current_story",
+                    "payload_hints": {"story_id": s.id}
+                })
+                break
+        except Exception:
+            pass
     elif sid and tid and current_task:
         if task.status == Status.TODO:
             if not workflow_state["execution_intent"]:
@@ -208,6 +244,75 @@ def workflow_status() -> WorkflowStatusOut:
                     "tool": "update_task",
                     "payload_hints": {"story_id": sid, "task_id": task.id, "status": "IN_PROGRESS"}
                 })
+            # If blocked, surface blockers and suggest first unblocked prerequisite
+            try:
+                from plan_manager.services.task_service import explain_task_blockers as _explain
+                local = task.id.split(':', 1)[1] if ':' in task.id else task.id
+                info = _explain(sid, local)
+                if info and not info.get('unblocked', True):
+                    # Navigate to each dependency
+                    for b in info.get('blockers', []):
+                        if b.get('type') == 'task':
+                            actions.append({
+                                "id": f"goto_dep_{b.get('id')}",
+                                "label": f"Open dependency task: {b.get('id')}",
+                                "tool": "set_current_task",
+                                "payload_hints": {"task_id": b.get('id')}
+                            })
+                        elif b.get('type') == 'story':
+                            actions.append({
+                                "id": f"goto_dep_story_{b.get('id')}",
+                                "label": f"Open dependency story: {b.get('id')}",
+                                "tool": "set_current_story",
+                                "payload_hints": {"story_id": b.get('id')}
+                            })
+                    # Offer first unblocked prerequisite
+                    first_unblocked = None
+                    # Check task-type blockers first
+                    for b in info.get('blockers', []):
+                        if b.get('type') == 'task':
+                            dep_id = b.get('id')
+                            try:
+                                dep_story_id, dep_local = dep_id.split(':', 1)
+                            except ValueError:
+                                dep_story_id, dep_local = sid, dep_id
+                            dep_info = _explain(dep_story_id, dep_local)
+                            if dep_info and dep_info.get('unblocked', False):
+                                first_unblocked = dep_id
+                                break
+                    # If none, check story-type blockers for unblocked tasks inside
+                    if not first_unblocked:
+                        try:
+                            plan2 = plan_repo.load_current()
+                            for b in info.get('blockers', []):
+                                if b.get('type') != 'story':
+                                    continue
+                                dep_story = next(
+                                    (s for s in plan2.stories if s.id == b.get('id')), None)
+                                if not dep_story:
+                                    continue
+                                for t2 in (dep_story.tasks or []):
+                                    if t2.status != Status.TODO:
+                                        continue
+                                    loc2 = t2.id.split(':', 1)[
+                                        1] if ':' in t2.id else t2.id
+                                    dep_t_info = _explain(dep_story.id, loc2)
+                                    if dep_t_info and dep_t_info.get('unblocked', False):
+                                        first_unblocked = t2.id
+                                        break
+                                if first_unblocked:
+                                    break
+                        except Exception:
+                            pass
+                    if first_unblocked:
+                        actions.append({
+                            "id": "select_first_unblocked_prerequisite",
+                            "label": f"Select unblocked prerequisite: {first_unblocked}",
+                            "tool": "set_current_task",
+                            "payload_hints": {"task_id": first_unblocked}
+                        })
+            except Exception:
+                pass
         elif task.status == Status.IN_PROGRESS:
             actions.append({
                 "id": "complete_with_summary",
@@ -221,6 +326,29 @@ def workflow_status() -> WorkflowStatusOut:
                 "tool": "update_task",
                 "payload_hints": {"story_id": sid, "task_id": task.id, "status": "DONE", "execution_summary": "<from_prompt>"}
             })
+            # Surface blockers if any
+            try:
+                from plan_manager.services.task_service import explain_task_blockers as _explain
+                blockers_info = _explain(sid, task.id.split(
+                    ':', 1)[1] if ':' in task.id else task.id)
+                if blockers_info and not blockers_info.get('unblocked', True):
+                    for b in blockers_info.get('blockers', []):
+                        if b.get('type') == 'task':
+                            actions.append({
+                                "id": f"goto_dep_{b.get('id')}",
+                                "label": f"Open dependency task: {b.get('id')}",
+                                "tool": "set_current_task",
+                                "payload_hints": {"task_id": b.get('id')}
+                            })
+                        elif b.get('type') == 'story':
+                            actions.append({
+                                "id": f"goto_dep_story_{b.get('id')}",
+                                "label": f"Open dependency story: {b.get('id')}",
+                                "tool": "set_current_story",
+                                "payload_hints": {"story_id": b.get('id')}
+                            })
+            except Exception:
+                pass
         elif task.status == Status.DONE:
             actions.append({
                 "id": "publish_changelog",
@@ -234,6 +362,19 @@ def workflow_status() -> WorkflowStatusOut:
                 "tool": "advance_to_next_task",
                 "payload_hints": {}
             })
+            # If the story has no remaining TODO/IN_PROGRESS tasks, suggest marking story DONE
+            try:
+                plan = plan_repo.load_current()
+                story = next((s for s in plan.stories if s.id == sid), None)
+                if story and not any(t.status in (Status.TODO, Status.IN_PROGRESS) for t in (story.tasks or [])):
+                    actions.append({
+                        "id": "mark_story_done",
+                        "label": "Mark story DONE",
+                        "tool": "update_story",
+                        "payload_hints": {"story_id": sid, "status": "DONE"}
+                    })
+            except Exception:
+                pass
 
     return WorkflowStatusOut(
         current_task=current_task,

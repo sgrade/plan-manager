@@ -6,13 +6,15 @@ Concise, workflow-aligned instructions for MCP agents using the plan-manager ser
 ### Phase 1: Planning (SemVer-aligned)
 - Given a short human description, suggest work items:
   - Use prompt `planning_suggest_work_items(description)` and propose Plan/Story/Tasks (MAJOR/MINOR/PATCH).
-  - Create items via tools: `create_plan` / `create_story` / `create_task`.
+  - Prefer idempotent helpers: `select_or_create_plan` / `select_or_create_story` / `select_or_create_task`.
+  - Use `create_*` only when you must force-create a distinct item even if a same-title item exists.
   - Optionally use `review_checklist` before approvals.
   - Approve via `approve_item_tool` when the human says "approved".
 
 ### Phase 2: Execution (per task)
 1. Context
    - `current_context()`; if unset: `select_first_story()` → `select_first_unblocked_task()`.
+   - Auto-bootstrap: if no stories/tasks exist, `select_first_story()` creates a "Getting Started" story and a starter task.
 2. Intent & Approval
    - If intent missing: prompt `execution_intent_template`, then `request_approval_tool`.
    - On approval (human says "approved"): `update_task(..., status='IN_PROGRESS')`.
@@ -28,12 +30,13 @@ Concise, workflow-aligned instructions for MCP agents using the plan-manager ser
 ### Action hints from workflow_status
 - Call `workflow_status()` to get `next_actions` and `actions` (structured hints: `tool`/`prompt` + `payload_hints`).
 - Prefer `actions` to reduce mapping errors; fall back to `next_actions` text.
+  - Includes: dependency navigation (open blocking task/story), select first unblocked prerequisite, mark story DONE when no tasks remain.
 
 ### Helpful Tools (by area)
 - Context: `current_context`, `select_first_story`, `select_first_unblocked_task`, `advance_to_next_task`, `workflow_status`
-- Plans: `create_plan`, `get_plan`, `update_plan`, `delete_plan`, `list_plans`, `set_current_plan`
-- Stories: `create_story`, `get_story`, `update_story`, `delete_story`, `list_stories`
-- Tasks: `create_task`, `get_task`, `update_task`, `delete_task`, `list_tasks`, `explain_task_blockers`, `set_current_task`
+- Plans: `select_or_create_plan`, `create_plan`, `get_plan`, `update_plan`, `delete_plan`, `list_plans`, `set_current_plan`
+- Stories: `select_or_create_story`, `create_story`, `get_story`, `update_story`, `delete_story`, `list_stories`
+- Tasks: `select_or_create_task`, `create_task`, `get_task`, `update_task`, `delete_task`, `list_tasks`, `explain_task_blockers`, `set_current_task`
 - Approvals: `request_approval_tool`, `approve_item_tool`
 - Changelog: `preview_changelog`, `generate_changelog`, `publish_changelog_tool` (returns markdown)
 
@@ -51,7 +54,13 @@ Note: Prompts produce text only.
 
 ### Guardrails
 - Approval-required (env-flag): Items must be approved before leaving TODO.
+- Optional env flags:
+  - `REQUIRE_EXECUTION_INTENT_BEFORE_IN_PROGRESS=true`
+  - `REQUIRE_EXECUTION_SUMMARY_BEFORE_DONE=true`
 - Use `workflow_status()` to understand readiness and next actions.
+
+### Pagination
+- `list_plans`, `list_stories`, `list_tasks` accept `offset` and `limit` for agent-friendly batching.
 
 ### Happy-path checklist per task
 - [ ] Context selected (story, task)

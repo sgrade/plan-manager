@@ -8,8 +8,18 @@ from plan_manager.services import plan_repository as plan_repo
 from plan_manager.io.paths import task_file_path
 from plan_manager.io.file_mirror import save_item_to_file, read_item_file, delete_item_file
 from plan_manager.services.status import rollup_story_status, apply_status_change
+from plan_manager.config import (
+    REQUIRE_EXECUTION_INTENT_BEFORE_IN_PROGRESS,
+    REQUIRE_EXECUTION_SUMMARY_BEFORE_DONE,
+)
 from plan_manager.services.shared import guard_approval_before_progress
 from plan_manager.services.activity_repository import append_event
+from plan_manager.services.state_repository import (
+    get_current_task_id,
+    set_current_task_id,
+    get_current_story_id,
+    set_current_story_id,
+)
 from plan_manager.services.shared import (
     generate_slug,
     ensure_unique_id_from_set,
@@ -139,8 +149,21 @@ def update_task(
     if priority is not None:
         task_obj.priority = priority
     if status is not None:
+        # Optional guardrails: require intent before IN_PROGRESS; summary before DONE
+        if status == Status.IN_PROGRESS and REQUIRE_EXECUTION_INTENT_BEFORE_IN_PROGRESS:
+            if not getattr(task_obj, 'execution_intent', None):
+                raise ValueError(
+                    "Execution intent is required before starting work (IN_PROGRESS).")
+        if status == Status.DONE and REQUIRE_EXECUTION_SUMMARY_BEFORE_DONE:
+            summary_value = execution_summary if execution_summary is not None else getattr(
+                task_obj, 'execution_summary', None)
+            if not summary_value:
+                raise ValueError(
+                    "Execution summary is required before marking DONE.")
+
         guard_approval_before_progress(
-            task_obj.status, status, getattr(task_obj, 'approval', None))
+            task_obj.status, status, getattr(task_obj, 'approval', None),
+        )
         prev = task_obj.status
         apply_status_change(task_obj, status)
         if prev != task_obj.status:
@@ -160,6 +183,7 @@ def update_task(
         logger.info(
             f"Best-effort update of task file failed for '{fq_task_id}'.")
 
+    prev_story_status = story.status
     next_story_status = rollup_story_status(
         [t.status for t in (story.tasks or [])])
     apply_status_change(story, next_story_status)
@@ -171,6 +195,47 @@ def update_task(
         except Exception:
             logger.info(
                 f"Best-effort rollup update of story file failed for '{story_id}'.")
+
+    # Selection invariants: if current task was completed, auto-advance/reset
+    try:
+        current_tid = get_current_task_id(plan.id)
+        if current_tid == task_obj.id and task_obj.status == Status.DONE:
+            # Prefer IN_PROGRESS tasks first
+            next_id: Optional[str] = None
+            for t in (story.tasks or []):
+                if t.id != task_obj.id and t.status == Status.IN_PROGRESS:
+                    next_id = t.id
+                    break
+            # If none in progress, choose first TODO that is unblocked
+            if next_id is None:
+                try:
+                    for t in (story.tasks or []):
+                        if t.id == task_obj.id or t.status != Status.TODO:
+                            continue
+                        local = t.id.split(':', 1)[1] if ':' in t.id else t.id
+                        # type: ignore[name-defined]
+                        info = explain_task_blockers(story.id, local)
+                        if info and info.get('unblocked', False):
+                            next_id = t.id
+                            break
+                except Exception:
+                    # Fallback: keep behavior even if blocker analysis fails
+                    pass
+            if next_id is not None:
+                set_Current = set_current_task_id  # alias to preserve indentation pattern
+                set_Current(next_id, plan.id)
+            else:
+                # No next task; clear selection
+                set_current_task_id(None, plan.id)
+        # If story rolled up to DONE and it's current, clear story and task selections
+        if prev_story_status != story.status and story.status == Status.DONE:
+            current_sid = get_current_story_id(plan.id)
+            if current_sid == story.id:
+                set_current_task_id(None, plan.id)
+                set_current_story_id(None, plan.id)
+    except Exception:
+        # Best-effort; do not block primary update on selection maintenance
+        pass
 
     return task_obj.model_dump(mode='json', include={'id', 'title', 'status', 'priority', 'creation_time', 'completion_time', 'description', 'depends_on'}, exclude_none=True)
 
@@ -208,6 +273,20 @@ def delete_task(story_id: str, task_id: str) -> dict:
     except Exception:
         logger.info(
             f"Best-effort update of story file tasks list failed for '{story_id}'.")
+    # Selection invariants: if deleted task was current, auto-advance/reset
+    try:
+        current_tid = get_current_task_id(plan.id)
+        if current_tid == fq_task_id:
+            # Prefer next TODO/IN_PROGRESS task
+            for t in (story.tasks or []):
+                if t.status in (Status.TODO, Status.IN_PROGRESS):
+                    set_current_task_id(t.id, plan.id)
+                    break
+            else:
+                set_current_task_id(None, plan.id)
+    except Exception:
+        pass
+
     return {"success": True, "message": f"Successfully deleted task '{fq_task_id}'."}
 
 

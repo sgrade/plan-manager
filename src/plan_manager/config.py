@@ -29,6 +29,14 @@ ENABLE_FILE_LOG = _env_bool("PLAN_MANAGER_ENABLE_FILE_LOG")
 REQUIRE_APPROVAL_BEFORE_PROGRESS = _env_bool(
     "REQUIRE_APPROVAL_BEFORE_PROGRESS", True)
 
+# Require an execution_intent before moving a Task to IN_PROGRESS
+REQUIRE_EXECUTION_INTENT_BEFORE_IN_PROGRESS = _env_bool(
+    "REQUIRE_EXECUTION_INTENT_BEFORE_IN_PROGRESS", True)
+
+# Require an execution_summary before moving a Task to DONE
+REQUIRE_EXECUTION_SUMMARY_BEFORE_DONE = _env_bool(
+    "REQUIRE_EXECUTION_SUMMARY_BEFORE_DONE", True)
+
 # --- Uvicorn Configuration ---
 HOST = os.getenv("HOST", "127.0.0.1")
 PORT = int(os.getenv("PORT", "3000"))
