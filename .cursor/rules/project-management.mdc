@@ -1,14 +1,52 @@
 ---
 alwaysApply: false
 ---
+# Project management rules
 
-Code changes are allowed in the follwoing cases:
-1. Aligned with the plan documented via plan-manager MCP server
+## Purpose & application
+
+Code changes are allowed in the following cases:
+1. Aligned with the plan documented via Plan Manager MCP server
 2. Deviations are discussed, reflected in the plan, and approved
-3. Explicit user request to perform a task outside plan-manager
+3. Explicit user request to perform a task outside Plan Manager
 
-Development workflow:
-- Before each task: write execution_intent (objective, scope, acceptance), request approval
-- After each task: write execution_summary (what changed, where), request review, record changelog entry
-- Default context: current plan → current story → current task
-- Use context tools to select/advance (no parallel execution)
+## Work items and statuses
+- Plan: documents major change; maps to MAJOR in semantic versioning; a collection of stories.
+- Story: WHAT/WHY and acceptance (user-facing outcome); maps to MINOR; a collection of tasks.
+- Task: HOW it gets done (implementation steps) for the AI agent; maps to PATCH. Each task should be a small, self-contained unit of work equivalent to a single Pull Request (PR) or Merge Request (MR).
+- Statuses: apply to plans, stories, and tasks; primary progression is TODO → IN_PROGRESS → PENDING_REVIEW → DONE; side states: BLOCKED, DEFERRED.
+- Dependencies: tasks/stories may block others.
+- Priority: 0–5 (0 is highest).
+
+## Development workflow
+1. Planning:
+   - The user can select an existing work item (Plan or Story) to review, or create a new one.
+   - **Reviewing (Backlog Refinement)**: The primary purpose of planning is to review a Story and its Tasks to understand the full **Story Context** before committing to execution. This is the most common planning activity.
+   - **Creating (Decomposition)**: To create a new Story, the user provides a description. The agent then defines the Story (WHAT/WHY + acceptance) and proposes a set of Tasks (HOW). This is a form of task decomposition.
+   - The user always reviews the proposed/existing items and can `approve` or `change` them.
+2. Execution (per-task): This follows a standard Pull Request (PR) workflow.
+   - **Task Description (Pre-Execution Review)**: Before starting a task, the agent must propose a description of the work, including the objective and scope. This is equivalent to a PR description. The user must `approve` this before work begins.
+   - **Implementation**: Upon approval, the task's status is set to `IN_PROGRESS` and the agent begins work.
+   - **Code Review (Post-Execution Review)**: After completing the work, the agent submits the code for review, and the task's status is set to `PENDING_REVIEW`. The agent provides a summary of changes, similar to a changelog entry. The user reviews the changes and can `approve` to merge, or `change` to request corrections. Once approved, the task is `DONE`. This review step is mandatory.
+   - **Fast-Track (Optional)**: For simple or trusted tasks, the user can choose to skip the pre-execution review. See the `approve [item_index]` command.
+
+## Commands (chat → actions)
+- plan [description]
+  - A contextual command for planning and reviewing work items, similar to **Backlog Refinement**.
+  - **Reviewing (no description)**: This is the most common use. It reviews the current work item to understand the **Story Context**. If the context is a Story, it lists its Tasks.
+  - **Creating (with description)**: When called with a description, it creates a new work item (a form of **Decomposition**). If the current context is a Plan, this creates a new Story. If there is no context, ask the user.
+- approve [item_index]
+  - Applies contextually. If `item_index` is omitted, it applies to the current item under review.
+    - **Plan/Story Review**: Accepts the overall proposal. The agent will then proceed to the first task and request a pre-execution review.
+    - **Fast-Track Plan Review**: If an `item_index` (e.g., `approve 1`) is provided during a plan review, it approves the overall plan AND bypasses the pre-execution review for the specified task, moving it directly to `IN_PROGRESS`.
+    - **Pre-Execution Review**: Approves the task's description, authorizing the agent to begin implementation.
+    - **Post-Execution Review**: Accepts and merges the code changes, marking the task as `DONE`.
+- status
+  - Provides a dynamic, contextual overview of the current state. The output changes based on the status of the current task.
+  - **General Overview (if between tasks)**: Shows the list of tasks for the current story, highlighting the next available task.
+  - **Pending Pre-Execution Review**: Shows the agent's proposed plan for the current task and prompts for approval.
+  - **Pending Code Review**: Shows the agent's summary of completed work and prompts for a code review.
+- change [instructions]
+  - Used to edit the current or named item(s) by index or title. The agent can edit titles, descriptions, priorities, dependencies, and add/remove tasks.
+  - If instructions are not provided, the agent will ask what should be changed.
+  - After applying edits, the agent will print an updated summary for review.

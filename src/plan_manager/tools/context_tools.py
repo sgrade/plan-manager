@@ -13,14 +13,14 @@ from plan_manager.domain.models import Status
 
 def register_context_tools(mcp_instance) -> None:
     """Register context tools with the MCP instance."""
-    mcp_instance.tool()(current_context)
+    mcp_instance.tool()(get_current_context)
     mcp_instance.tool()(select_first_story)
     mcp_instance.tool()(select_first_unblocked_task)
     mcp_instance.tool()(advance_to_next_task)
     mcp_instance.tool()(workflow_status)
 
 
-def current_context() -> CurrentContextOut:
+def get_current_context() -> CurrentContextOut:
     """Get the current context of the current plan: plan_id, current_story_id, current_task_id.
 
     Answers the question "Where am I?"

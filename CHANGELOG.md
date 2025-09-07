@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - MCP prompts for execution intent and summary, review checklist.
 - Break development workflow into planning and execution; related convenience features.
+- Implement planning/execution workflow, agent actions (workflow_status.actions), select_or_create, guardrails, pagination, client-side changelog
 
 ### Changed
 - Refactor changelog tools to work with remote client.

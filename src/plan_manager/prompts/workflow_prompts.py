@@ -119,7 +119,7 @@ async def prompt_agent_usage_guide() -> List:
 Plan-Manager: AI Agent Usage Guide (concise)
 
 Core workflow per task:
-1) current_context → select_first_story → select_first_unblocked_task
+1) get_current_context → select_first_story → select_first_unblocked_task
 2) Draft execution_intent → request_approval_tool
 3) After approval → update_task(status=IN_PROGRESS)
 4) Do edits within client roots (client-enforced)
@@ -127,7 +127,7 @@ Core workflow per task:
 6) generate_changelog/publish_changelog_tool → append markdown client-side
 
 Key tools:
-- Context: current_context, select_first_story, select_first_unblocked_task, advance_to_next_task, workflow_status
+- Context: get_current_context, select_first_story, select_first_unblocked_task, advance_to_next_task, workflow_status
 - Plans: create_plan, get_plan, update_plan, delete_plan, list_plans, set_current_plan
 - Stories: create_story, get_story, update_story, delete_story, list_stories
 - Tasks: create_task, get_task, update_task, delete_task, list_tasks, explain_task_blockers, set_current_task
