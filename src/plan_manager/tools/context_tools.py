@@ -1,109 +1,18 @@
 from plan_manager.schemas.outputs import (
-    CurrentContextOut,
-    TaskOut,
-    # StoryOut,
     WorkflowStatusOut,
 )
 from plan_manager.services.plan_repository import get_current_plan_id
 from plan_manager.services.state_repository import (
     get_current_story_id,
-    # set_current_story_id,
     get_current_task_id,
-    set_current_task_id,
 )
 from plan_manager.services import plan_repository as plan_repo
-from plan_manager.services.task_service import list_tasks as svc_list_tasks
 from plan_manager.domain.models import Status
 
 
 def register_context_tools(mcp_instance) -> None:
     """Register context tools with the MCP instance."""
-    mcp_instance.tool()(get_current_context)
-    # mcp_instance.tool()(select_first_story)
-    mcp_instance.tool()(select_first_unblocked_task)
-    mcp_instance.tool()(advance_to_next_task)
     mcp_instance.tool()(workflow_status)
-
-
-def get_current_context() -> CurrentContextOut:
-    """Get the current context of the current plan: plan_id, current_story_id, current_task_id.
-
-    Answers the question "Where am I?"
-    """
-    pid = get_current_plan_id()
-    return CurrentContextOut(
-        plan_id=pid,
-        current_story_id=get_current_story_id(pid),
-        current_task_id=get_current_task_id(pid),
-    )
-
-
-# def select_first_story() -> StoryOut:
-#     """Select the first story in the current plan."""
-#     plan = plan_repo.load_current()
-#     if not plan.stories:
-#         # Auto-bootstrap: create a starter story and task
-#         from plan_manager.services.story_service import create_story as svc_create_story
-#         from plan_manager.services.task_service import create_task as svc_create_task
-#         starter = svc_create_story("Getting Started", priority=5, depends_on=[
-#         ], description="Bootstrap story created automatically")
-#         # Create a starter task under the new story
-#         _t = svc_create_task(starter['id'], "Select first task", priority=5, depends_on=[
-#         ], description="Start here: select the first task to begin")
-#         plan = plan_repo.load_current()
-#     first = plan.stories[0]
-#     set_current_story_id(first.id, plan.id)
-#     return StoryOut(**first.model_dump(mode='json', exclude_none=True))
-
-
-def select_first_unblocked_task() -> TaskOut:
-    """Select the first unblocked task in the current story."""
-    pid = get_current_plan_id()
-    sid = get_current_story_id(pid)
-    if not sid:
-        raise ValueError(
-            "No current story set. Call select_first_story or set_current_story.")
-    tasks = svc_list_tasks(statuses=[
-                           Status.TODO, Status.IN_PROGRESS, Status.BLOCKED, Status.DEFERRED], story_id=sid)
-    # If no tasks exist, auto-bootstrap with a starter task
-    if not tasks:
-        from plan_manager.services.task_service import create_task as svc_create_task
-        created = svc_create_task(sid, "Starter task", priority=5, depends_on=[
-        ], description="Bootstrap task created automatically")
-        set_current_task_id(created['id'], pid)
-        return TaskOut(**created)
-    for t in tasks:
-        if t.status in (Status.TODO, Status.IN_PROGRESS):
-            set_current_task_id(t.id, pid)
-            return TaskOut(**t.model_dump(mode='json', exclude_none=True))
-    raise ValueError("No unblocked tasks found in current story.")
-
-
-def advance_to_next_task() -> TaskOut:
-    """Advance to the next task in the current story."""
-    pid = get_current_plan_id()
-    sid = get_current_story_id(pid)
-    if not sid:
-        raise ValueError(
-            "No current story set. Call select_first_story or set_current_story.")
-    current_tid = get_current_task_id(pid)
-    tasks = svc_list_tasks(statuses=[
-                           Status.TODO, Status.IN_PROGRESS, Status.BLOCKED, Status.DEFERRED], story_id=sid)
-    if not tasks:
-        raise ValueError("Current story has no tasks.")
-    # Find current index
-    idx = -1
-    if current_tid:
-        for i, t in enumerate(tasks):
-            if t.id == current_tid:
-                idx = i
-                break
-    next_i = 0 if idx == -1 else (idx + 1)
-    if next_i >= len(tasks):
-        raise ValueError("Already at last task; no next task to advance to.")
-    nxt = tasks[next_i]
-    set_current_task_id(nxt.id, pid)
-    return TaskOut(**nxt.model_dump(mode='json', exclude_none=True))
 
 
 def workflow_status() -> WorkflowStatusOut:
@@ -193,13 +102,7 @@ def workflow_status() -> WorkflowStatusOut:
         })
     elif sid and not tid:
         # Story selected but no task; suggest first unblocked task
-        actions.append({
-            "id": "select_first_unblocked_task",
-            "label": "Select first unblocked task",
-            "tool": "select_first_unblocked_task",
-            "payload_hints": {}
-        })
-        # Suggest switching to a different story with unblocked tasks (if any)
+        # Find any other story with TODO tasks and dependencies satisfied
         try:
             plan = plan_repo.load_current()
             # Find any other story with TODO tasks and dependencies satisfied
@@ -360,12 +263,6 @@ def workflow_status() -> WorkflowStatusOut:
                 "label": "Generate changelog markdown",
                 "tool": "publish_changelog_tool",
                 "payload_hints": {"version": None, "date": None}
-            })
-            actions.append({
-                "id": "advance",
-                "label": "Advance to next task",
-                "tool": "advance_to_next_task",
-                "payload_hints": {}
             })
             # If the story has no remaining TODO/IN_PROGRESS tasks, suggest marking story DONE
             try:
