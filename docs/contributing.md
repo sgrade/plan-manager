@@ -87,12 +87,12 @@ curl -sN \
       "clientInfo":{"name":"curl","version":"0"}
     }
   }' \
-  http://localhost:3000/mcp \
+  http://localhost:3000/mcp \ 
 | sed -n 's/^data: //p' \
 | jq
 ```
 
-To test with MCP-Inspector, check [dev/mcp-inspector/README.md](dev/mcp-inspector/README.md)
+To test with MCP-Inspector, check [../dev/mcp-inspector/README.md](../dev/mcp-inspector/README.md)
 
 ### Logging
 

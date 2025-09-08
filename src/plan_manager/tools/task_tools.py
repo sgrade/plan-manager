@@ -7,9 +7,17 @@ from plan_manager.services.task_service import (
     delete_task as svc_delete_task,
     list_tasks as svc_list_tasks,
     explain_task_blockers as svc_explain_task_blockers,
+    submit_for_code_review as svc_submit_for_code_review,
+    propose_implementation_plan as svc_propose_implementation_plan,
 )
 from plan_manager.schemas.inputs import (
-    CreateTaskIn, GetTaskIn, UpdateTaskIn, DeleteTaskIn, ListTasksIn, ExplainTaskBlockersIn, SetCurrentTaskIn, SelectOrCreateTaskIn,
+    ListTasksIn,
+    CreateTaskIn, GetTaskIn, UpdateTaskIn, DeleteTaskIn,
+    SetCurrentTaskIn,
+    ExplainTaskBlockersIn,
+    # SelectOrCreateTaskIn,
+    SubmitForReviewIn,
+    ProposePlanIn,
 )
 from plan_manager.schemas.outputs import TaskOut, TaskListItem, OperationResult, TaskBlockersOut
 from plan_manager.services.state_repository import get_current_story_id, set_current_task_id, get_current_task_id
@@ -22,9 +30,11 @@ def register_task_tools(mcp_instance) -> None:
     mcp_instance.tool()(update_task)
     mcp_instance.tool()(delete_task)
     mcp_instance.tool()(list_tasks)
-    mcp_instance.tool()(explain_task_blockers)
     mcp_instance.tool()(set_current_task)
-    mcp_instance.tool()(select_or_create_task)
+    mcp_instance.tool()(explain_task_blockers)
+    # mcp_instance.tool()(select_or_create_task)
+    mcp_instance.tool()(submit_for_review)
+    mcp_instance.tool()(propose_plan)
 
 
 def create_task(payload: CreateTaskIn) -> TaskOut:
@@ -100,20 +110,40 @@ def set_current_task(payload: SetCurrentTaskIn) -> OperationResult:
     return OperationResult(success=True, message=f"Current task set to '{payload.task_id}'")
 
 
-def select_or_create_task(payload: SelectOrCreateTaskIn) -> TaskOut:
-    """Select a task by title in a story or create it if missing; set current."""
-    story_id = payload.story_id or get_current_story_id()
-    if not story_id:
-        raise ValueError(
-            "No current story set. Provide story_id or set current story.")
-    # Load story tasks via service
-    tasks = svc_list_tasks(None, story_id)
-    title = payload.title.strip()
-    found = next((t for t in tasks if t.title.lower() == title.lower()), None)
-    if found:
-        set_current_task_id(found.id)
-        return TaskOut(**found.model_dump(mode='json', exclude_none=True))
-    created = svc_create_task(
-        story_id, title, payload.priority, payload.depends_on, payload.description)
-    set_current_task_id(created['id'])
-    return TaskOut(**created)
+# def select_or_create_task(payload: SelectOrCreateTaskIn) -> TaskOut:
+#     """Select a task by title in a story or create it if missing; set current."""
+#     story_id = payload.story_id or get_current_story_id()
+#     if not story_id:
+#         raise ValueError(
+#             "No current story set. Provide story_id or set current story.")
+#     # Load story tasks via service
+#     tasks = svc_list_tasks(None, story_id)
+#     title = payload.title.strip()
+#     found = next((t for t in tasks if t.title.lower() == title.lower()), None)
+#     if found:
+#         set_current_task_id(found.id)
+#         return TaskOut(**found.model_dump(mode='json', exclude_none=True))
+#     created = svc_create_task(
+#         story_id, title, payload.priority, payload.depends_on, payload.description)
+#     set_current_task_id(created['id'])
+#     return TaskOut(**created)
+
+
+def submit_for_review(payload: SubmitForReviewIn) -> TaskOut:
+    """Submits a task for code review, moving it to PENDING_REVIEW status."""
+    data = svc_submit_for_code_review(
+        story_id=payload.story_id,
+        task_id=payload.task_id,
+        summary_text=payload.summary
+    )
+    return TaskOut(**data)
+
+
+def propose_plan(payload: ProposePlanIn) -> TaskOut:
+    """Proposes an implementation plan for a task, moving it to a reviewable state."""
+    data = svc_propose_implementation_plan(
+        story_id=payload.story_id,
+        task_id=payload.task_id,
+        plan_text=payload.plan
+    )
+    return TaskOut(**data)

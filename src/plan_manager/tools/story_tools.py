@@ -12,7 +12,7 @@ from plan_manager.services.story_service import (
     list_stories as svc_list_stories,
 )
 from plan_manager.schemas.inputs import (
-    CreateStoryIn, GetStoryIn, UpdateStoryIn, DeleteStoryIn, ListStoriesIn, SetCurrentStoryIn, SelectOrCreateStoryIn,
+    CreateStoryIn, GetStoryIn, UpdateStoryIn, DeleteStoryIn, ListStoriesIn, SetCurrentStoryIn,
 )
 from plan_manager.schemas.outputs import StoryOut, OperationResult, StoryListItem
 from plan_manager.services.state_repository import set_current_story_id, get_current_story_id
@@ -28,7 +28,7 @@ def register_story_tools(mcp_instance) -> None:
     mcp_instance.tool()(update_story)
     mcp_instance.tool()(delete_story)
     mcp_instance.tool()(list_stories)
-    mcp_instance.tool()(select_or_create_story)
+    mcp_instance.tool()(set_current_story)
 
 
 def create_story(payload: CreateStoryIn) -> StoryOut:
@@ -102,18 +102,3 @@ def set_current_story(payload: SetCurrentStoryIn) -> OperationResult:
     """Set the current story."""
     set_current_story_id(payload.story_id)
     return OperationResult(success=True, message=f"Current story set to '{payload.story_id}'")
-
-
-def select_or_create_story(payload: SelectOrCreateStoryIn) -> StoryOut:
-    """Select a story by title in current plan or create it if missing; set current."""
-    plan = plan_repo.load_current()
-    title = payload.title.strip()
-    found = next(
-        (s for s in plan.stories if s.title.lower() == title.lower()), None)
-    if found:
-        set_current_story_id(found.id, plan.id)
-        return StoryOut(**found.model_dump(mode='json', exclude_none=True))
-    created = svc_create_story(
-        title, payload.priority, payload.depends_on, payload.description)
-    set_current_story_id(created['id'], plan.id)
-    return StoryOut(**created)

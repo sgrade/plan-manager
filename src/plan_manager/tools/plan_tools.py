@@ -16,12 +16,12 @@ from plan_manager.services.plan_repository import set_current_plan_id, get_curre
 
 def register_plan_tools(mcp_instance) -> None:
     """Register plan tools with the MCP instance."""
+    mcp_instance.tool()(list_plans)
     mcp_instance.tool()(create_plan)
     mcp_instance.tool()(select_or_create_plan)
     mcp_instance.tool()(get_plan)
     mcp_instance.tool()(update_plan)
     mcp_instance.tool()(delete_plan)
-    mcp_instance.tool()(list_plans)
     mcp_instance.tool()(set_current_plan)
 
 

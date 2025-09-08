@@ -32,6 +32,12 @@ def main():
         config.HOST, config.PORT, config.RELOAD, log_destination
     )
 
+    if config.RELOAD:
+        logger.info("Reloading enabled. Reload dirs: %s, includes: %s, excludes: %s",
+                    config.RELOAD_DIRS, config.RELOAD_INCLUDES, config.RELOAD_EXCLUDES)
+    else:
+        logger.info("Reloading disabled. App will not restart on code changes.")
+
     uvicorn.run(
         "plan_manager.server:starlette_app",
         factory=True,

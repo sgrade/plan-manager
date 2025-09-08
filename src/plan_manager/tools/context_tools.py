@@ -1,8 +1,13 @@
-from plan_manager.schemas.outputs import CurrentContextOut, TaskOut, StoryOut, WorkflowStatusOut
+from plan_manager.schemas.outputs import (
+    CurrentContextOut,
+    TaskOut,
+    # StoryOut,
+    WorkflowStatusOut,
+)
 from plan_manager.services.plan_repository import get_current_plan_id
 from plan_manager.services.state_repository import (
     get_current_story_id,
-    set_current_story_id,
+    # set_current_story_id,
     get_current_task_id,
     set_current_task_id,
 )
@@ -14,7 +19,7 @@ from plan_manager.domain.models import Status
 def register_context_tools(mcp_instance) -> None:
     """Register context tools with the MCP instance."""
     mcp_instance.tool()(get_current_context)
-    mcp_instance.tool()(select_first_story)
+    # mcp_instance.tool()(select_first_story)
     mcp_instance.tool()(select_first_unblocked_task)
     mcp_instance.tool()(advance_to_next_task)
     mcp_instance.tool()(workflow_status)
@@ -33,22 +38,22 @@ def get_current_context() -> CurrentContextOut:
     )
 
 
-def select_first_story() -> StoryOut:
-    """Select the first story in the current plan."""
-    plan = plan_repo.load_current()
-    if not plan.stories:
-        # Auto-bootstrap: create a starter story and task
-        from plan_manager.services.story_service import create_story as svc_create_story
-        from plan_manager.services.task_service import create_task as svc_create_task
-        starter = svc_create_story("Getting Started", priority=5, depends_on=[
-        ], description="Bootstrap story created automatically")
-        # Create a starter task under the new story
-        _t = svc_create_task(starter['id'], "Select first task", priority=5, depends_on=[
-        ], description="Start here: select the first task to begin")
-        plan = plan_repo.load_current()
-    first = plan.stories[0]
-    set_current_story_id(first.id, plan.id)
-    return StoryOut(**first.model_dump(mode='json', exclude_none=True))
+# def select_first_story() -> StoryOut:
+#     """Select the first story in the current plan."""
+#     plan = plan_repo.load_current()
+#     if not plan.stories:
+#         # Auto-bootstrap: create a starter story and task
+#         from plan_manager.services.story_service import create_story as svc_create_story
+#         from plan_manager.services.task_service import create_task as svc_create_task
+#         starter = svc_create_story("Getting Started", priority=5, depends_on=[
+#         ], description="Bootstrap story created automatically")
+#         # Create a starter task under the new story
+#         _t = svc_create_task(starter['id'], "Select first task", priority=5, depends_on=[
+#         ], description="Start here: select the first task to begin")
+#         plan = plan_repo.load_current()
+#     first = plan.stories[0]
+#     set_current_story_id(first.id, plan.id)
+#     return StoryOut(**first.model_dump(mode='json', exclude_none=True))
 
 
 def select_first_unblocked_task() -> TaskOut:

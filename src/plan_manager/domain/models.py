@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 class Status(str, Enum):
     TODO = "TODO"
     IN_PROGRESS = "IN_PROGRESS"
+    PENDING_REVIEW = "PENDING_REVIEW"
     DONE = "DONE"
     BLOCKED = "BLOCKED"
     DEFERRED = "DEFERRED"
@@ -50,33 +51,8 @@ class WorkItem(BaseModel):
         return value
 
 
-class Approval(BaseModel):
-    """Lightweight approval metadata for Story/Task items."""
-    requested_by: Optional[str] = None
-    requested_at: Optional[datetime] = None
-    approved_by: Optional[str] = None
-    approved_at: Optional[datetime] = None
-    notes: Optional[str] = None
-
-
 class Story(WorkItem):
     file_path: Optional[str] = None
-    # description: Durable what/why (inherited from WorkItem)
-    # execution_intent: Ephemeral how/now plan for this iteration
-    execution_intent: Optional[str] = Field(
-        default=None,
-        description="Ephemeral how/now checklist for this iteration (objective, scope, acceptance).",
-    )
-    # execution_summary: Brief outcome summary after work is done
-    execution_summary: Optional[str] = Field(
-        default=None,
-        description="Brief outcome summary after completion (what changed, where).",
-    )
-    # approval: Lightweight approval metadata
-    approval: Optional[Approval] = Field(
-        default=None,
-        description="Approval metadata (requested/approved by/at, optional notes).",
-    )
     tasks: List['Task'] = Field(default_factory=list)
 
 
@@ -84,17 +60,13 @@ class Task(WorkItem):
     file_path: Optional[str] = None
     story_id: Optional[str] = None
     # See Story fields for semantics
-    execution_intent: Optional[str] = Field(
+    implementation_plan: Optional[str] = Field(
         default=None,
-        description="Ephemeral how/now checklist for this iteration (objective, scope, acceptance).",
+        description="The agent's plan for how to implement the task. Reviewed before work begins.",
     )
     execution_summary: Optional[str] = Field(
         default=None,
         description="Brief outcome summary after completion (what changed, where).",
-    )
-    approval: Optional[Approval] = Field(
-        default=None,
-        description="Approval metadata (requested/approved by/at, optional notes).",
     )
 
 

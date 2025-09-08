@@ -7,12 +7,7 @@ from plan_manager.domain.models import Task, Story, Status
 from plan_manager.services import plan_repository as plan_repo
 from plan_manager.io.paths import task_file_path
 from plan_manager.io.file_mirror import save_item_to_file, read_item_file, delete_item_file
-from plan_manager.services.status import rollup_story_status, apply_status_change
-from plan_manager.config import (
-    REQUIRE_EXECUTION_INTENT_BEFORE_IN_PROGRESS,
-    REQUIRE_EXECUTION_SUMMARY_BEFORE_DONE,
-)
-from plan_manager.services.shared import guard_approval_before_progress
+from plan_manager.services.status_utils import rollup_story_status, apply_status_change
 from plan_manager.services.activity_repository import append_event
 from plan_manager.services.state_repository import (
     get_current_task_id,
@@ -32,6 +27,22 @@ from plan_manager.services.shared import (
 
 
 logger = logging.getLogger(__name__)
+
+
+def _find_task(plan, story_id, task_id):
+    """Helper to find a task and its story, returning (story, task) or raising KeyError."""
+    story: Optional[Story] = next(
+        (s for s in plan.stories if s.id == story_id), None)
+    if not story:
+        raise KeyError(f"Story with ID '{story_id}' not found.")
+
+    fq_task_id = f"{story_id}:{task_id}" if ':' not in task_id else task_id
+    task_obj: Optional[Task] = next(
+        (t for t in (story.tasks or []) if t.id == fq_task_id), None)
+    if not task_obj:
+        raise KeyError(
+            f"Task with ID '{fq_task_id}' not found under story '{story_id}'.")
+    return story, task_obj, fq_task_id
 
 
 def _generate_task_id_from_title(title: str) -> str:
@@ -118,6 +129,52 @@ def get_task(story_id: str, task_id: str) -> dict:
     return {"id": fq_task_id, "title": local_task_id.replace('_', ' '), "status": "TODO"}
 
 
+def propose_implementation_plan(story_id: str, task_id: str, plan_text: str) -> dict:
+    """Sets the implementation plan for a task, making it ready for pre-execution review."""
+    plan = plan_repo.load_current()
+    story, task_obj, _fq_task_id = _find_task(plan, story_id, task_id)
+
+    if task_obj.status not in [Status.TODO, Status.IN_PROGRESS]:
+        raise ValueError(
+            f"Can only propose a plan for a task in TODO or IN_PROGRESS status. Current status is {task_obj.status}.")
+
+    task_obj.implementation_plan = plan_text
+
+    # Re-assign the tasks list to ensure the parent model detects the change.
+    story.tasks = [t for t in (story.tasks or [])]
+
+    validate_and_save(plan)
+    return task_obj.model_dump(mode='json', exclude_none=True)
+
+
+def submit_for_code_review(story_id: str, task_id: str, summary_text: str) -> dict:
+    """Sets the execution summary and moves the task to PENDING_REVIEW."""
+    plan = plan_repo.load_current()
+    story, task_obj, _fq_task_id = _find_task(plan, story_id, task_id)
+
+    if task_obj.status != Status.IN_PROGRESS:
+        raise ValueError(
+            f"Can only submit for review a task that is IN_PROGRESS. Current status is {task_obj.status}.")
+
+    task_obj.execution_summary = summary_text
+
+    prev_status = task_obj.status
+    apply_status_change(task_obj, Status.PENDING_REVIEW)
+    append_event(plan.id, 'task_status_changed', {'task_id': task_obj.id}, {
+        'from': prev_status.value, 'to': task_obj.status.value
+    })
+
+    # Trigger story status rollup
+    prev_story_status = story.status
+    next_story_status = rollup_story_status(
+        [t.status for t in (story.tasks or [])])
+    if prev_story_status != next_story_status:
+        apply_status_change(story, next_story_status)
+
+    validate_and_save(plan)
+    return task_obj.model_dump(mode='json', exclude_none=True)
+
+
 def update_task(
     story_id: str,
     task_id: str,
@@ -126,19 +183,9 @@ def update_task(
     depends_on: Optional[List[str]] = None,
     priority: Optional[int] = None,
     status: Optional[Status] = None,
-    execution_summary: Optional[str] = None,
 ) -> dict:
     plan = plan_repo.load_current()
-    story: Optional[Story] = next(
-        (s for s in plan.stories if s.id == story_id), None)
-    if not story:
-        raise KeyError(f"story with ID '{story_id}' not found.")
-    fq_task_id = f"{story_id}:{task_id}" if ':' not in task_id else task_id
-    task_obj: Optional[Task] = next(
-        (t for t in story.tasks if t.id == fq_task_id), None)
-    if not task_obj:
-        raise KeyError(
-            f"task with ID '{fq_task_id}' not found under story '{story_id}'.")
+    story, task_obj, fq_task_id = _find_task(plan, story_id, task_id)
 
     if title is not None:
         task_obj.title = title
@@ -148,29 +195,30 @@ def update_task(
         task_obj.depends_on = depends_on
     if priority is not None:
         task_obj.priority = priority
-    if status is not None:
-        # Optional guardrails: require intent before IN_PROGRESS; summary before DONE
-        if status == Status.IN_PROGRESS and REQUIRE_EXECUTION_INTENT_BEFORE_IN_PROGRESS:
-            if not getattr(task_obj, 'execution_intent', None):
-                raise ValueError(
-                    "Execution intent is required before starting work (IN_PROGRESS).")
-        if status == Status.DONE and REQUIRE_EXECUTION_SUMMARY_BEFORE_DONE:
-            summary_value = execution_summary if execution_summary is not None else getattr(
-                task_obj, 'execution_summary', None)
-            if not summary_value:
-                raise ValueError(
-                    "Execution summary is required before marking DONE.")
 
-        guard_approval_before_progress(
-            task_obj.status, status, getattr(task_obj, 'approval', None),
-        )
-        prev = task_obj.status
-        apply_status_change(task_obj, status)
-        if prev != task_obj.status:
+    if status is not None:
+        prev_status = task_obj.status
+
+        # Enforce strict state transitions authorized by the 'approve' command
+        if status == Status.IN_PROGRESS and prev_status == Status.TODO:
+            if not task_obj.implementation_plan:
+                raise ValueError(
+                    "An implementation plan must be approved before starting work.")
+            apply_status_change(task_obj, status)
+        elif status == Status.DONE and prev_status == Status.PENDING_REVIEW:
+            if not task_obj.execution_summary:
+                raise ValueError(
+                    "An execution summary must be provided before marking as DONE.")
+            apply_status_change(task_obj, status)
+        elif status == prev_status:
+            pass  # No change
+        else:
+            raise ValueError(
+                f"Invalid status transition from {prev_status} to {status}.")
+
+        if prev_status != task_obj.status:
             append_event(plan.id, 'task_status_changed', {'task_id': task_obj.id}, {
-                         'from': prev.value if hasattr(prev, 'value') else prev, 'to': task_obj.status.value if hasattr(task_obj.status, 'value') else task_obj.status})
-    if execution_summary is not None:
-        task_obj.execution_summary = execution_summary
+                         'from': prev_status.value, 'to': task_obj.status.value})
 
     validate_and_save(plan)
 
@@ -186,58 +234,33 @@ def update_task(
     prev_story_status = story.status
     next_story_status = rollup_story_status(
         [t.status for t in (story.tasks or [])])
-    apply_status_change(story, next_story_status)
-    plan_repo.save(plan, plan_id=plan.id)
-    if story.file_path:
-        try:
-            save_item_to_file(story.file_path, story,
-                              content=None, overwrite=False)
-        except Exception:
-            logger.info(
-                f"Best-effort rollup update of story file failed for '{story_id}'.")
+    if prev_story_status != next_story_status:
+        apply_status_change(story, next_story_status)
+        # Save again if story status changed
+        plan_repo.save(plan, plan_id=plan.id)
+        if story.file_path:
+            try:
+                save_item_to_file(story.file_path, story,
+                                  content=None, overwrite=False)
+            except Exception:
+                logger.info(
+                    f"Best-effort rollup update of story file failed for '{story_id}'.")
 
-    # Selection invariants: if current task was completed, auto-advance/reset
+    # Selection invariants (simplified)
     try:
-        current_tid = get_current_task_id(plan.id)
-        if current_tid == task_obj.id and task_obj.status == Status.DONE:
-            # Prefer IN_PROGRESS tasks first
-            next_id: Optional[str] = None
-            for t in (story.tasks or []):
-                if t.id != task_obj.id and t.status == Status.IN_PROGRESS:
-                    next_id = t.id
-                    break
-            # If none in progress, choose first TODO that is unblocked
-            if next_id is None:
-                try:
-                    for t in (story.tasks or []):
-                        if t.id == task_obj.id or t.status != Status.TODO:
-                            continue
-                        local = t.id.split(':', 1)[1] if ':' in t.id else t.id
-                        # type: ignore[name-defined]
-                        info = explain_task_blockers(story.id, local)
-                        if info and info.get('unblocked', False):
-                            next_id = t.id
-                            break
-                except Exception:
-                    # Fallback: keep behavior even if blocker analysis fails
-                    pass
-            if next_id is not None:
-                set_Current = set_current_task_id  # alias to preserve indentation pattern
-                set_Current(next_id, plan.id)
-            else:
-                # No next task; clear selection
+        if task_obj.status == Status.DONE:
+            current_tid = get_current_task_id(plan.id)
+            if current_tid == task_obj.id:
+                # Clear selection on completion
                 set_current_task_id(None, plan.id)
-        # If story rolled up to DONE and it's current, clear story and task selections
-        if prev_story_status != story.status and story.status == Status.DONE:
+        if story.status == Status.DONE:
             current_sid = get_current_story_id(plan.id)
             if current_sid == story.id:
-                set_current_task_id(None, plan.id)
                 set_current_story_id(None, plan.id)
     except Exception:
-        # Best-effort; do not block primary update on selection maintenance
-        pass
+        logger.warning("Failed to update current selection state.")
 
-    return task_obj.model_dump(mode='json', include={'id', 'title', 'status', 'priority', 'creation_time', 'completion_time', 'description', 'depends_on'}, exclude_none=True)
+    return task_obj.model_dump(mode='json', exclude_none=True)
 
 
 def delete_task(story_id: str, task_id: str) -> dict:

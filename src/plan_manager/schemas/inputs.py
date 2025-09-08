@@ -174,6 +174,21 @@ class ExplainTaskBlockersIn(BaseModel):
     task_id: str = Field(..., description="Local task ID or FQ ID")
 
 
+class SubmitForReviewIn(BaseModel):
+    """Structured input for submitting a task for code review."""
+    story_id: str = Field(..., description="Parent story ID")
+    task_id: str = Field(..., description="Local task ID or FQ ID")
+    summary: str = Field(...,
+                         description="The execution summary for the code review.")
+
+
+class ProposePlanIn(BaseModel):
+    """Structured input for proposing an implementation plan for a task."""
+    story_id: str = Field(..., description="Parent story ID")
+    task_id: str = Field(..., description="Local task ID or FQ ID")
+    plan: str = Field(..., description="The implementation plan for the task.")
+
+
 # --- Approval Schemas ---
 
 class RequestApprovalIn(BaseModel):

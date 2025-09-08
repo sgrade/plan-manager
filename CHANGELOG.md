@@ -5,12 +5,13 @@ All notable changes to the Plan Manager project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## [0.5.1] - 2025-09-08
 
 ### Added
 - MCP prompts for execution intent and summary, review checklist.
 - Break development workflow into planning and execution; related convenience features.
 - Implement planning/execution workflow, agent actions (workflow_status.actions), select_or_create, guardrails, pagination, client-side changelog
+- Align it with the rewrtitten task-centric workflow defined in `.cursor/rules/project-management.mdc`
 
 ### Changed
 - Refactor changelog tools to work with remote client.
