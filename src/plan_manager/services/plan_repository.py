@@ -1,8 +1,7 @@
 import os
 import yaml
 import logging
-
-# from pydantic import ValidationError
+import shutil
 
 from typing import List, Dict, Any
 from plan_manager.domain.models import Plan
@@ -48,6 +47,44 @@ def save(plan: Plan, plan_id: str = 'default') -> None:
     os.makedirs(os.path.dirname(file_path), exist_ok=True)
     with open(file_path, 'w', encoding='utf-8') as f:
         yaml.safe_dump(data, f, default_flow_style=False, sort_keys=False)
+
+
+def delete(plan_id: str) -> None:
+    """Delete a plan by ID from the index and remove its directory."""
+    _ensure_plans_index_exists()
+
+    # Remove from index
+    with open(PLANS_INDEX_FILE_PATH, 'r', encoding='utf-8') as f:
+        idx = yaml.safe_load(f) or {}
+
+    plans_list = idx.get('plans', [])
+    if plan_id not in [p.get('id') for p in plans_list]:
+        raise FileNotFoundError(f"Plan '{plan_id}' not found in index.")
+
+    idx['plans'] = [p for p in plans_list if p.get('id') != plan_id]
+
+    # If the deleted plan was the current one, reset it
+    if idx.get('current') == plan_id:
+        if idx['plans']:
+            idx['current'] = idx['plans'][0].get('id')
+        else:
+            # No plans left, so create a default one
+            idx['current'] = 'default'
+            idx['plans'] = [
+                {'id': 'default', 'title': 'default', 'status': 'TODO'}]
+
+    with open(PLANS_INDEX_FILE_PATH, 'w', encoding='utf-8') as f:
+        yaml.safe_dump(idx, f, default_flow_style=False, sort_keys=False)
+
+    # Remove directory
+    plan_dir = os.path.join(TODO_DIR, plan_id)
+    if os.path.isdir(plan_dir):
+        try:
+            shutil.rmtree(plan_dir)
+            logger.info(f"Deleted plan directory: {plan_dir}")
+        except OSError as e:
+            logger.error(f"Error deleting directory {plan_dir}: {e}")
+            raise
 
 
 def list_plans() -> List[Dict[str, Any]]:

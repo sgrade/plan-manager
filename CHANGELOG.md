@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Removed
 - Remove unnecessary commands (select_first_unblocked_task, advance_to_next_task, and get_current_context).
 
+## Fixed
+- delete_plan not only removes it from the register, but removes the files.
+
 ## [0.5.1] - 2025-09-08
 
 ### Added

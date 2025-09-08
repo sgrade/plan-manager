@@ -50,22 +50,8 @@ def update_plan(plan_id: str, title: Optional[str], description: Optional[str], 
 
 
 def delete_plan(plan_id: str) -> Dict[str, Any]:
-    # Remove from index strictly; do not delete directory/files to avoid data loss surprises
-    plans = repo.list_plans()
-    if plan_id not in [p.get('id') for p in plans]:
-        raise KeyError(f"plan with ID '{plan_id}' not found")
-
-    # Update index
-    from plan_manager.config import PLANS_INDEX_FILE_PATH
-    import yaml
-    with open(PLANS_INDEX_FILE_PATH, 'r', encoding='utf-8') as f:
-        idx = yaml.safe_load(f) or {}
-    idx['plans'] = [p for p in (idx.get('plans') or [])
-                    if p.get('id') != plan_id]
-    with open(PLANS_INDEX_FILE_PATH, 'w', encoding='utf-8') as f:
-        yaml.safe_dump(idx, f, default_flow_style=False, sort_keys=False)
-
-    return {"success": True, "message": f"Successfully deleted plan '{plan_id}' from index."}
+    repo.delete(plan_id)
+    return {"success": True, "message": f"Successfully deleted plan '{plan_id}'."}
 
 
 def list_plans(statuses: Optional[List[Status]] = None) -> List[Dict[str, Any]]:
