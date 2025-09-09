@@ -13,9 +13,9 @@ def _format_task_line(task: Task) -> str:
     return f"[{task.status.value:<14}] {task.id.split(':')[-1]} - {task.title}"
 
 
-def get_status_report() -> str:
+def get_report() -> str:
     """
-    Generates a dynamic, contextual status report based on the current state.
+    Generates a dynamic, contextual report based on the current state.
     """
     plan_id = get_current_plan_id()
     if not plan_id:

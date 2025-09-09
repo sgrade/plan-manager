@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## Changed
+- Refactor command layer for clarity and predictability.
+
 ## Removed
 - Remove unnecessary commands (select_first_unblocked_task, advance_to_next_task, and get_current_context).
 

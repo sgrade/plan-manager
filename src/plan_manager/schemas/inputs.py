@@ -242,39 +242,3 @@ class PublishChangelogIn(BaseModel):
         None, description="Optional date (YYYY-MM-DD). Defaults to today.")
     target_path: Optional[str] = Field(
         'CHANGELOG.md', description="Target file path to append to")
-
-
-# --- Select-or-Create Helpers ---
-
-
-class SelectOrCreatePlanIn(BaseModel):
-    """Select a plan by title (or id), or create it if missing, and set current."""
-    title: str = Field(..., description="Plan title to select or create")
-    description: Optional[str] = Field(
-        None, description="Plan description if creating")
-    priority: Optional[int] = Field(
-        None, description="Priority 0..5 or None if creating")
-
-
-class SelectOrCreateStoryIn(BaseModel):
-    """Select a story by title (or id) in current plan, or create it if missing, and set current."""
-    title: str = Field(..., description="Story title to select or create")
-    description: Optional[str] = Field(
-        None, description="Story description if creating")
-    priority: Optional[int] = Field(
-        None, description="Priority 0..5 or None if creating")
-    depends_on: List[str] = Field(
-        default_factory=list, description="Dependencies if creating")
-
-
-class SelectOrCreateTaskIn(BaseModel):
-    """Select a task by title (or id) in a story, or create it if missing, and set current."""
-    title: str = Field(..., description="Task title to select or create")
-    description: Optional[str] = Field(
-        None, description="Task description if creating")
-    priority: Optional[int] = Field(
-        None, description="Priority 0..5 or None if creating")
-    depends_on: List[str] = Field(
-        default_factory=list, description="Dependencies if creating")
-    story_id: Optional[str] = Field(
-        None, description="Parent story ID; defaults to current story if omitted")

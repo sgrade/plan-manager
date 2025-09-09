@@ -23,11 +23,11 @@ logger = logging.getLogger(__name__)
 
 def register_story_tools(mcp_instance) -> None:
     """Register story tools with the MCP instance."""
+    mcp_instance.tool()(list_stories)
     mcp_instance.tool()(create_story)
     mcp_instance.tool()(get_story)
     mcp_instance.tool()(update_story)
     mcp_instance.tool()(delete_story)
-    mcp_instance.tool()(list_stories)
     mcp_instance.tool()(set_current_story)
 
 

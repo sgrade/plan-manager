@@ -15,8 +15,7 @@ from plan_manager.tools.plan_tools import register_plan_tools
 from plan_manager.tools.context_tools import register_context_tools
 from plan_manager.tools.changelog_tools import register_changelog_tools
 from plan_manager.tools.approval_tools import register_approval_tools
-from plan_manager.tools.backlog_tools import register_backlog_tools
-from plan_manager.tools.status_tools import register_status_tools
+from plan_manager.tools.report_tools import register_report_tools
 from plan_manager.prompts.workflow_prompts import register_workflow_prompts
 
 logger = logging.getLogger(__name__)
@@ -38,8 +37,7 @@ def starlette_app() -> Starlette:
     register_context_tools(mcp)
     register_changelog_tools(mcp)
     register_approval_tools(mcp)
-    register_backlog_tools(mcp)
-    register_status_tools(mcp)
+    register_report_tools(mcp)
     register_workflow_prompts(mcp)
 
     app = mcp.streamable_http_app()

@@ -17,7 +17,7 @@ Plan Manager is a tool for a single developer to coordinate the work of one or m
 - Plan: container for stories.
 - Story: user-facing goal; contains tasks.
 - Task: discrete unit of agent work.
-- Statuses: apply to plans, stories, and tasks; primary progression is TODO → IN_PROGRESS → DONE; side states: BLOCKED, DEFERRED.
+- Statuses: apply to plans, stories, and tasks; primary progression is TODO → IN_PROGRESS → PENDING_REVIEW → DONE; side states: BLOCKED, DEFERRED.
 - Dependencies: tasks/stories may block others.
 - Priority: 0–5 (0 is highest).
 - Approvals: optional guardrail before progressing status.

@@ -33,10 +33,11 @@
                 // "ms-python.python",
                 // "ms-python.vscode-pylance",
                 // "ms-python.autopep8",
-                "ms-azuretools.vscode-docker",
-                "ms-python.debugpy",
-                "charliermarsh.ruff",
-                "anysphere.cursorpyright" // If using Cursor IDE
+                "ms-azuretools.vscode-docker", // For Docker
+                "ms-python.debugpy", // For Python debugging
+                "charliermarsh.ruff", // For Python linting
+                "anysphere.cursorpyright", // If using Cursor IDE
+                "mermaidchart.vscode-mermaid-chart" // For Mermaid diagrams
             ],
             // Set *default* container specific settings.json values on container create.
             "settings": {
@@ -48,18 +49,18 @@
                 // https://code.visualstudio.com/docs/python/environments#_how-the-extension-chooses-an-environment-automatically
                 "python.defaultInterpreterPath": "${containerWorkspaceFolder}/.venv/bin/python",
                 // Black formatter
-                "python.formatting.provider": "black",
-                "editor.formatOnSave": true,
+                "python.formatting.provider": "black", // For Python formatting
+                "editor.formatOnSave": true, // For Python formatting
                 "python.formatting.blackArgs": [
                     "--line-length",
                     "88"
                 ],
                 // PyLint
-                "python.linting.enabled": true,
-                "python.linting.pylintEnabled": true,
+                "python.linting.enabled": true, // For Python linting
+                "python.linting.pylintEnabled": true, // For Python linting
                 "python.linting.lintOnSave": true,
                 // Type checking
-                "python.linting.mypyEnabled": true
+                "python.linting.mypyEnabled": true // For Python linting
             }
         }
     },
