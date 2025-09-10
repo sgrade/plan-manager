@@ -93,10 +93,13 @@ def list_tasks(payload: Optional[ListTasksIn] = None) -> List[TaskListItem]:
     return items
 
 
-def set_current_task(payload: SetCurrentTaskIn) -> OperationResult:
-    """Set the current task for the current story."""
-    set_current_task_id(payload.task_id)
-    return OperationResult(success=True, message=f"Current task set to '{payload.task_id}'")
+def set_current_task(payload: Optional[SetCurrentTaskIn] = None) -> OperationResult | List[TaskListItem]:
+    """Set the current task for the current story. If no ID is provided, lists available tasks."""
+    if payload and payload.task_id:
+        set_current_task_id(payload.task_id)
+        return OperationResult(success=True, message=f"Current task set to '{payload.task_id}'")
+    else:
+        return list_tasks()
 
 
 def submit_for_review(payload: SubmitForReviewIn) -> TaskOut:

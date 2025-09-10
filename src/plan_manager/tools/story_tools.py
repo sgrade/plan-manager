@@ -98,7 +98,10 @@ def list_stories(payload: Optional[ListStoriesIn] = None) -> List[StoryListItem]
         raise e
 
 
-def set_current_story(payload: SetCurrentStoryIn) -> OperationResult:
-    """Set the current story."""
-    set_current_story_id(payload.story_id)
-    return OperationResult(success=True, message=f"Current story set to '{payload.story_id}'")
+def set_current_story(payload: Optional[SetCurrentStoryIn] = None) -> OperationResult | List[StoryListItem]:
+    """Set the current story. If no ID is provided, lists available stories."""
+    if payload and payload.story_id:
+        set_current_story_id(payload.story_id)
+        return OperationResult(success=True, message=f"Current story set to '{payload.story_id}'")
+    else:
+        return list_stories()

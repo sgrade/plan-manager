@@ -64,7 +64,11 @@ def list_plans(payload: Optional[ListPlansIn] = None) -> List[PlanListItem]:
     return items
 
 
-def set_current_plan(payload: SetCurrentPlanIn) -> OperationResult:
-    """Set the current plan."""
-    set_current_plan_id(payload.plan_id)
-    return OperationResult(success=True, message=f"Current plan set to '{payload.plan_id}'")
+def set_current_plan(payload: Optional[SetCurrentPlanIn] = None) -> OperationResult | List[PlanListItem]:
+    """Set the current plan. If no ID is provided, lists available plans."""
+    if payload and payload.plan_id:
+        set_current_plan_id(payload.plan_id)
+        return OperationResult(success=True, message=f"Current plan set to '{payload.plan_id}'")
+    else:
+        # If no plan_id is provided, list available plans
+        return list_plans()

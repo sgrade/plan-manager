@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Scoped Reporting:** The `report` command now accepts an optional scope. `report plan` provides a high-level summary of all stories, while the default `report` continues to show a detailed view of the current story.
 - **Proactive Blocker Detection:** The system now automatically updates task statuses to `BLOCKED` or `TODO` based on the completion of their dependencies. This logic is triggered whenever a task is marked as `DONE`.
 
+### Changed
+- **Interactive `set_current` Commands:** The `set_current_plan`, `set_current_story`, and `set_current_task` commands now list available items if called without an ID, guiding the user to make a valid selection.
+
 ## [0.5.4] - 2025-09-10
 
 ### Fixed
