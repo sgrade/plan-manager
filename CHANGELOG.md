@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **Scoped Reporting:** The `report` command now accepts an optional scope. `report plan` provides a high-level summary of all stories, while the default `report` continues to show a detailed view of the current story.
+- **Proactive Blocker Detection:** The system now automatically updates task statuses to `BLOCKED` or `TODO` based on the completion of their dependencies. This logic is triggered whenever a task is marked as `DONE`.
 
 ## [0.5.4] - 2025-09-10
 

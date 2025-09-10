@@ -15,15 +15,7 @@ This document outlines a series of proposed enhancements to the Plan Manager CLI
 
 ---
 
-### 2. Command Name Consistency
-
-**Problem:** The CLI has inconsistencies in command naming conventions. For instance, `create_plan` and `create_story` exist, but creating a task is handled implicitly by the `update_story` service, which is not intuitive.
-
-**Proposal:** Introduce a dedicated `create_task` command to align with the existing `create_plan` and `create_story` commands. This will make the CLI more predictable and easier to learn.
-
----
-
-### 3. Proactive Blocker Detection
+### 2. Proactive Blocker Detection
 
 **Problem:** A task's status does not automatically update to `BLOCKED` if its dependencies are not met. A user might not realize a task is blocked until they attempt to start it (`approve_task`).
 
@@ -31,7 +23,7 @@ This document outlines a series of proposed enhancements to the Plan Manager CLI
 
 ---
 
-### 4. Interactive `set_current` Commands
+### 3. Interactive `set_current` Commands
 
 **Problem:** Using the `set_current_plan`, `set_current_story`, and `set_current_task` commands requires the user to first list the items to find their exact IDs. This is a multi-step, manual process.
 
@@ -42,7 +34,7 @@ This document outlines a series of proposed enhancements to the Plan Manager CLI
 
 ---
 
-### 5. Improved Error Messages
+### 4. Improved Error Messages
 
 **Problem:** Some error messages are generic or unhelpful, making it difficult to diagnose issues. For example, a `KeyError` in the service layer might be caught and replaced with a generic message like "There is no tasks to approve."
 

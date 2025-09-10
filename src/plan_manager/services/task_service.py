@@ -3,7 +3,7 @@ from typing import Optional, List
 
 from pydantic import ValidationError
 
-from plan_manager.domain.models import Task, Story, Status
+from plan_manager.domain.models import Task, Story, Status, Plan
 from plan_manager.services import plan_repository as plan_repo
 from plan_manager.io.paths import task_file_path
 from plan_manager.io.file_mirror import save_item_to_file, read_item_file, delete_item_file
@@ -28,6 +28,27 @@ from plan_manager.services.shared import (
 
 
 logger = logging.getLogger(__name__)
+
+
+def _update_dependent_task_statuses(plan: Plan):
+    """
+    Iterates through all tasks and updates their status to BLOCKED or TODO
+    based on the current state of their dependencies.
+    """
+    logger.debug(f"Running blocker status update for plan '{plan.id}'.")
+    for story in plan.stories:
+        for task in (story.tasks or []):
+            if task.status in [Status.TODO, Status.BLOCKED]:
+                currently_unblocked = is_unblocked(task, plan)
+
+                if task.status == Status.TODO and not currently_unblocked:
+                    task.status = Status.BLOCKED
+                    logger.info(
+                        f"Task '{task.id}' is now BLOCKED due to unmet dependencies.")
+                elif task.status == Status.BLOCKED and currently_unblocked:
+                    task.status = Status.TODO
+                    logger.info(
+                        f"Task '{task.id}' is now UNBLOCKED and set to TODO.")
 
 
 def _find_task(plan, story_id, task_id):
@@ -217,6 +238,8 @@ def update_task(
                 raise ValueError(
                     "An execution summary must be provided before marking as DONE.")
             apply_status_change(task_obj, status)
+            # After a task is done, re-evaluate blockers across the plan
+            _update_dependent_task_statuses(plan)
         elif status == prev_status:
             pass  # No change
         else:
