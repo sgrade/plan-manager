@@ -6,7 +6,6 @@ from plan_manager.services.task_service import (
     update_task as svc_update_task,
     delete_task as svc_delete_task,
     list_tasks as svc_list_tasks,
-    explain_task_blockers as svc_explain_task_blockers,
     submit_for_code_review as svc_submit_for_code_review,
     propose_steps as svc_propose_steps,
 )
@@ -14,11 +13,10 @@ from plan_manager.schemas.inputs import (
     ListTasksIn,
     CreateTaskIn, GetTaskIn, UpdateTaskIn, DeleteTaskIn,
     SetCurrentTaskIn,
-    ExplainTaskBlockersIn,
     SubmitForReviewIn,
     ProposeStepsIn,
 )
-from plan_manager.schemas.outputs import TaskOut, TaskListItem, OperationResult, TaskBlockersOut
+from plan_manager.schemas.outputs import TaskOut, TaskListItem, OperationResult
 from plan_manager.services.state_repository import get_current_story_id, set_current_task_id, get_current_task_id
 
 
@@ -32,7 +30,6 @@ def register_task_tools(mcp_instance) -> None:
     mcp_instance.tool()(set_current_task)
     mcp_instance.tool()(propose_task_steps)
     mcp_instance.tool()(submit_for_review)
-    mcp_instance.tool()(explain_task_blockers)
 
 
 def create_task(payload: CreateTaskIn) -> TaskOut:
@@ -94,12 +91,6 @@ def list_tasks(payload: Optional[ListTasksIn] = None) -> List[TaskListItem]:
         end = None if payload.limit is None else start + max(0, payload.limit)
         return items[start:end]
     return items
-
-
-def explain_task_blockers(payload: ExplainTaskBlockersIn) -> TaskBlockersOut:
-    """Explain why a task is blocked based on its dependencies."""
-    data = svc_explain_task_blockers(payload.story_id, payload.task_id)
-    return TaskBlockersOut(**data)
 
 
 def set_current_task(payload: SetCurrentTaskIn) -> OperationResult:

@@ -168,12 +168,6 @@ class ListTasksIn(BaseModel):
         None, description="Max number of items to return")
 
 
-class ExplainTaskBlockersIn(BaseModel):
-    """Structured input for explaining task blockers."""
-    story_id: str = Field(..., description="Parent story ID")
-    task_id: str = Field(..., description="Local task ID or FQ ID")
-
-
 class SubmitForReviewIn(BaseModel):
     """Structured input for submitting a task for code review."""
     story_id: str = Field(..., description="Parent story ID")

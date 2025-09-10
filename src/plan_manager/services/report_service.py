@@ -1,9 +1,9 @@
 import logging
-# from typing import List
+from typing import List
 
 from plan_manager.services import plan_repository as plan_repo
 from plan_manager.services.state_repository import get_current_plan_id, get_current_story_id, get_current_task_id
-from plan_manager.domain.models import Status, Task
+from plan_manager.domain.models import Status, Task, Plan
 
 logger = logging.getLogger(__name__)
 
@@ -11,6 +11,35 @@ logger = logging.getLogger(__name__)
 def _format_task_line(task: Task) -> str:
     """Formats a single task line for display."""
     return f"[{task.status.value:<14}] {task.id.split(':')[-1]} - {task.title}"
+
+
+def _get_blockers_for_task(task: Task, plan: Plan) -> List[str]:
+    """Returns a list of human-readable strings describing the task's blockers."""
+    if not task.depends_on:
+        return []
+
+    blockers = []
+    story_index = {s.id: s for s in plan.stories}
+    task_index = {t.id: t for s in plan.stories for t in (s.tasks or [])}
+
+    for dep_id in task.depends_on:
+        # Normalize to fully-qualified ID for lookup
+        fq_dep_id = f"{task.story_id}:{dep_id}" if ':' not in dep_id else dep_id
+
+        if fq_dep_id in task_index:
+            dep_task = task_index[fq_dep_id]
+            if dep_task.status != Status.DONE:
+                blockers.append(
+                    f"Task '{dep_task.title}' is not DONE (status: {dep_task.status.value})")
+        elif dep_id in story_index:
+            dep_story = story_index[dep_id]
+            if dep_story.status != Status.DONE:
+                blockers.append(
+                    f"Story '{dep_story.title}' is not DONE (status: {dep_story.status.value})")
+        else:
+            blockers.append(f"Dependency '{dep_id}' not found.")
+
+    return blockers
 
 
 def get_report() -> str:
@@ -53,7 +82,21 @@ def get_report() -> str:
         ]
         return "\n".join(report)
 
-    # Scenario 3: General Overview
+    # Scenario 3: Task is Blocked
+    if active_task and active_task.status == Status.BLOCKED:
+        blockers = _get_blockers_for_task(active_task, plan)
+        report = [
+            f"Current Task: {active_task.title} (BLOCKED)",
+            "----------------------------------------------------------",
+            "This task cannot be started because of the following blockers:"
+        ]
+        for blocker in blockers:
+            report.append(f"- {blocker}")
+        report.append(
+            "\nNext Action: Complete the dependencies to unblock this task.")
+        return "\n".join(report)
+
+    # Scenario 4: General Overview
     if active_story:
         tasks_done = sum(
             1 for t in active_story.tasks if t.status == Status.DONE)

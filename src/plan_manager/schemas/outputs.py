@@ -119,23 +119,6 @@ class TaskListItem(BaseModel):
     creation_time: Optional[str] = None
 
 
-class TaskBlocker(BaseModel):
-    """Represents a single unresolved dependency blocking a task."""
-    type: str
-    id: str
-    status: str
-    reason: str
-
-
-class TaskBlockersOut(BaseModel):
-    """Structured explanation of blockers for a given task."""
-    id: str
-    title: str
-    status: str
-    blockers: List[TaskBlocker]
-    unblocked: bool
-
-
 class ApproveTaskOut(BaseModel):
     """Output schema for the approve_task command."""
     success: bool
