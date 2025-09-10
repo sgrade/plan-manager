@@ -34,40 +34,52 @@ def register_task_tools(mcp_instance) -> None:
 
 def create_task(payload: CreateTaskIn) -> TaskOut:
     """Create a task under a story."""
-    data = svc_create_task(payload.story_id, payload.title,
-                           payload.priority, payload.depends_on, payload.description)
-    return TaskOut(**data)
+    try:
+        data = svc_create_task(payload.story_id, payload.title,
+                               payload.priority, payload.depends_on, payload.description)
+        return TaskOut(**data)
+    except (ValueError, KeyError) as e:
+        return TaskOut(id=None, error=str(e))
 
 
 def get_task(payload: Optional[GetTaskIn] = None) -> TaskOut:
     """Fetch a task by ID (local or FQ). Defaults to current task of current story."""
-    if payload:
-        story_id = payload.story_id
-        task_id = payload.task_id
-    else:
-        story_id = get_current_story_id()
-        if not story_id:
-            raise ValueError(
-                "No current story set. Call set_current_story or provide story_id.")
-        task_id = get_current_task_id()
-        if not task_id:
-            raise ValueError(
-                "No current task set. Call set_current_task or provide task_id.")
-    data = svc_get_task(story_id, task_id)
-    return TaskOut(**data)
+    try:
+        if payload:
+            story_id = payload.story_id
+            task_id = payload.task_id
+        else:
+            story_id = get_current_story_id()
+            if not story_id:
+                raise ValueError(
+                    "No current story set. Call set_current_story or provide story_id.")
+            task_id = get_current_task_id()
+            if not task_id:
+                raise ValueError(
+                    "No current task set. Call set_current_task or provide task_id.")
+        data = svc_get_task(story_id, task_id)
+        return TaskOut(**data)
+    except (ValueError, KeyError) as e:
+        return TaskOut(id=None, error=str(e))
 
 
 def update_task(payload: UpdateTaskIn) -> TaskOut:
     """Update mutable fields of a task."""
-    data = svc_update_task(payload.story_id, payload.task_id, payload.title,
-                           payload.description, payload.depends_on, payload.priority, payload.status)
-    return TaskOut(**data)
+    try:
+        data = svc_update_task(payload.story_id, payload.task_id, payload.title,
+                               payload.description, payload.depends_on, payload.priority, payload.status)
+        return TaskOut(**data)
+    except (ValueError, KeyError) as e:
+        return TaskOut(id=None, error=str(e))
 
 
 def delete_task(payload: DeleteTaskIn) -> OperationResult:
     """Delete a task by ID (fails if other items depend on it)."""
-    data = svc_delete_task(payload.story_id, payload.task_id)
-    return OperationResult(**data)
+    try:
+        data = svc_delete_task(payload.story_id, payload.task_id)
+        return OperationResult(**data)
+    except (ValueError, KeyError) as e:
+        return OperationResult(success=False, message=str(e))
 
 
 def list_tasks(payload: Optional[ListTasksIn] = None) -> List[TaskListItem]:
@@ -104,19 +116,25 @@ def set_current_task(payload: Optional[SetCurrentTaskIn] = None) -> OperationRes
 
 def submit_for_review(payload: SubmitForReviewIn) -> TaskOut:
     """Submits a task for code review, moving it to PENDING_REVIEW status."""
-    data = svc_submit_for_code_review(
-        story_id=payload.story_id,
-        task_id=payload.task_id,
-        summary_text=payload.summary
-    )
-    return TaskOut(**data)
+    try:
+        data = svc_submit_for_code_review(
+            story_id=payload.story_id,
+            task_id=payload.task_id,
+            summary_text=payload.summary
+        )
+        return TaskOut(**data)
+    except (ValueError, KeyError) as e:
+        return TaskOut(id=None, error=str(e))
 
 
 def propose_task_steps(payload: ProposeStepsIn) -> TaskOut:
     """Proposes an implementation plan for a task, moving it to a reviewable state."""
-    data = svc_propose_steps(
-        story_id=payload.story_id,
-        task_id=payload.task_id,
-        plan_text=payload.plan
-    )
-    return TaskOut(**data)
+    try:
+        data = svc_propose_steps(
+            story_id=payload.story_id,
+            task_id=payload.task_id,
+            plan_text=payload.plan
+        )
+        return TaskOut(**data)
+    except (ValueError, KeyError) as e:
+        return TaskOut(id=None, error=str(e))

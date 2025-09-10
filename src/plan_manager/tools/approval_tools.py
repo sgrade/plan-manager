@@ -53,11 +53,13 @@ def approve_task(item_id: Optional[str] = None) -> ApproveTaskOut | str:
                 [f"- {t.title} ({t.id.split(':')[-1]})" for t in reviewable_tasks])
             return f"Multiple tasks are ready for review. Please specify which one to approve_task:\n{task_list}"
 
-    except (KeyError, RuntimeError) as e:
+    except KeyError as e:
+        return f"Error: Could not find the specified item. {e}"
+    except RuntimeError as e:
         # Handle data inconsistencies or other specific errors
         return f"Error: {e}"
 
     except Exception as e:
         # Log the full exception for debugging
         logger.exception("An unexpected error occurred during approval.")
-        return f"An unexpected and unhandled error occurred: {e}"
+        return f"An unexpected error occurred: {e}"

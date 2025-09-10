@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **Interactive `set_current` Commands:** The `set_current_plan`, `set_current_story`, and `set_current_task` commands now list available items if called without an ID, guiding the user to make a valid selection.
+- **Improved Error Handling:** Added robust `try...except` blocks to the tool layer (`approval_tools.py`, `task_tools.py`) to catch service-level exceptions and return user-friendly, structured error messages.
 
 ## [0.5.4] - 2025-09-10
 
