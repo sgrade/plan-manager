@@ -10,7 +10,7 @@ AI agents supported by models operate in a limited context window. If the work i
 
 For large projects we use project management systems like Jira or Linear. With their help, leaders coordinate work of developers. 
 
-Plan Manager is a tool for a developer or orchestrator to coordinate the work of one or more agents or LLM(s). For example, ask an expensive thinking LLM to create a plan and document it in Plan Manager. Delegate work items (stories, tasks) to less expensive models. Review the summary of work before and after the work item is completed, correct deviations from the plan. Export the report to the changelog and/or to larger project management systems.
+Plan Manager is a tool for a developer or orchestrator to coordinate the work of one or more AI agents or models. For example, ask an expensive thinking model to create a plan and document it in Plan Manager. Delegate work items (stories, tasks) to less expensive models. Review the summary of work before and after the work item is completed, correct deviations from the plan. Export the report to the changelog and/or to larger project management systems.
 
 ## Core concepts
 
@@ -18,13 +18,16 @@ Plan Manager is a tool for a developer or orchestrator to coordinate the work of
 - Story: user-facing goal; contains tasks.
 - Task: discrete unit of agent work.
 - Statuses: apply to plans, stories, and tasks; primary progression is TODO → IN_PROGRESS → PENDING_REVIEW → DONE; side states: BLOCKED, DEFERRED.
+- Approvals: optional guardrail before progressing status.
 - Dependencies: tasks/stories may block others.
 - Priority: 0–5 (0 is highest).
-- Approvals: optional guardrail before progressing status.
 
 ## Usage
 
-See project workflow in [.cursor/rules/project-management.mdc](.cursor/rules/project-management.mdc)
+The project workflow overview diagrams are in [docs/project_workflow.md](docs/project_workflow.md)
+
+The project workflow description is in [.cursor/rules/project-management.mdc](.cursor/rules/project-management.mdc)
+
 See [docs/agent-usage-guide.md](docs/agent-usage-guide.md)
 
 ## Development

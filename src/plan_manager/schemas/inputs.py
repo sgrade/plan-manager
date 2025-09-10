@@ -191,40 +191,15 @@ class ProposeStepsIn(BaseModel):
 
 # --- Approval Schemas ---
 
-class RequestApprovalIn(BaseModel):
-    """Request approval for a story or task before progressing.
-
-    item_id may be omitted to default to the current story/task.
-    """
-    item_type: str = Field(..., description="'story' or 'task'")
+class ApproveTaskIn(BaseModel):
+    """Input schema for the approve command."""
     item_id: Optional[str] = Field(
-        None, description="If omitted, defaults to current story/task")
-    execution_intent: str = Field(...,
-                                  description="Brief how/now plan for this iteration")
-
-
-class ApproveItemIn(BaseModel):
-    """Approve or reject a story or task for progress.
-
-    item_id may be omitted to default to the current story/task.
-    """
-    item_type: str = Field(..., description="'story' or 'task'")
-    item_id: Optional[str] = Field(
-        None, description="If omitted, defaults to current story/task")
-    approved: bool = Field(...,
-                           description="Approve or reject the item for progress")
-    notes: Optional[str] = Field(None, description="Optional reviewer notes")
+        default=None,
+        description="The local ID of a task to fast-track. If omitted, approves the currently active item."
+    )
 
 
 # --- Changelog Schemas ---
-
-class PreviewChangelogIn(BaseModel):
-    """Preview a changelog snippet generated from recent activity."""
-    version: Optional[str] = Field(
-        None, description="Optional version header, e.g., 0.1.0")
-    date: Optional[str] = Field(
-        None, description="Optional date (YYYY-MM-DD). Defaults to today.")
-
 
 class GenerateChangelogIn(BaseModel):
     """Generate a changelog snippet (same as preview, returned as markdown)."""
@@ -232,13 +207,3 @@ class GenerateChangelogIn(BaseModel):
         None, description="Optional version header, e.g., 0.1.0")
     date: Optional[str] = Field(
         None, description="Optional date (YYYY-MM-DD). Defaults to today.")
-
-
-class PublishChangelogIn(BaseModel):
-    """Append a generated changelog snippet to a file (default CHANGELOG.md)."""
-    version: Optional[str] = Field(
-        None, description="Optional version header, e.g., 0.1.0")
-    date: Optional[str] = Field(
-        None, description="Optional date (YYYY-MM-DD). Defaults to today.")
-    target_path: Optional[str] = Field(
-        'CHANGELOG.md', description="Target file path to append to")

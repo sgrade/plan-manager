@@ -35,9 +35,9 @@ graph TD
     
     C -- User runs <strong>prepare</strong> --> D[Agent runs <strong>propose_steps</strong>];
     D --> E["Proposed task steps documented <br> (Status is still <strong>TODO</strong>)"];
-    E --> F["User runs <strong>approve</strong>"];
+    E --> F["User runs <strong>approve_task</strong>"];
     
-    C -- User runs <strong>approve [task_id]</strong> --> G[Fast-Track];
+    C -- User runs <strong>approve_task [task_id]</strong> --> G[Fast-Track];
     
     F --> H[Task is in <strong>IN_PROGRESS</strong> state];
     G --> H;
@@ -46,10 +46,11 @@ graph TD
     I --> J[Task is in <strong>PENDING_REVIEW</strong> state];
     
     J --> K{User reviews the code};
-    K -- User runs <strong>approve</strong> --> L[Task is in <strong>DONE</strong> state];
+    K -- User runs <strong>approve_task</strong> --> L[Task is in <strong>DONE</strong> state];
     K -- User runs <strong>change [instructions]</strong> --> H;
     
-    L --> M([End]);
+    L --> L2["Changelog snippet is returned"];
+    L2 --> M([End]);
 
 ```
 

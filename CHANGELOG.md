@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unrelease]
+
+### Changed
+- Rename approve tool to approve_task
+- Structured input and output for the task approval tool
+- Streamline changelog functionality and hook it to the approve_task tool
+
 ## [0.5.2] - 2025-09-10
 
 ### Added

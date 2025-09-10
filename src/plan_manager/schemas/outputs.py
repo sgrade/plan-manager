@@ -134,3 +134,10 @@ class TaskBlockersOut(BaseModel):
     status: str
     blockers: List[TaskBlocker]
     unblocked: bool
+
+
+class ApproveTaskOut(BaseModel):
+    """Output schema for the approve_task command."""
+    success: bool
+    message: str
+    changelog_snippet: Optional[str] = None

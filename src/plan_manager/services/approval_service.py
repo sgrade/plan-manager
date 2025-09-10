@@ -5,6 +5,7 @@ from plan_manager.services import plan_repository as plan_repo
 from plan_manager.services import task_service
 from plan_manager.services.state_repository import get_current_plan_id, get_current_story_id, get_current_task_id, set_current_task_id
 from plan_manager.domain.models import Status, Task
+from plan_manager.services.changelog_service import generate_changelog_for_task
 
 logger = logging.getLogger(__name__)
 
@@ -58,20 +59,27 @@ def approve_active_task() -> Dict[str, Any]:
     # Case 1: Approving a pre-execution review
     if task.status == Status.TODO and task.steps:
         logger.info(f"Approving implementation plan for task: {task.id}")
-        return task_service.update_task(
+        updated_task_data = task_service.update_task(
             story_id=story.id,
             task_id=task.id,
             status=Status.IN_PROGRESS
         )
+        return {"success": True, "message": f"Task '{task.title}' approved and moved to IN_PROGRESS.", "changelog_snippet": None, **updated_task_data}
 
     # Case 2: Approving a code review
     elif task.status == Status.PENDING_REVIEW:
         logger.info(f"Approving code review for task: {task.id}")
-        return task_service.update_task(
+        updated_task_data = task_service.update_task(
             story_id=story.id,
             task_id=task.id,
             status=Status.DONE
         )
+
+        # Generate changelog snippet
+        updated_task = Task(**updated_task_data)
+        changelog_snippet = generate_changelog_for_task(updated_task)
+
+        return {"success": True, "message": f"Task '{task.title}' approved and moved to DONE.", "changelog_snippet": changelog_snippet, **updated_task_data}
 
     # Case 3: Task is not in a reviewable state
     else:
@@ -108,11 +116,12 @@ def approve_fast_track(item_id: str) -> Dict[str, Any]:
             task_service.propose_steps(
                 found_story.id, found_task.id, "Fast-tracked by user.")
             set_current_task_id(found_task.id, plan_id)
-            return task_service.update_task(
+            updated_task_data = task_service.update_task(
                 story_id=found_story.id,
                 task_id=found_task.id,
                 status=Status.IN_PROGRESS
             )
+            return {"success": True, "message": f"Task '{found_task.title}' fast-tracked to IN_PROGRESS.", "changelog_snippet": None, **updated_task_data}
         else:
             raise ValueError(
                 f"Cannot fast-track task '{item_id}'; its status is not TODO.")
