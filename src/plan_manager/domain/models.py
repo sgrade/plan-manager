@@ -52,15 +52,20 @@ class WorkItem(BaseModel):
 
 
 class Story(WorkItem):
+    """A Story represents a user-facing outcome (the 'what' and 'why').
+    Its 'how' is the collection of tasks it contains."""
     file_path: Optional[str] = None
     tasks: List['Task'] = Field(default_factory=list)
 
 
 class Task(WorkItem):
+    """A Task represents the implementation steps for an agent (the 'how').
+    While a story provides the high-level context, a task also has its own
+    granular 'what' (title), 'why' (description), and 'how' (steps)."""
     file_path: Optional[str] = None
     story_id: Optional[str] = None
     # See Story fields for semantics
-    implementation_plan: Optional[str] = Field(
+    steps: Optional[str] = Field(
         default=None,
         description="The agent's plan for how to implement the task. Reviewed before work begins.",
     )

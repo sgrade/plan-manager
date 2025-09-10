@@ -13,8 +13,8 @@ The primary goal is to shift the application's logic from a story-centric model 
 **Tasks**:
 
 1.  **Update `Status` Enum**: Add `PENDING_REVIEW` to the `Status` enum in `domain/models.py` to support the new workflow.
-2.  **Refactor `Task` Model**: In `domain/models.py`, rename the `execution_intent` field to `implementation_plan` to distinguish it from the durable `description`. The generic `approval` field will be removed.
-3.  **Simplify `Story` Model**: In `domain/models.py`, remove all execution-related fields (`implementation_plan`, `execution_summary`, `approval`) from the `Story` model. Stories will now function purely as containers for tasks.
+2.  **Refactor `Task` Model**: In `domain/models.py`, rename the `execution_intent` field to `steps` to distinguish it from the durable `description`. The generic `approval` field will be removed.
+3.  **Simplify `Story` Model**: In `domain/models.py`, remove all execution-related fields (`steps`, `execution_summary`, `approval`) from the `Story` model. Stories will now function purely as containers for tasks.
 4.  **Deprecate Story Execution Logic**: Remove all status update and approval logic from `services/story_service.py`. The service will be simplified to only manage the lifecycle of stories as containers.
 5.  **Implement New Task Workflow**: In `services/task_service.py`, implement the new mandatory two-gate review lifecycle (`TODO` → `IN_PROGRESS` → `PENDING_REVIEW` → `DONE`). This will be the new core of the application's execution logic.
 

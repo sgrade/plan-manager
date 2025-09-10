@@ -18,46 +18,39 @@ graph TD
     E --> F["Current &lt;Item&gt; is set"];
 ```
 
-**Workflow Steps:**
+**Connecting the Workflows**
 
-1.  **List**: The user starts by running `list_<items>` (`list_plans`, `list_stories`, `list_tasks`) to see the available items.
-2.  **Decide**: Based on the output, the user decides whether the item they want to work on exists.
-3.  **Create (if needed)**: If the item does not exist, the user runs `create_<item>`. This command *only* creates the item; it does not set it as the current context. This allows for the bulk creation of multiple items without interruption. After creation, the flow returns to the listing step.
-4.  **Set Current**: Once the desired item exists, the user runs `set_current_<item> [id]` to explicitly set it as their current focus.
+The "Unified Workflow" diagram shows how to select a work item. When a **Task** is set as the current item, its lifecycle begins, as illustrated in the diagram below. A newly selected task is always in the `TODO` state, which is the starting point for the Task Execution Lifecycle.
 
 ---
 
 ### Task Execution Lifecycle
 
-Once a task is set as the current work item, it follows a strict, two-gate review lifecycle. The diagram below illustrates this process.
+Once a task is set as the current work item, it follows a strict, two-gate review lifecycle. The state diagram below illustrates this process.
 
 ```mermaid
-stateDiagram-v2
-    direction TB
-    [*] --> TODO
+graph TD
+    A([Start]) --> B[Task is in <strong>TODO</strong> state];
+    B --> C{What does the user do?};
+    
+    C -- User runs <strong>prepare</strong> --> D[Agent runs <strong>propose_steps</strong>];
+    D --> E["Proposed task steps documented <br> (Status is still <strong>TODO</strong>)"];
+    E --> F["User runs <strong>approve</strong>"];
+    
+    C -- User runs <strong>approve [task_id]</strong> --> G[Fast-Track];
+    
+    F --> H[Task is in <strong>IN_PROGRESS</strong> state];
+    G --> H;
+    
+    H --> I["Agent runs <strong>submit_for_review</strong>"];
+    I --> J[Task is in <strong>PENDING_REVIEW</strong> state];
+    
+    J --> K{User reviews the code};
+    K -- User runs <strong>approve</strong> --> L[Task is in <strong>DONE</strong> state];
+    K -- User runs <strong>change [instructions]</strong> --> H;
+    
+    L --> M([End]);
 
-    state "Standard Workflow" as Standard {
-        TODO --> AwaitingPlanApproval: Agent runs **propose_implementation_plan**
-        AwaitingPlanApproval --> IN_PROGRESS: User runs **approve**
-        note right of AwaitingPlanApproval
-            Task has a proposed plan and is
-            awaiting pre-execution review.
-        end note
-    }
-
-    state "Fast-Track Workflow" as FastTrack {
-        TODO --> IN_PROGRESS: User runs **approve [task_id]**
-    }
-
-    IN_PROGRESS --> AwaitingCodeReview: Agent runs **submit_for_review**
-    AwaitingCodeReview: Status is PENDING_REVIEW
-
-    state "Code Review" as Review {
-        AwaitingCodeReview --> DONE: User runs **approve**
-        AwaitingCodeReview --> IN_PROGRESS: User runs **change [instructions]**
-    }
-
-    DONE --> [*]
 ```
 
 ---

@@ -1,9 +1,9 @@
 import logging
-from typing import List
+# from typing import List
 
 from plan_manager.services import plan_repository as plan_repo
 from plan_manager.services.state_repository import get_current_plan_id, get_current_story_id, get_current_task_id
-from plan_manager.domain.models import Status, Task, Story
+from plan_manager.domain.models import Status, Task
 
 logger = logging.getLogger(__name__)
 
@@ -43,13 +43,13 @@ def get_report() -> str:
         return "\n".join(report)
 
     # Scenario 2: Pending Pre-Execution Review
-    if active_task and active_task.status == Status.TODO and active_task.implementation_plan:
+    if active_task and active_task.status == Status.TODO and active_task.steps:
         report = [
             f"Current Task: {active_task.title} (Pending Pre-Execution Approval)",
             "---------------------------------------------------------------------",
             "The agent proposes the following plan:",
-            f"- {active_task.implementation_plan or 'No plan provided.'}",
-            "\nNext Action: `approve` to authorize this plan, or `change <instructions>`."
+            f"- {active_task.steps or 'No task steps provided.'}",
+            "\nNext Action: `approve` to authorize this task, or `change <instructions>`."
         ]
         return "\n".join(report)
 
@@ -60,14 +60,14 @@ def get_report() -> str:
         total_tasks = len(active_story.tasks)
         report = [
             f"Current Story: {active_story.title} ({active_story.status.value})",
-            f"---------------------------------------------------",
+            "---------------------------------------------------",
             f"Tasks ({tasks_done}/{total_tasks} done):"
         ]
         for task in sorted(active_story.tasks, key=lambda t: t.creation_time or ''):
             report.append(_format_task_line(task))
 
         next_task_to_do = next((t for t in active_story.tasks if t.status ==
-                               Status.TODO and not t.implementation_plan), None)
+                               Status.TODO and not t.steps), None)
         if next_task_to_do:
             local_id = next_task_to_do.id.split(':')[-1]
             report.append(
@@ -82,7 +82,7 @@ def get_report() -> str:
     total_stories = len(plan.stories)
     report = [
         f"Current Plan: {plan.title} ({plan.status.value})",
-        f"---------------------------------------------------",
+        "---------------------------------------------------",
         f"Stories ({stories_done}/{total_stories} done):"
     ]
     for story in plan.stories:

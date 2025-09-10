@@ -19,7 +19,7 @@ def find_reviewable_tasks() -> List[Task]:
     reviewable = []
     for story in plan.stories:
         for task in (story.tasks or []):
-            is_pending_pre_review = task.status == Status.TODO and task.implementation_plan
+            is_pending_pre_review = task.status == Status.TODO and task.steps
             is_pending_code_review = task.status == Status.PENDING_REVIEW
             if is_pending_pre_review or is_pending_code_review:
                 reviewable.append(task)
@@ -56,7 +56,7 @@ def approve_active_task() -> Dict[str, Any]:
             f"Data inconsistency: Active task '{task_id}' not found in story '{story_id}'.")
 
     # Case 1: Approving a pre-execution review
-    if task.status == Status.TODO and task.implementation_plan:
+    if task.status == Status.TODO and task.steps:
         logger.info(f"Approving implementation plan for task: {task.id}")
         return task_service.update_task(
             story_id=story.id,
@@ -105,7 +105,7 @@ def approve_fast_track(item_id: str) -> Dict[str, Any]:
         if found_task.status == Status.TODO:
             logger.info(f"Fast-tracking task: {found_task.id}")
             # We set a dummy plan to satisfy the check in update_task, and set the task as active.
-            task_service.propose_implementation_plan(
+            task_service.propose_steps(
                 found_story.id, found_task.id, "Fast-tracked by user.")
             set_current_task_id(found_task.id, plan_id)
             return task_service.update_task(

@@ -182,7 +182,7 @@ class SubmitForReviewIn(BaseModel):
                          description="The execution summary for the code review.")
 
 
-class ProposePlanIn(BaseModel):
+class ProposeStepsIn(BaseModel):
     """Structured input for proposing an implementation plan for a task."""
     story_id: str = Field(..., description="Parent story ID")
     task_id: str = Field(..., description="Local task ID or FQ ID")

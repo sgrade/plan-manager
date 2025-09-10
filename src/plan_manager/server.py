@@ -35,9 +35,9 @@ def starlette_app() -> Starlette:
     register_story_tools(mcp)
     register_task_tools(mcp)
     register_context_tools(mcp)
-    register_changelog_tools(mcp)
     register_approval_tools(mcp)
     register_report_tools(mcp)
+    register_changelog_tools(mcp)
     register_workflow_prompts(mcp)
 
     app = mcp.streamable_http_app()

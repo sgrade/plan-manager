@@ -1,20 +1,27 @@
 # Changelog
 
-All notable changes to the Plan Manager project will be documented in this file.
+All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.5.2] - 2025-09-10
 
-## Changed
-- Refactor command layer for clarity and predictability.
+### Added
+- **`prepare` command:** New command to instruct the agent to generate the implementation `steps` for a task.
+- **`get_current` command:** New command to display the current context (Plan, Story, Task IDs).
+- **Unified Workflow Documentation:** Added a new unified workflow diagram and explanation to `docs/project_workflow.md` for improved clarity.
 
-## Removed
-- Remove unnecessary commands (select_first_unblocked_task, advance_to_next_task, and get_current_context).
+### Changed
+- **`status` command renamed to `report`:** To better reflect its function as a rich progress summary and avoid ambiguity with the `Status` property.
+- **Task `implementation_plan` field renamed to `steps`:** For clarity and to avoid confusion with the `Plan` work item.
+- **Updated `approve` command behavior:** The `approve` command is now more explicit for handling steps review and fast-tracking.
+- The `delete_plan` command now properly removes the plan's directory and all associated files.
 
-## Fixed
-- delete_plan not only removes it from the register, but removes the files.
+### Removed
+- **`backlog` command:** Removed in favor of more explicit `list_stories`, `create_story`, and `list_tasks` commands.
+- **`select_or_create_plan` command:** Removed in favor of the explicit `list_plans`, `create_plan`, and `set_current_plan` workflow.
+- **`workflow_status` command:** Removed as its functionality is now better covered by the `report` and `get_current` commands.
 
 ## [0.5.1] - 2025-09-08
 

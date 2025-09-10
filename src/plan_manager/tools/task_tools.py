@@ -8,7 +8,7 @@ from plan_manager.services.task_service import (
     list_tasks as svc_list_tasks,
     explain_task_blockers as svc_explain_task_blockers,
     submit_for_code_review as svc_submit_for_code_review,
-    propose_implementation_plan as svc_propose_implementation_plan,
+    propose_steps as svc_propose_steps,
 )
 from plan_manager.schemas.inputs import (
     ListTasksIn,
@@ -16,7 +16,7 @@ from plan_manager.schemas.inputs import (
     SetCurrentTaskIn,
     ExplainTaskBlockersIn,
     SubmitForReviewIn,
-    ProposePlanIn,
+    ProposeStepsIn,
 )
 from plan_manager.schemas.outputs import TaskOut, TaskListItem, OperationResult, TaskBlockersOut
 from plan_manager.services.state_repository import get_current_story_id, set_current_task_id, get_current_task_id
@@ -30,9 +30,9 @@ def register_task_tools(mcp_instance) -> None:
     mcp_instance.tool()(update_task)
     mcp_instance.tool()(delete_task)
     mcp_instance.tool()(set_current_task)
-    mcp_instance.tool()(explain_task_blockers)
+    mcp_instance.tool()(propose_task_steps)
     mcp_instance.tool()(submit_for_review)
-    mcp_instance.tool()(propose_plan)
+    mcp_instance.tool()(explain_task_blockers)
 
 
 def create_task(payload: CreateTaskIn) -> TaskOut:
@@ -118,9 +118,9 @@ def submit_for_review(payload: SubmitForReviewIn) -> TaskOut:
     return TaskOut(**data)
 
 
-def propose_plan(payload: ProposePlanIn) -> TaskOut:
+def propose_task_steps(payload: ProposeStepsIn) -> TaskOut:
     """Proposes an implementation plan for a task, moving it to a reviewable state."""
-    data = svc_propose_implementation_plan(
+    data = svc_propose_steps(
         story_id=payload.story_id,
         task_id=payload.task_id,
         plan_text=payload.plan
