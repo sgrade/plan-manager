@@ -4,13 +4,9 @@ from typing import List
 from plan_manager.services import plan_repository as plan_repo
 from plan_manager.services.state_repository import get_current_plan_id, get_current_story_id, get_current_task_id
 from plan_manager.domain.models import Status, Task, Plan
+from plan_manager.services.shared import is_unblocked
 
 logger = logging.getLogger(__name__)
-
-
-def _format_task_line(task: Task) -> str:
-    """Formats a single task line for display."""
-    return f"[{task.status.value:<14}] {task.id.split(':')[-1]} - {task.title}"
 
 
 def _get_blockers_for_task(task: Task, plan: Plan) -> List[str]:
@@ -42,93 +38,134 @@ def _get_blockers_for_task(task: Task, plan: Plan) -> List[str]:
     return blockers
 
 
-def get_report() -> str:
+def get_report(scope: str = "story") -> str:
     """
-    Generates a dynamic, contextual report based on the current state.
+    Generates a status report for the current plan or story.
     """
+    plan = _get_current_plan()
+    if not plan:
+        return "No active plan. Use `list_plans` and `set_current_plan` to start."
+
+    if scope == "plan":
+        return _generate_plan_report(plan)
+
+    # Default to story scope
+    return _generate_story_report(plan)
+
+
+def _get_current_plan() -> Plan | None:
     plan_id = get_current_plan_id()
     if not plan_id:
-        return "No active plan. Please select or create a plan first."
-    plan = plan_repo.load(plan_id)
+        return None
+    try:
+        return plan_repo.load(plan_id)
+    except FileNotFoundError:
+        logger.warning(f"Active plan with ID '{plan_id}' not found on disk.")
+        return None
+
+
+def _generate_plan_report(plan: Plan) -> str:
+    """Generates a high-level summary of all stories in the plan."""
+    if not plan.stories:
+        return f"Plan '{plan.title}' is active but contains no stories."
+
+    report = [f"Plan Summary: {plan.title} ({plan.status.value})",
+              "---------------------------------------------------"]
+
+    for story in sorted(plan.stories, key=lambda s: s.creation_time):
+        if story.tasks:
+            done_tasks = sum(1 for t in story.tasks if t.status == Status.DONE)
+            total_tasks = len(story.tasks)
+            progress = f"({done_tasks}/{total_tasks} tasks done)"
+        else:
+            progress = "(no tasks)"
+
+        report.append(f"[{story.status.value:<13}] {story.title} {progress}")
+
+    return "\n".join(report)
+
+
+def _generate_story_report(plan: Plan) -> str:
+    """Generates a detailed report for the currently active story."""
+    story_id = get_current_story_id(plan.id)
+    if not story_id:
+        return f"Plan '{plan.title}' is active, but no story is selected. Use `set_current_story`."
+
+    story = next((s for s in plan.stories if s.id == story_id), None)
+    if not story:
+        # This case should ideally not be reachable if state is consistent
+        return f"Error: Active story with ID '{story_id}' not found in plan '{plan.title}'."
+
+    report = [f"Current Story: {story.title} ({story.status.value})",
+              "---------------------------------------------------"]
 
     # State detection
-    active_story_id = get_current_story_id(plan_id)
-    active_task_id = get_current_task_id(plan_id)
+    active_task_id = get_current_task_id(plan.id)
+    active_task = None
+    if active_task_id:
+        active_task = next(
+            (t for t in (story.tasks or []) if t.id == active_task_id), None)
 
-    active_story = next(
-        (s for s in plan.stories if s.id == active_story_id), None)
-    active_task = next((t for t in (active_story.tasks or [])
-                       if t.id == active_task_id), None) if active_story else None
-
-    # Scenario 1: Pending Code Review
-    if active_task and active_task.status == Status.PENDING_REVIEW:
-        report = [
-            f"Current Task: {active_task.title} (Ready for Code Review)",
-            "----------------------------------------------------------",
-            "The agent has completed the work with the following summary:",
-            f"- {active_task.execution_summary or 'No summary provided.'}",
-            "\nNext Action: Review the code changes, then `approve_task` to merge or `change <instructions>`."
-        ]
+    # Scenario 1: No tasks in the story
+    if not story.tasks:
+        report.append("This story has no tasks.")
+        report.append("\nNext Action: Create tasks for this story.")
         return "\n".join(report)
 
-    # Scenario 2: Pending Pre-Execution Review
-    if active_task and active_task.status == Status.TODO and active_task.steps:
-        report = [
-            f"Current Task: {active_task.title} (Pending Pre-Execution Approval)",
-            "---------------------------------------------------------------------",
-            "The agent proposes the following plan:",
-            f"- {active_task.steps or 'No plan provided.'}",
-            "\nNext Action: `approve_task` to authorize this plan, or `change <instructions>`."
-        ]
-        return "\n".join(report)
+    # Display task list
+    report.append(
+        f"Tasks ({sum(1 for t in story.tasks if t.status == Status.DONE)}/{len(story.tasks)} done):")
+    for task in sorted(story.tasks, key=lambda t: t.creation_time):
+        is_active_marker = ">>" if task.id == active_task_id else "  "
+        local_id = task.id.split(':')[-1]
+        report.append(
+            f"{is_active_marker} [{task.status.value:<13}] {local_id} - {task.title}")
 
-    # Scenario 3: Task is Blocked
-    if active_task and active_task.status == Status.BLOCKED:
+    # Scenario 2: A task is active and BLOCKED
+    if active_task and not is_unblocked(active_task, plan):
         blockers = _get_blockers_for_task(active_task, plan)
-        report = [
-            f"Current Task: {active_task.title} (BLOCKED)",
-            "----------------------------------------------------------",
-            "This task cannot be started because of the following blockers:"
-        ]
+        report.append(
+            "\n------------------------------------------------------------------------")
+        report.append(
+            f"ATTENTION: Current task '{active_task.title}' is BLOCKED.")
+        report.append(
+            "It cannot be started because of the following dependencies:")
         for blocker in blockers:
             report.append(f"- {blocker}")
         report.append(
             "\nNext Action: Complete the dependencies to unblock this task.")
         return "\n".join(report)
 
-    # Scenario 4: General Overview
-    if active_story:
-        tasks_done = sum(
-            1 for t in active_story.tasks if t.status == Status.DONE)
-        total_tasks = len(active_story.tasks)
-        report = [
-            f"Current Story: {active_story.title} ({active_story.status.value})",
-            "---------------------------------------------------",
-            f"Tasks ({tasks_done}/{total_tasks} done):"
-        ]
-        for task in sorted(active_story.tasks, key=lambda t: t.creation_time or ''):
-            report.append(_format_task_line(task))
-
-        next_task_to_do = next((t for t in active_story.tasks if t.status ==
-                               Status.TODO and not t.steps), None)
-        if next_task_to_do:
-            local_id = next_task_to_do.id.split(':')[-1]
-            report.append(
-                f"\nNext Action: `prepare` to create steps for Task '{local_id}', or `approve_task {local_id}` to fast-track.")
-        else:
-            report.append(
-                "\nAll tasks for this story are complete or in review.")
+    # Scenario 3: Active task is awaiting pre-execution review
+    if active_task and active_task.status == Status.TODO and active_task.steps:
+        report.append(
+            f"\nNext Action: The plan for '{active_task.title}' is ready for review. Run `approve_task` to start work.")
         return "\n".join(report)
 
-    # Fallback: Plan-level overview
-    stories_done = sum(1 for s in plan.stories if s.status == Status.DONE)
-    total_stories = len(plan.stories)
-    report = [
-        f"Current Plan: {plan.title} ({plan.status.value})",
-        "---------------------------------------------------",
-        f"Stories ({stories_done}/{total_stories} done):"
-    ]
-    for story in plan.stories:
-        report.append(f"[{story.status.value:<14}] {story.id} - {story.title}")
-    report.append("\nNext Action: Select a story to begin work.")
+    # Scenario 4: Active task is awaiting code review
+    if active_task and active_task.status == Status.PENDING_REVIEW:
+        report.append(
+            f"\nNext Action: '{active_task.title}' is ready for code review. Run `approve_task` to mark it as DONE.")
+        return "\n".join(report)
+
+    # Scenario 5: No active task, or active task is DONE/IN_PROGRESS. Suggest next unblocked task.
+    next_task_to_do = next((t for t in sorted(story.tasks, key=lambda t: t.creation_time)
+                           if t.status == Status.TODO and is_unblocked(t, plan)), None)
+
+    if next_task_to_do:
+        local_id = next_task_to_do.id.split(':')[-1]
+        if next_task_to_do.steps:
+            report.append(
+                f"\nNext Action: The plan for '{next_task_to_do.title}' is ready for review. Set it as active (`set_current_task {local_id}`) and run `approve_task`.")
+        else:
+            report.append(
+                f"\nNext Action: `propose_task_steps` for Task '{local_id}', or `approve_task {story.id}:{local_id}` to fast-track.")
+    else:
+        # Check if all tasks are done
+        if all(t.status == Status.DONE for t in story.tasks):
+            report.append("\nAll tasks for this story are complete!")
+        else:
+            report.append(
+                "\nAll remaining tasks are either in progress, in review, or blocked.")
+
     return "\n".join(report)

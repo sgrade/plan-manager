@@ -4,9 +4,18 @@ These Pydantic models define request payloads for tool functions with
 per-field descriptions, so MCP clients can display rich parameter help.
 """
 
-from typing import Optional, List
+from typing import Optional, List, Literal
 from pydantic import BaseModel, Field
 from plan_manager.domain.models import Status
+
+
+# --- Report Schemas ---
+
+class ReportIn(BaseModel):
+    scope: Optional[Literal["story", "plan"]] = Field(
+        default="story",
+        description="The scope of the report to generate. Defaults to 'story'."
+    )
 
 
 # --- Plan Schemas ---

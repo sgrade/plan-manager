@@ -16,7 +16,14 @@ class OperationResult(BaseModel):
     message: str
 
 
+# --- Report Schemas ---
+
+class ReportOut(BaseModel):
+    """Structured report output returned by MCP tools."""
+    report: str
+
 # --- Plan Schemas ---
+
 
 class PlanOut(BaseModel):
     """Structured plan output returned by MCP tools."""
@@ -40,7 +47,7 @@ class PlanListItem(BaseModel):
 
 class CurrentContextOut(BaseModel):
     """Current context output returned by MCP tools."""
-    plan_id: str
+    plan_id: Optional[str] = None
     current_story_id: Optional[str] = None
     current_task_id: Optional[str] = None
 
