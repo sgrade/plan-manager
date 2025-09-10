@@ -164,3 +164,29 @@ def find_dependents(plan: Plan, target_id: str) -> List[str]:
                     # tasks depending on a story ID
                     dependents.append(t.id)
     return sorted(set(dependents))
+
+
+def is_unblocked(item: Story | Task, plan: Plan) -> bool:
+    """Check if a story or task is unblocked by checking the status of its dependencies."""
+    if not item.depends_on:
+        return True
+
+    story_index = {s.id: s for s in plan.stories}
+    task_index = {t.id: t for s in plan.stories for t in (s.tasks or [])}
+
+    for dep_id in item.depends_on:
+        # Normalize to fully-qualified ID for lookup if it's a task
+        fq_dep_id = f"{getattr(item, 'story_id', '')}:{dep_id}" if isinstance(
+            item, Task) and ':' not in dep_id else dep_id
+
+        if fq_dep_id in task_index:
+            if task_index[fq_dep_id].status != Status.DONE:
+                return False
+        elif dep_id in story_index:
+            if story_index[dep_id].status != Status.DONE:
+                return False
+        else:
+            # Dependency not found, assume it's a blocker
+            return False
+
+    return True

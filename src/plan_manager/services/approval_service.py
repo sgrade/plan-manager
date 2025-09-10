@@ -87,7 +87,7 @@ def approve_active_task() -> Dict[str, Any]:
             f"The active task '{task.title}' is not in a reviewable state (current status: {task.status}).")
 
 
-def approve_fast_track(item_id: str) -> Dict[str, Any]:
+def approve_fast_track(story_id: str, task_id: str) -> Dict[str, Any]:
     """
     Performs a "fast-track" approval, skipping the pre-execution review.
     """
@@ -97,34 +97,29 @@ def approve_fast_track(item_id: str) -> Dict[str, Any]:
     plan = plan_repo.load(plan_id)
 
     # Find the task and its story by local ID
-    found_story = None
-    found_task = None
-    for s in plan.stories:
-        for t in (s.tasks or []):
-            local_id = t.id.split(':')[-1]
-            if local_id == item_id:
-                found_story = s
-                found_task = t
-                break
-        if found_task:
-            break
+    story = next((s for s in plan.stories if s.id == story_id), None)
+    if not story:
+        raise KeyError(f"Story with ID '{story_id}' not found.")
 
-    if found_task and found_story:
-        if found_task.status == Status.TODO:
-            logger.info(f"Fast-tracking task: {found_task.id}")
+    fq_task_id = f"{story_id}:{task_id}" if ':' not in task_id else task_id
+    task = next((t for t in (story.tasks or []) if t.id == fq_task_id), None)
+
+    if task and story:
+        if task.status == Status.TODO:
+            logger.info(f"Fast-tracking task: {task.id}")
             # We set a dummy plan to satisfy the check in update_task, and set the task as active.
             task_service.propose_steps(
-                found_story.id, found_task.id, "Fast-tracked by user.")
-            set_current_task_id(found_task.id, plan_id)
+                story.id, fq_task_id, "Fast-tracked by user.")
+            set_current_task_id(task.id, plan_id)
             updated_task_data = task_service.update_task(
-                story_id=found_story.id,
-                task_id=found_task.id,
+                story_id=story.id,
+                task_id=fq_task_id,
                 status=Status.IN_PROGRESS
             )
-            return {"success": True, "message": f"Task '{found_task.title}' fast-tracked to IN_PROGRESS.", "changelog_snippet": None, **updated_task_data}
+            return {"success": True, "message": f"Task '{task.title}' fast-tracked to IN_PROGRESS.", "changelog_snippet": None, **updated_task_data}
         else:
             raise ValueError(
-                f"Cannot fast-track task '{item_id}'; its status is not TODO.")
+                f"Cannot fast-track task '{task_id}'; its status is not TODO.")
     else:
         raise KeyError(
-            f"Task with local ID '{item_id}' not found in the current plan.")
+            f"Task with local ID '{task_id}' not found in story '{story_id}'.")

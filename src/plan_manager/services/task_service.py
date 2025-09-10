@@ -22,7 +22,8 @@ from plan_manager.services.shared import (
     write_task_details,
     write_story_details,
     find_dependents,
-    merge_frontmatter_defaults
+    merge_frontmatter_defaults,
+    is_unblocked,
 )
 
 
@@ -186,6 +187,12 @@ def update_task(
 ) -> dict:
     plan = plan_repo.load_current()
     story, task_obj, fq_task_id = _find_task(plan, story_id, task_id)
+
+    # Prevent starting a blocked task
+    if status == Status.IN_PROGRESS and task_obj.status == Status.TODO:
+        if not is_unblocked(task_obj, plan):
+            raise ValueError(
+                f"Task '{task_obj.title}' cannot be started because it is blocked by one or more dependencies.")
 
     if title is not None:
         task_obj.title = title

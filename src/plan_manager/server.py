@@ -31,10 +31,10 @@ def starlette_app() -> Starlette:
         instructions="Manages stories defined in the project's plan."
     )
 
+    register_context_tools(mcp)
     register_plan_tools(mcp)
     register_story_tools(mcp)
     register_task_tools(mcp)
-    register_context_tools(mcp)
     register_approval_tools(mcp)
     register_report_tools(mcp)
     register_changelog_tools(mcp)

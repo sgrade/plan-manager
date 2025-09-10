@@ -67,7 +67,7 @@ def get_report() -> str:
             "----------------------------------------------------------",
             "The agent has completed the work with the following summary:",
             f"- {active_task.execution_summary or 'No summary provided.'}",
-            "\nNext Action: Review the code changes, then `approve` to merge or `change <instructions>`."
+            "\nNext Action: Review the code changes, then `approve_task` to merge or `change <instructions>`."
         ]
         return "\n".join(report)
 
@@ -77,8 +77,8 @@ def get_report() -> str:
             f"Current Task: {active_task.title} (Pending Pre-Execution Approval)",
             "---------------------------------------------------------------------",
             "The agent proposes the following plan:",
-            f"- {active_task.steps or 'No task steps provided.'}",
-            "\nNext Action: `approve` to authorize this task, or `change <instructions>`."
+            f"- {active_task.steps or 'No plan provided.'}",
+            "\nNext Action: `approve_task` to authorize this plan, or `change <instructions>`."
         ]
         return "\n".join(report)
 
@@ -114,7 +114,7 @@ def get_report() -> str:
         if next_task_to_do:
             local_id = next_task_to_do.id.split(':')[-1]
             report.append(
-                f"\nNext Action: `backlog` to review Task '{local_id}', or `approve {local_id}` to fast-track.")
+                f"\nNext Action: `prepare` to create steps for Task '{local_id}', or `approve_task {local_id}` to fast-track.")
         else:
             report.append(
                 "\nAll tasks for this story are complete or in review.")

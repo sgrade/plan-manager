@@ -183,16 +183,6 @@ class ProposeStepsIn(BaseModel):
     plan: str = Field(..., description="The implementation plan for the task.")
 
 
-# --- Approval Schemas ---
-
-class ApproveTaskIn(BaseModel):
-    """Input schema for the approve command."""
-    item_id: Optional[str] = Field(
-        default=None,
-        description="The local ID of a task to fast-track. If omitted, approves the currently active item."
-    )
-
-
 # --- Changelog Schemas ---
 
 class GenerateChangelogIn(BaseModel):

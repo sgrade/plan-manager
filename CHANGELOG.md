@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.4] - 2025-09-10
+
+### Fixed
+- Corrected a bug in the `approve_fast_track` service where it failed to find stories due to incorrect ID handling.
+- Ensured that `approve_fast_track` uses fully-qualified task IDs when calling underlying services to prevent lookup failures.
+
+### Changed
+- The `approve_task` tool now requires a fully-qualified ID (`story_id:task_id`) for fast-tracking to prevent ambiguity when multiple tasks share similar local IDs.
+
 ## [0.5.3] - 2025-09-10
 
 ### Changed

@@ -2,7 +2,6 @@ import logging
 from typing import Optional
 
 from plan_manager.services import approval_service
-from plan_manager.schemas.inputs import ApproveTaskIn
 from plan_manager.schemas.outputs import ApproveTaskOut
 
 
@@ -16,18 +15,22 @@ def register_approval_tools(mcp_instance) -> None:
 # This is a placeholder. In a real MCP server, this would be registered as a tool.
 
 
-def approve_task(payload: Optional[ApproveTaskIn] = None) -> ApproveTaskOut | str:
+def approve_task(item_id: Optional[str] = None) -> ApproveTaskOut | str:
     """
     Contextually approves the current task. This command is the primary way
     to move a task forward through its lifecycle.
     """
-    item_id = payload.item_id if payload else None
     logger.debug(f"approve_task tool called with item_id: {item_id!r}")
     try:
         # Case 1: Fast-track approval
         if item_id:
-            result = approval_service.approve_fast_track(item_id=item_id)
-            return ApproveTaskOut(**result)
+            try:
+                story_id, task_id = item_id.split(':', 1)
+                result = approval_service.approve_fast_track(
+                    story_id=story_id, task_id=task_id)
+                return ApproveTaskOut(**result)
+            except ValueError:
+                return "Invalid item_id format for fast-track. Please use 'story_id:task_id'."
 
         # Case 2: Standard approval (no item specified)
         result = approval_service.approve_active_task()
