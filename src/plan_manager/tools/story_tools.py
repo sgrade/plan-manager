@@ -12,7 +12,7 @@ from plan_manager.services.story_service import (
     list_stories as svc_list_stories,
 )
 from plan_manager.schemas.inputs import (
-    CreateStoryIn, GetStoryIn, UpdateStoryIn, DeleteStoryIn, ListStoriesIn, SetCurrentStoryIn,
+    UpdateStoryIn, ListStoriesIn,
 )
 from plan_manager.schemas.outputs import StoryOut, OperationResult, StoryListItem
 from plan_manager.services.state_repository import set_current_story_id, get_current_story_id
@@ -31,16 +31,16 @@ def register_story_tools(mcp_instance) -> None:
     mcp_instance.tool()(set_current_story)
 
 
-def create_story(payload: CreateStoryIn) -> StoryOut:
+def create_story(title: str, priority: Optional[int] = None, depends_on: Optional[list[str]] = None, description: Optional[str] = None) -> StoryOut:
     """Create a story."""
-    data = svc_create_story(payload.title, payload.priority,
-                            payload.depends_on, payload.description)
+    data = svc_create_story(title, priority,
+                            depends_on or [], description)
     return StoryOut(**data)
 
 
-def get_story(payload: Optional[GetStoryIn] = None) -> StoryOut:
+def get_story(story_id: Optional[str] = None) -> StoryOut:
     """Fetch a story by ID or the current story if none provided."""
-    story_id = payload.story_id if payload else get_current_story_id()
+    story_id = story_id or get_current_story_id()
     if not story_id:
         raise ValueError(
             "No current story set. Call set_current_story or provide story_id.")
@@ -48,16 +48,16 @@ def get_story(payload: Optional[GetStoryIn] = None) -> StoryOut:
     return StoryOut(**data)
 
 
-def update_story(payload: UpdateStoryIn) -> StoryOut:
+def update_story(story_id: str, title: Optional[str] = None, description: Optional[str] = None, depends_on: Optional[list[str]] = None, priority: Optional[int] = None, status: Optional[str] = None) -> StoryOut:
     """Update mutable fields of a story."""
-    data = svc_update_story(payload.story_id, payload.title, payload.description,
-                            payload.depends_on, payload.priority, payload.status)
+    data = svc_update_story(story_id, title, description,
+                            depends_on, priority, status)
     return StoryOut(**data)
 
 
-def delete_story(payload: DeleteStoryIn) -> OperationResult:
+def delete_story(story_id: str) -> OperationResult:
     """Delete a story by ID (fails if other items depend on it)."""
-    data = svc_delete_story(payload.story_id)
+    data = svc_delete_story(story_id)
     return OperationResult(**data)
 
 
@@ -98,10 +98,9 @@ def list_stories(payload: Optional[ListStoriesIn] = None) -> List[StoryListItem]
         raise e
 
 
-def set_current_story(payload: Optional[SetCurrentStoryIn] = None) -> OperationResult | List[StoryListItem]:
+def set_current_story(story_id: Optional[str] = None) -> OperationResult | List[StoryListItem]:
     """Set the current story. If no ID is provided, lists available stories."""
-    if payload and payload.story_id:
-        set_current_story_id(payload.story_id)
-        return OperationResult(success=True, message=f"Current story set to '{payload.story_id}'")
-    else:
-        return list_stories()
+    if story_id:
+        set_current_story_id(story_id)
+        return OperationResult(success=True, message=f"Current story set to '{story_id}'")
+    return list_stories()

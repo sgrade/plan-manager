@@ -11,8 +11,6 @@ from plan_manager.services.task_service import (
 )
 from plan_manager.schemas.inputs import (
     ListTasksIn,
-    CreateTaskIn, GetTaskIn, UpdateTaskIn, DeleteTaskIn,
-    SetCurrentTaskIn,
     SubmitForReviewIn,
     ProposeStepsIn,
 )
@@ -32,51 +30,47 @@ def register_task_tools(mcp_instance) -> None:
     mcp_instance.tool()(submit_for_review)
 
 
-def create_task(payload: CreateTaskIn) -> TaskOut:
+def create_task(story_id: str, title: str, priority: Optional[int] = None, depends_on: Optional[list[str]] = None, description: Optional[str] = None) -> TaskOut:
     """Create a task under a story."""
     try:
-        data = svc_create_task(payload.story_id, payload.title,
-                               payload.priority, payload.depends_on, payload.description)
+        data = svc_create_task(story_id, title,
+                               priority, depends_on or [], description)
         return TaskOut(**data)
     except (ValueError, KeyError) as e:
         return TaskOut(id=None, error=str(e))
 
 
-def get_task(payload: Optional[GetTaskIn] = None) -> TaskOut:
+def get_task(story_id: Optional[str] = None, task_id: Optional[str] = None) -> TaskOut:
     """Fetch a task by ID (local or FQ). Defaults to current task of current story."""
     try:
-        if payload:
-            story_id = payload.story_id
-            task_id = payload.task_id
-        else:
-            story_id = get_current_story_id()
-            if not story_id:
-                raise ValueError(
-                    "No current story set. Call set_current_story or provide story_id.")
-            task_id = get_current_task_id()
-            if not task_id:
-                raise ValueError(
-                    "No current task set. Call set_current_task or provide task_id.")
+        story_id = story_id or get_current_story_id()
+        if not story_id:
+            raise ValueError(
+                "No current story set. Call set_current_story or provide story_id.")
+        task_id = task_id or get_current_task_id()
+        if not task_id:
+            raise ValueError(
+                "No current task set. Call set_current_task or provide task_id.")
         data = svc_get_task(story_id, task_id)
         return TaskOut(**data)
     except (ValueError, KeyError) as e:
         return TaskOut(id=None, error=str(e))
 
 
-def update_task(payload: UpdateTaskIn) -> TaskOut:
+def update_task(story_id: str, task_id: str, title: Optional[str] = None, description: Optional[str] = None, depends_on: Optional[list[str]] = None, priority: Optional[int] = None, status: Optional[str] = None) -> TaskOut:
     """Update mutable fields of a task."""
     try:
-        data = svc_update_task(payload.story_id, payload.task_id, payload.title,
-                               payload.description, payload.depends_on, payload.priority, payload.status)
+        data = svc_update_task(story_id, task_id, title,
+                               description, depends_on, priority, status)
         return TaskOut(**data)
     except (ValueError, KeyError) as e:
         return TaskOut(id=None, error=str(e))
 
 
-def delete_task(payload: DeleteTaskIn) -> OperationResult:
+def delete_task(story_id: str, task_id: str) -> OperationResult:
     """Delete a task by ID (fails if other items depend on it)."""
     try:
-        data = svc_delete_task(payload.story_id, payload.task_id)
+        data = svc_delete_task(story_id, task_id)
         return OperationResult(**data)
     except (ValueError, KeyError) as e:
         return OperationResult(success=False, message=str(e))
@@ -105,13 +99,12 @@ def list_tasks(payload: Optional[ListTasksIn] = None) -> List[TaskListItem]:
     return items
 
 
-def set_current_task(payload: Optional[SetCurrentTaskIn] = None) -> OperationResult | List[TaskListItem]:
+def set_current_task(task_id: Optional[str] = None) -> OperationResult | List[TaskListItem]:
     """Set the current task for the current story. If no ID is provided, lists available tasks."""
-    if payload and payload.task_id:
-        set_current_task_id(payload.task_id)
-        return OperationResult(success=True, message=f"Current task set to '{payload.task_id}'")
-    else:
-        return list_tasks()
+    if task_id:
+        set_current_task_id(task_id)
+        return OperationResult(success=True, message=f"Current task set to '{task_id}'")
+    return list_tasks()
 
 
 def submit_for_review(payload: SubmitForReviewIn) -> TaskOut:

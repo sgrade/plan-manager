@@ -7,8 +7,9 @@ from plan_manager.services.plan_service import (
     delete_plan as svc_delete_plan,
     list_plans as svc_list_plans,
 )
+from plan_manager.domain.models import Status
 from plan_manager.schemas.inputs import (
-    CreatePlanIn, GetPlanIn, UpdatePlanIn, DeletePlanIn, ListPlansIn, SetCurrentPlanIn,
+    ListPlansIn,
 )
 from plan_manager.schemas.outputs import PlanOut, PlanListItem, OperationResult
 from plan_manager.services.plan_repository import set_current_plan_id, get_current_plan_id
@@ -24,31 +25,31 @@ def register_plan_tools(mcp_instance) -> None:
     mcp_instance.tool()(set_current_plan)
 
 
-def create_plan(payload: CreatePlanIn) -> PlanOut:
+def create_plan(title: str, description: Optional[str] = None, priority: Optional[int] = None) -> PlanOut:
     """Create a plan."""
 
     data = svc_create_plan(
-        payload.title, payload.description, payload.priority)
+        title, description, priority)
     return PlanOut(**data)
 
 
-def get_plan(payload: Optional[GetPlanIn] = None) -> PlanOut:
+def get_plan(plan_id: Optional[str] = None) -> PlanOut:
     """Fetch a plan."""
-    plan_id = payload.plan_id if payload else get_current_plan_id()
+    plan_id = plan_id or get_current_plan_id()
     data = svc_get_plan(plan_id)
     return PlanOut(**data)
 
 
-def update_plan(payload: UpdatePlanIn) -> PlanOut:
+def update_plan(plan_id: str, title: Optional[str] = None, description: Optional[str] = None, priority: Optional[int] = None, status: Optional[Status] = None) -> PlanOut:
     """Update a plan."""
-    data = svc_update_plan(payload.plan_id, payload.title,
-                           payload.description, payload.priority, payload.status)
+    data = svc_update_plan(plan_id, title,
+                           description, priority, status)
     return PlanOut(**data)
 
 
-def delete_plan(payload: DeletePlanIn) -> OperationResult:
+def delete_plan(plan_id: str) -> OperationResult:
     """Delete a plan."""
-    data = svc_delete_plan(payload.plan_id)
+    data = svc_delete_plan(plan_id)
     return OperationResult(**data)
 
 
@@ -64,11 +65,10 @@ def list_plans(payload: Optional[ListPlansIn] = None) -> List[PlanListItem]:
     return items
 
 
-def set_current_plan(payload: Optional[SetCurrentPlanIn] = None) -> OperationResult | List[PlanListItem]:
+def set_current_plan(plan_id: Optional[str] = None) -> OperationResult | List[PlanListItem]:
     """Set the current plan. If no ID is provided, lists available plans."""
-    if payload and payload.plan_id:
-        set_current_plan_id(payload.plan_id)
-        return OperationResult(success=True, message=f"Current plan set to '{payload.plan_id}'")
-    else:
-        # If no plan_id is provided, list available plans
-        return list_plans()
+    if plan_id:
+        set_current_plan_id(plan_id)
+        return OperationResult(success=True, message=f"Current plan set to '{plan_id}'")
+    # If no plan_id is provided, list available plans
+    return list_plans()

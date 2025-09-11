@@ -8,7 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Assisted planning workflow - introduction.
+- Assisted planning prompts registered and made context-aware (optional args, use current plan/story when omitted).
+- Review checklists and usage guide aligned with the documented workflow.
+
+### Changed
+- BREAKING: Flattened MCP tool inputs to simple parameters (no nested payload objects):
+  - set_current_plan(plan_id?), set_current_story(story_id?), set_current_task(task_id?)
+  - create_plan(title, description?, priority?), create_story(title, priority?, depends_on?, description?), create_task(story_id, title, priority?, depends_on?, description?)
+  - get_plan(plan_id?), get_story(story_id?), get_task(story_id?, task_id?)
+  - update_plan(plan_id, title?, description?, priority?, status?), update_story(story_id, title?, description?, depends_on?, priority?, status?), update_task(story_id, task_id, title?, description?, depends_on?, priority?, status?)
+  - delete_plan(plan_id), delete_story(story_id), delete_task(story_id, task_id)
+- Prompts: fixed terminology to match tools (e.g., “proposed steps”), and renamed steps prompt to `propose_steps_for_task` for clarity.
 
 ## [0.5.5] - 2025-09-10
 
