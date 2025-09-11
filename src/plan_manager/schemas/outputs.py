@@ -16,6 +16,15 @@ class OperationResult(BaseModel):
     message: str
 
 
+# --- Context Schemas ---
+
+class CurrentContextOut(BaseModel):
+    """Current context output returned by MCP tools."""
+    plan_id: Optional[str] = None
+    current_story_id: Optional[str] = None
+    current_task_id: Optional[str] = None
+
+
 # --- Report Schemas ---
 
 class ReportOut(BaseModel):
@@ -43,13 +52,6 @@ class PlanListItem(BaseModel):
     status: Status
     priority: Optional[int] = None
     creation_time: Optional[str] = None
-
-
-class CurrentContextOut(BaseModel):
-    """Current context output returned by MCP tools."""
-    plan_id: Optional[str] = None
-    current_story_id: Optional[str] = None
-    current_task_id: Optional[str] = None
 
 
 class WorkflowStatusOut(BaseModel):
