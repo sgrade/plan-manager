@@ -4,9 +4,9 @@ This document outlines the command workflows for the Plan Manager.
 
 ---
 
-### Unified Workflow for All Work Items (Plans, Stories, and Tasks)
+### Unified Planning
 
-The following diagram illustrates the single, consistent workflow used to manage context at every level of the project hierarchy (Plan, Story, and Task). This model is designed to be explicit and predictable, giving the user full control over their focus.
+The following diagram illustrates the single, consistent workflow used for planning at every level of the project hierarchy. It includes paths for both manual creation and prompt-assisted ("Assisted") creation of child work items.
 
 ```mermaid
 graph TD
@@ -16,11 +16,33 @@ graph TD
     D --> B;
     C -- Yes --> E["User runs <strong>set_current_&lt;item&gt; [id]</strong>"];
     E --> F["Current &lt;Item&gt; is set"];
+    
+    F --> G{Decompose into children?};
+    G -- No --> Z([End]);
+    
+    subgraph "Child Item Creation & Approval"
+      G -- Yes --> H{How?};
+      
+      H -- Manual --> I["User runs <strong>create_&lt;child&gt;</strong> one-by-one"];
+      I --> I_approve["(Implicit Approval)"];
+
+      H -- Assisted --> J["User runs <strong>/propose_&lt;children&gt;</strong> prompt"];
+      J --> K["System returns a list of proposals (not yet created)"];
+      K --> L["User reviews and approves proposals"];
+      L --> M["Agent runs <strong>create_&lt;child&gt;</strong> for each approved proposal"];
+    end
+
+    I_approve --> N[Children Created];
+    M --> N;
 ```
+
+**The Proposal-Approval Model**
+
+A key concept in this workflow is that newly suggested items (especially from the "Assisted" path) are considered **proposals**, not final work items. The user must give an explicit approval before the agent proceeds to formally create them in the system. For manual creation, this approval is implicit in the act of creating the item.
 
 **Connecting the Workflows**
 
-The "Unified Workflow" diagram shows how to select a work item. When a **Task** is set as the current item, its lifecycle begins, as illustrated in the diagram below. A newly selected task is always in the `TODO` state, which is the starting point for the Task Execution Lifecycle.
+The "Unified Planning" diagram shows how to select and define work items. When a **Task** is created and approved for the backlog (landing in the `TODO` state), its lifecycle begins, as illustrated in the diagram below.
 
 ---
 

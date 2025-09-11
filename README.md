@@ -24,11 +24,19 @@ Plan Manager is a tool for a developer or orchestrator to coordinate the work of
 
 ## Usage
 
+### Docs
+
 The project workflow overview diagrams are in [docs/project_workflow.md](docs/project_workflow.md)
 
 The project workflow description is in [.cursor/rules/project-management.mdc](.cursor/rules/project-management.mdc)
 
 See [docs/agent-usage-guide.md](docs/agent-usage-guide.md)
+
+### Hints
+
+Use `/` in the client (Cursor) chat window to list Plan Manager prompts (instructions, templates to interact with the server).
+
+Use MCP inspector to learn more about Plan Manager capabilities - [doc](dev/mcp-inspector/README.md).
 
 ## Development
 

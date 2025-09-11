@@ -9,18 +9,196 @@ Design constraints:
 - Keep content small and skimmable; the client may prefill and edit.
 """
 
-from typing import List
-from mcp.server.fastmcp.prompts.base import UserMessage, AssistantMessage
+from typing import List, Optional
+
+from mcp.server.fastmcp.prompts.base import AssistantMessage, UserMessage
+
+from plan_manager.services import (
+    plan_service,
+    story_service,
+)
+from plan_manager.services.plan_repository import get_current_plan_id
+from plan_manager.services.state_repository import get_current_story_id
 
 
-async def prompt_execution_intent_template(
-    task_title: str = "",
-    task_description: str = ""
+async def propose_stories_for_plan(
+    plan_id: Optional[str] = None,
+    additional_context: Optional[str] = None,
+) -> List:
+    """Suggest a list of stories to implement a given plan."""
+    if not plan_id:
+        try:
+            plan_id = get_current_plan_id()
+        except Exception:
+            plan_id = None
+
+    if not plan_id:
+        plans = plan_service.list_plans()
+        if not plans:
+            return [
+                AssistantMessage(
+                    "No plans found. Please create a plan first using `create_plan`."
+                )
+            ]
+        plan_list = "\n".join(
+            [f"- `{p.get('id')}`: {p.get('title')}" for p in plans])
+        return [
+            AssistantMessage(
+                f"No current plan is set. Please specify a plan ID.\n\nAvailable plans:\n{plan_list}"
+            )
+        ]
+
+    try:
+        plan = plan_service.get_plan(plan_id)
+        prompt = f"""
+Decompose the following plan into a list of user-facing stories.
+
+Plan Title: {plan.get('title')}
+Plan Description: {plan.get('description')}
+"""
+        if additional_context:
+            prompt += f"\nAdditional Context from User: {additional_context}\n"
+
+        prompt += """
+Return a valid JSON object that conforms to the `ProposeStoriesOut` schema from `plan_manager.schemas.prompts`.
+Each story should represent a valuable, user-facing outcome (a MINOR feature).
+"""
+        return [
+            UserMessage(prompt),
+            AssistantMessage(
+                """
+{
+  "stories": [
+    {
+      "title": "First story to implement the plan",
+      "description": "A clear, user-focused description of the first feature."
+    },
+    {
+      "title": "Second story to implement the plan",
+      "description": "A clear, user-focused description of the second feature."
+    }
+  ]
+}
+"""
+            ),
+        ]
+    except KeyError:
+        return [AssistantMessage(f"Error: Plan with ID '{plan_id}' not found.")]
+
+
+async def propose_tasks_for_story(
+    story_id: Optional[str] = None,
+    additional_context: Optional[str] = None,
+) -> List:
+    """Suggest a list of tasks to implement a given story."""
+    if not story_id:
+        try:
+            story_id = get_current_story_id()
+        except Exception:
+            story_id = None
+
+    if not story_id:
+        stories = story_service.list_stories(statuses=None, unblocked=False)
+        if not stories:
+            return [
+                AssistantMessage(
+                    "No stories found. Please create a story first using `create_story`."
+                )
+            ]
+        story_list = "\n".join([f"- `{s.id}`: {s.title}" for s in stories])
+        return [
+            AssistantMessage(
+                f"No current story is set. Please specify a story ID.\n\nAvailable stories:\n{story_list}"
+            )
+        ]
+
+    try:
+        story = story_service.get_story(story_id)
+        prompt = f"""
+Decompose the following story into a list of concrete, actionable tasks for a software agent.
+
+Story Title: {story.get('title')}
+Story Description: {story.get('description')}
+"""
+        if additional_context:
+            prompt += f"\nAdditional Context from User: {additional_context}\n"
+
+        prompt += """
+Return a valid JSON object that conforms to the `ProposeTasksOut` schema from `plan_manager.schemas.prompts`.
+The tasks should be granular enough to be completed in a single set of file changes (a PATCH).
+"""
+        return [
+            UserMessage(prompt),
+            AssistantMessage(
+                """
+{
+  "tasks": [
+    {
+      "title": "First task to implement the story",
+      "description": "A clear and concise description of the first step."
+    },
+    {
+      "title": "Second task to implement the story",
+      "description": "A clear and concise description of the second step."
+    }
+  ]
+}
+"""
+            ),
+        ]
+    except KeyError:
+        return [AssistantMessage(f"Error: Story with ID '{story_id}' not found.")]
+
+
+async def prompt_review_story_proposals_checklist() -> List:
+    """Provides a static checklist for reviewing story proposals."""
+    return [
+        AssistantMessage(
+            """
+### Story Proposal Review Checklist
+
+**Strategic Alignment**
+- [ ] Do these stories, as a whole, fulfill the high-level objective of the parent Plan?
+- [ ] Is each story a valuable, user-facing outcome (a "what" and "why")?
+- [ ] Does each story represent a meaningful feature or increment (a MINOR change)?
+
+**Quality & Clarity**
+- [ ] Are the titles and descriptions clear and unambiguous?
+- [ ] Are the stories reasonably independent and vertically sliced?
+- [ ] Is anything critical missing from this list to achieve the Plan's goal?
+"""
+        )
+    ]
+
+
+async def prompt_review_task_proposals_checklist() -> List:
+    """Provides a static checklist for reviewing task proposals."""
+    return [
+        AssistantMessage(
+            """
+### Task Proposal Review Checklist
+
+**Technical Decomposition**
+- [ ] Do these tasks, as a whole, fully cover the technical implementation of the parent Story?
+- [ ] Is each task a single, discreet unit of work (a PATCH)?
+- [ ] Are the tasks logically sequenced? Are any dependencies missing?
+
+**Clarity for Agent**
+- [ ] Are the titles phrased as clear, imperative commands for an agent (e.g., "Implement X," "Create Y")?
+- [ ] Is the scope of each task well-defined and unambiguous?
+- [ ] Is anything critical missing for an agent to successfully complete the Story?
+"""
+        )
+    ]
+
+
+async def prompt_propose_steps_for_task(
+    task_title: str = "", task_description: str = ""
 ) -> List:
     return [
         UserMessage(
             f"""
-Draft an execution_intent for this task:
+Draft the implementation steps for this task:
 - Task: {task_title}
 - Description: {task_description}
 
@@ -50,8 +228,7 @@ Include:
 
 
 async def prompt_execution_summary_template(
-    task_title: str = "",
-    files_changed: str = ""
+    task_title: str = "", files_changed: str = ""
 ) -> List:
     return [
         UserMessage(
@@ -79,8 +256,7 @@ Summarize:
 
 
 async def prompt_review_checklist(
-    task_title: str = "",
-    execution_summary: str = ""
+    task_title: str = "", execution_summary: str = ""
 ) -> List:
     return [
         UserMessage(
@@ -116,90 +292,73 @@ async def prompt_agent_usage_guide() -> List:
     return [
         AssistantMessage(
             """
-Plan-Manager: AI Agent Usage Guide (concise)
+Plan-Manager: AI Agent Usage Guide
 
-Core workflow per task:
-1) get_current_context → select_first_story → select_first_unblocked_task
-2) Draft execution_intent → request_approval_tool
-3) After approval → update_task(status=IN_PROGRESS)
-4) Do edits within client roots (client-enforced)
-5) Draft execution_summary → update_task(status=DONE, execution_summary)
-6) generate_changelog/publish_changelog_tool → append markdown client-side
+**Core Philosophy: The User is in Control**
+Your role is to execute simple, explicit commands. Do not chain commands or assume the next step. Present the output to the user and await their next instruction.
 
-Key tools:
-- Context: get_current_context, select_first_story, select_first_unblocked_task, advance_to_next_task, workflow_status
-- Plans: create_plan, get_plan, update_plan, delete_plan, list_plans, set_current_plan
-- Stories: create_story, get_story, update_story, delete_story, list_stories
-- Tasks: create_task, get_task, update_task, delete_task, list_tasks, explain_task_blockers, set_current_task
-- Approvals: request_approval_tool, approve_item_tool
-- Changelog: preview_changelog, generate_changelog, publish_changelog_tool (returns markdown)
+**1. Understand Your Context**
+- **`get_current`**: Shows your current plan, story, and task focus. Run this if you are unsure of the context.
+- **`report`**: Provides a detailed status of the current story and suggests the next logical action. Use `report plan` for a high-level overview.
 
-Prompts: execution_intent_template, execution_summary_template, review_checklist
-Roots: client-managed; server does not validate file access
-Elicitation: client-led; server may offer optional prompt scaffolds
-Guardrails: approval-required before leaving TODO (env-flag)
+**2. The Main Workflow: `list` -> `set_current`**
+This pattern applies to plans, stories, and tasks.
+- **`list_plans` / `list_stories` / `list_tasks`**: Use these to see available items.
+- **`set_current_plan <id>` / `set_current_story <id>` / `set_current_task <id>`**: Use these to set your focus.
+- **Interactive Mode**: If you don't have an ID, call the `set_current_*` command *without an argument*. The tool will return a list of available items for the user to choose from.
+
+**3. Task Execution Lifecycle**
+Once a task is set as current, follow this two-gate approval process:
+1.  **Propose Steps**: If a task is in `TODO` and has no steps, the user will ask you to `prepare` it. You will then call **`propose_steps`** with a clear implementation plan (objective, scope, etc.).
+2.  **First Approval**: The user runs **`approve_task`**. The task moves to `IN_PROGRESS`.
+3.  **Implement**: You perform the coding work.
+4.  **Submit for Review**: When finished, call **`submit_for_review`** with a summary of your changes. The task moves to `PENDING_REVIEW`.
+5.  **Final Approval**: The user runs **`approve_task`** again. The task is marked `DONE`, and the tool returns a changelog snippet.
+
+**Key Commands Cheat Sheet:**
+- **Context:** `get_current`, `report`, `report plan`
+- **Navigation:** `list_plans`, `set_current_plan`, `list_stories`, `set_current_story`, `list_tasks`, `set_current_task`
+- **Creation:** `create_plan`, `create_story`, `create_task`
+- **Task Actions:** `propose_steps`, `submit_for_review`, `approve_task`
+- **Modification:** `update_*`, `delete_*`, `change`
 """
         )
     ]
 
 
-async def prompt_planning_suggest_work_items(
-    description: str = "",
-) -> List:
-    """Suggest Plan/Story/Task creation based on SemVer-aligned scope."""
-    return [
-        UserMessage(
-            f"""
-Given this short description, classify scope and propose work items:
-
-Description:
-{description}
-
-Guidance (SemVer):
-- MAJOR → new Plan (backward-incompatible/fundamental changes)
-- MINOR → new Story (backward-compatible feature)
-- PATCH → Tasks (discrete unit of work for AI agent/bug fix/maintenance)
-
-Return JSON only with this shape:
-{{
-  "classification": "MAJOR|MINOR|PATCH",
-  "proposals": [
-    {{ "type": "plan|story|task", "title": "...", "description": "..." }}
-  ]
-}}
-"""
-        ),
-        AssistantMessage(
-            """
-{
-  "classification": "PATCH",
-  "proposals": [
-    {
-      "type": "task",
-      "title": "Implement workflow_status guide",
-      "description": "Add concise docs explaining workflow_status outputs and next actions."
-    }
-  ]
-}
-"""
-        ),
-    ]
-
-
-def register_workflow_prompts(mcp_instance) -> None:
+def register_workflow_prompts(
+    mcp_instance,
+) -> None:
     """Register minimal workflow prompts on the MCP instance."""
-    # Planning prompt: suggest work items per SemVer mapping
     mcp_instance.prompt(
-        name="planning_suggest_work_items",
-        title="Planning: Suggest Work Items",
-        description="Given a short description, suggest Plan/Story/Tasks per SemVer mapping",
-    )(prompt_planning_suggest_work_items)
+        name="propose_stories_for_plan",
+        title="Propose Stories for Plan",
+        description="Decomposes a plan into a list of actionable stories. Uses the current plan if no ID is provided.",
+    )(propose_stories_for_plan)
 
     mcp_instance.prompt(
-        name="execution_intent_template",
-        title="Execution Intent Template",
-        description="Template to draft execution_intent before starting a task",
-    )(prompt_execution_intent_template)
+        name="propose_tasks_for_story",
+        title="Propose Tasks for Story",
+        description="Decomposes a story into a list of actionable tasks. Uses the current story if no ID is provided.",
+    )(propose_tasks_for_story)
+
+    mcp_instance.prompt(
+        name="review_story_proposals_checklist",
+        title="Review Story Proposals Checklist",
+        description="Provides a checklist to aid in reviewing story proposals.",
+    )(prompt_review_story_proposals_checklist)
+
+    mcp_instance.prompt(
+        name="review_task_proposals_checklist",
+        title="Review Task Proposals Checklist",
+        description="Provides a checklist to aid in reviewing task proposals.",
+    )(prompt_review_task_proposals_checklist)
+
+    mcp_instance.prompt(
+        name="propose_steps_for_task",
+        title="Propose Steps Template",
+        description="Template to draft implementation steps before starting a task",
+    )(prompt_propose_steps_for_task)
 
     mcp_instance.prompt(
         name="execution_summary_template",

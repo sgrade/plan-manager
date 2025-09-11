@@ -27,8 +27,8 @@ def starlette_app() -> Starlette:
     logger.info("Initializing FastMCP.")
 
     mcp = FastMCP(
-        name="plan-manager",
-        instructions="Manages stories defined in the project's plan."
+        name="Plan Manager",
+        instructions="Manages stories defined in the project's plan.",
     )
 
     register_context_tools(mcp)

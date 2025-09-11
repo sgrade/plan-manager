@@ -1,43 +1,38 @@
-# Refactoring & Improvement Proposals (Post v0.5.4)
+# Refactoring & Improvement Proposals
 
-This document outlines a series of proposed enhancements to the Plan Manager CLI to improve usability, consistency, and robustness. These proposals are based on feedback and observations gathered during the testing of the v0.5 workflow.
+### Assisted Planning Workflow
 
----
+**Problem:** Decomposing high-level work items (like Plans or Stories) into their constituent children (Stories or Tasks) is a manual, repetitive process. The user must manually create each child item one by one.
 
-### 1. Scoped Reporting
+**Proposal:** Introduce a new, prompt-driven "Assisted Creation" workflow to automate the planning and decomposition of work items. This will be a user-controlled feature that complements the existing manual creation process.
 
-**Problem:** The current `report` command only provides a detailed view of the active story. There is no easy way to get a high-level overview of the entire plan's progress.
+**Key Features:**
 
-**Proposal:** Enhance the `report` command to support different scopes.
+1.  **Fractal Planning Prompts:**
+    *   Introduce a set of generative prompts that can decompose a parent work item into a structured list of proposed children.
+    *   `propose_stories_for_plan`: Takes a Plan's context and suggests a list of Stories.
+    *   `propose_tasks_for_story`: Takes a Story's context and suggests a list of Tasks.
 
--   **`report`**: (Default behavior) Shows a detailed summary of the **current story**, including task statuses and the next actionable step. This remains the "ground-level" view.
--   **`report plan`**: Provides a "10,000-foot view" of the **entire plan**, summarizing the status of all stories within it (e.g., `Story 1: 3/5 tasks DONE`, `Story 2: 0/4 tasks DONE`).
+2.  **Schema-Driven Output:**
+    *   The generative prompts will use Pydantic schemas (`ProposeStoriesOut`, `ProposeTasksOut`) to ensure their output is reliable, structured JSON.
+    *   These schemas will be located in a new `src/plan_manager/schemas/prompts.py` file.
 
----
+3.  **Conversational Review & Approval:**
+    *   The output of the generative prompts will be presented to the user as a list of **proposals**.
+    *   The user will review this list and give approval via a natural language command to the agent.
+    *   The agent will be responsible for iterating through the approved proposals and calling the existing, singular `create_*` tools. No new "bulk create" server logic is needed.
 
-### 2. Proactive Blocker Detection
+4.  **Optional Review Checklists (New Prompts):**
+    *   To support the user's review process, introduce simple, static, informational prompts.
+    *   `review_story_proposals_checklist`: Provides a checklist for evaluating Story proposals.
+    *   `review_task_proposals_checklist`: Provides a checklist for evaluating Task proposals.
+    *   These prompts will not use schemas as their output is for human consumption only.
 
-**Problem:** A task's status does not automatically update to `BLOCKED` if its dependencies are not met. A user might not realize a task is blocked until they attempt to start it (`approve_task`).
+**Implementation Plan:**
 
-**Proposal:** Implement a service that proactively updates the status of tasks. When a task is completed, the system should re-evaluate the dependencies of other tasks. Any `TODO` task whose dependencies are not fully met should have its status automatically set to `BLOCKED`. This provides immediate visibility into project dependencies and blockers.
-
----
-
-### 3. Interactive `set_current` Commands
-
-**Problem:** Using the `set_current_plan`, `set_current_story`, and `set_current_task` commands requires the user to first list the items to find their exact IDs. This is a multi-step, manual process.
-
-**Proposal:** Make the `set_current_*` commands interactive. If a command is run without an ID, the tool should:
-1.  Fetch the list of available items (e.g., `set_current_story` would call `list_stories`).
-2.  Present the list to the user as a set of choices.
-3.  Allow the user to select an item from the list to set it as the current context.
-
----
-
-### 4. Improved Error Messages
-
-**Problem:** Some error messages are generic or unhelpful, making it difficult to diagnose issues. For example, a `KeyError` in the service layer might be caught and replaced with a generic message like "There is no tasks to approve."
-
-**Proposal:** Conduct a systematic review of the error handling in the service and tool layers. Replace generic exceptions and messages with specific, actionable feedback that helps the user understand what went wrong and how to fix it.
-
+1.  Create `src/plan_manager/schemas/prompts.py` with the necessary Pydantic models.
+2.  In `src/plan_manager/prompts/workflow_prompts.py`:
+    *   Implement the two generative prompts (`propose_stories_for_plan`, `propose_tasks_for_story`) using the new schemas.
+    *   Implement the two static review checklist prompts.
+    *   Register all four new prompts with the MCP server.
 

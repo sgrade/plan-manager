@@ -20,10 +20,13 @@ Code changes are allowed in the following cases:
 
 ## Development workflow
 1. Planning:
-   - The user can select an existing work item (Plan or Story) to review, or create a new one.
-   - **Reviewing**: The user can review the stories in the current plan with `list_stories`. After selecting a story, they can review its tasks with `list_tasks`. This helps understand the full **Story Context** before committing to execution.
-   - **Creating**: New stories are created with the `create_story` command. After a story is created, the user can direct the agent to create tasks for it.
-   - The user always reviews the proposed/existing items and can `approve` or `change` them.
+   - The user can select an existing work item (Plan or Story) to review, or create a new one using the `list_*` and `set_current_*` commands.
+   - **Decomposing Work (Creating Children)**: After setting a parent item (like a Story), the user can create child items (like Tasks) in two ways:
+     - **Manual Creation**: The user runs the `create_task` command for each new task. Each creation is considered a proposal that is implicitly approved.
+     - **Assisted Creation**: The user can run a `/propose_tasks` prompt. The system will suggest a list of tasks. These are only proposals. The user must then review the list and give an explicit command to the agent to create the desired tasks. This command serves as the approval. (Note: The agent is responsible for iterating through approved proposals and calling the `create_*` tool for each; there is no single "bulk create" tool.)
+   - **Approval Mechanism**:
+     - For **Plans and Stories**, approval is conversational. The act of creating them, either manually or from an approved proposal list, confirms their addition to the backlog.
+     - For **Tasks**, creation places them in the `TODO` state. This means they are "approved for the backlog." A separate, formal approval (`approve_task` command) is required later to start work and move them to `IN_PROGRESS`.
 2. Execution (per-task): This follows a standard Pull Request (PR) workflow.
    - **Task Steps (Pre-Execution Review)**: Before starting a task, the agent must propose the `steps` it will take. This is equivalent to a PR description. The user must `approve` this before work begins.
    - **Implementation**: Upon approval, a task's status is set to `IN_PROGRESS` and the agent begins work.
