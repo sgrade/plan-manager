@@ -1,4 +1,3 @@
-from plan_manager.schemas.inputs import GenerateChangelogIn
 from plan_manager.schemas.outputs import ChangelogPreviewOut
 from plan_manager.services.changelog_service import generate_changelog_for_task
 from plan_manager.services.plan_repository import load_current
@@ -9,7 +8,7 @@ def register_changelog_tools(mcp_instance) -> None:
     mcp_instance.tool()(generate_changelog)
 
 
-def generate_changelog(payload: GenerateChangelogIn) -> ChangelogPreviewOut:
+def generate_changelog(version: str | None = None, date: str | None = None) -> ChangelogPreviewOut:
     """Generate a changelog snippet for all completed tasks in the current plan."""
     plan = load_current()
     completed_tasks = []
@@ -22,7 +21,7 @@ def generate_changelog(payload: GenerateChangelogIn) -> ChangelogPreviewOut:
     for task in completed_tasks:
         # We pass the version and date for the header of each snippet
         snippet = generate_changelog_for_task(
-            task, payload.version, payload.date)
+            task, version, date)
         snippets.append(snippet)
 
     md = "\n\n".join(snippets)
