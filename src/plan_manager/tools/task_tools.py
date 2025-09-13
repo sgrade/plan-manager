@@ -9,10 +9,6 @@ from plan_manager.services.task_service import (
     submit_for_code_review as svc_submit_for_code_review,
     propose_steps as svc_propose_steps,
 )
-from plan_manager.schemas.inputs import (
-    SubmitForReviewIn,
-    ProposeStepsIn,
-)
 from plan_manager.schemas.outputs import TaskOut, TaskListItem, OperationResult
 from plan_manager.services.state_repository import get_current_story_id, set_current_task_id, get_current_task_id
 from plan_manager.domain.models import Status
@@ -104,26 +100,26 @@ def set_current_task(task_id: Optional[str] = None) -> OperationResult | List[Ta
     return list_tasks()
 
 
-def submit_for_review(payload: SubmitForReviewIn) -> TaskOut:
+def submit_for_review(story_id: str, task_id: str, summary: str) -> TaskOut:
     """Submits a task for code review, moving it to PENDING_REVIEW status."""
     try:
         data = svc_submit_for_code_review(
-            story_id=payload.story_id,
-            task_id=payload.task_id,
-            summary_text=payload.summary
+            story_id=story_id,
+            task_id=task_id,
+            summary_text=summary
         )
         return TaskOut(**data)
     except (ValueError, KeyError) as e:
         return TaskOut(id=None, error=str(e))
 
 
-def propose_task_steps(payload: ProposeStepsIn) -> TaskOut:
+def propose_task_steps(story_id: str, task_id: str, plan: str) -> TaskOut:
     """Proposes an implementation plan for a task, moving it to a reviewable state."""
     try:
         data = svc_propose_steps(
-            story_id=payload.story_id,
-            task_id=payload.task_id,
-            plan_text=payload.plan
+            story_id=story_id,
+            task_id=task_id,
+            plan_text=plan
         )
         return TaskOut(**data)
     except (ValueError, KeyError) as e:
