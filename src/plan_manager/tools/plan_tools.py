@@ -8,9 +8,7 @@ from plan_manager.services.plan_service import (
     list_plans as svc_list_plans,
 )
 from plan_manager.domain.models import Status
-from plan_manager.schemas.inputs import (
-    ListPlansIn,
-)
+
 from plan_manager.schemas.outputs import PlanOut, PlanListItem, OperationResult
 from plan_manager.services.plan_repository import set_current_plan_id, get_current_plan_id
 
@@ -53,16 +51,13 @@ def delete_plan(plan_id: str) -> OperationResult:
     return OperationResult(**data)
 
 
-def list_plans(payload: Optional[ListPlansIn] = None) -> List[PlanListItem]:
-    """List plans."""
-    statuses = payload.statuses if payload else None
+def list_plans(statuses: Optional[List[Status]] = None, offset: Optional[int] = 0, limit: Optional[int] = None) -> List[PlanListItem]:
+    """List plans with optional status filter and pagination."""
     data = svc_list_plans(statuses)
     items = [PlanListItem(**d) for d in data]
-    if payload:
-        start = max(0, payload.offset or 0)
-        end = None if payload.limit is None else start + max(0, payload.limit)
-        return items[start:end]
-    return items
+    start = max(0, offset or 0)
+    end = None if limit is None else start + max(0, limit)
+    return items[start:end]
 
 
 def set_current_plan(plan_id: Optional[str] = None) -> OperationResult | List[PlanListItem]:

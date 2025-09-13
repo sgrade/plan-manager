@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - update_plan(plan_id, title?, description?, priority?, status?), update_story(story_id, title?, description?, depends_on?, priority?, status?), update_task(story_id, task_id, title?, description?, depends_on?, priority?, status?)
   - delete_plan(plan_id), delete_story(story_id), delete_task(story_id, task_id)
 - Prompts: migrated to FastMCP `base.UserMessage`/`base.AssistantMessage`; clarified wording and key requirements; removed unsupported `arguments` kwarg from prompt registration.
+- Update list_plans, list_stories, and list_tasks to use flat parameters instead of a payload
 
 ### Fixed
 - Prompt examples now use valid JSON (no trailing commas; corrected keys: `description` instead of `user_story`).

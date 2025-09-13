@@ -3,16 +3,13 @@ from typing import List, Optional
 
 from pydantic import ValidationError
 
-from plan_manager.domain.models import Story
+from plan_manager.domain.models import Story, Status
 from plan_manager.services.story_service import (
     create_story as svc_create_story,
     get_story as svc_get_story,
     update_story as svc_update_story,
     delete_story as svc_delete_story,
     list_stories as svc_list_stories,
-)
-from plan_manager.schemas.inputs import (
-    UpdateStoryIn, ListStoriesIn,
 )
 from plan_manager.schemas.outputs import StoryOut, OperationResult, StoryListItem
 from plan_manager.services.state_repository import set_current_story_id, get_current_story_id
@@ -61,10 +58,8 @@ def delete_story(story_id: str) -> OperationResult:
     return OperationResult(**data)
 
 
-def list_stories(payload: Optional[ListStoriesIn] = None) -> List[StoryListItem]:
-    """List stories with topological sort and structured filters."""
-    statuses = payload.statuses if payload else None
-    unblocked = payload.unblocked if payload else False
+def list_stories(statuses: Optional[List[Status]] = None, unblocked: bool = False, offset: Optional[int] = 0, limit: Optional[int] = None) -> List[StoryListItem]:
+    """List stories with optional status filter, unblocked flag and pagination."""
     logger.info(
         f"Handling list_stories: statuses={statuses}, unblocked={unblocked}")
     try:
@@ -84,12 +79,9 @@ def list_stories(payload: Optional[ListStoriesIn] = None) -> List[StoryListItem]
             )
         logger.info(
             f"list_stories returning {len(items)} stories after sorting and filtering.")
-        if payload:
-            start = max(0, payload.offset or 0)
-            end = None if payload.limit is None else start + \
-                max(0, payload.limit)
-            return items[start:end]
-        return items
+        start = max(0, offset or 0)
+        end = None if limit is None else start + max(0, limit)
+        return items[start:end]
     except (FileNotFoundError, ValidationError) as e:
         logger.exception("Failed to load/validate plan data for list_stories")
         raise e

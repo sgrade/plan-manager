@@ -10,12 +10,12 @@ from plan_manager.services.task_service import (
     propose_steps as svc_propose_steps,
 )
 from plan_manager.schemas.inputs import (
-    ListTasksIn,
     SubmitForReviewIn,
     ProposeStepsIn,
 )
 from plan_manager.schemas.outputs import TaskOut, TaskListItem, OperationResult
 from plan_manager.services.state_repository import get_current_story_id, set_current_task_id, get_current_task_id
+from plan_manager.domain.models import Status
 
 
 def register_task_tools(mcp_instance) -> None:
@@ -76,10 +76,9 @@ def delete_task(story_id: str, task_id: str) -> OperationResult:
         return OperationResult(success=False, message=str(e))
 
 
-def list_tasks(payload: Optional[ListTasksIn] = None) -> List[TaskListItem]:
-    """List tasks, optionally filtering by status set and story."""
-    statuses = payload.statuses if payload else None
-    story_id = payload.story_id if payload else get_current_story_id()
+def list_tasks(statuses: Optional[List[Status]] = None, story_id: Optional[str] = None, offset: Optional[int] = 0, limit: Optional[int] = None) -> List[TaskListItem]:
+    """List tasks, optionally filtering by statuses and story with pagination."""
+    story_id = story_id or get_current_story_id()
     tasks = svc_list_tasks(statuses, story_id)
     items: List[TaskListItem] = []
     for t in tasks:
@@ -92,11 +91,9 @@ def list_tasks(payload: Optional[ListTasksIn] = None) -> List[TaskListItem]:
                 creation_time=t.creation_time.isoformat() if t.creation_time else None,
             )
         )
-    if payload:
-        start = max(0, payload.offset or 0)
-        end = None if payload.limit is None else start + max(0, payload.limit)
-        return items[start:end]
-    return items
+    start = max(0, offset or 0)
+    end = None if limit is None else start + max(0, limit)
+    return items[start:end]
 
 
 def set_current_task(task_id: Optional[str] = None) -> OperationResult | List[TaskListItem]:
