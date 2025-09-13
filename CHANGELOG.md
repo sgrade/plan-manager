@@ -8,7 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Assisted planning prompts registered and made context-aware (optional args, use current plan/story when omitted).
+- Assisted planning prompts registered and made context-aware (optional args, use current plan/story/task when omitted).
+- FastMCP prompt catalog with dynamic registration via `register_prompts` and `PROMPT_SPECS`.
+- New prompts:
+  - `propose_stories_for_plan` (stories with title, description, acceptance_criteria)
+  - `propose_tasks_for_story` (tasks with title, description)
+  - `propose_steps_for_task` (PATCH-level steps suitable for changelog bullets)
 - Review checklists and usage guide aligned with the documented workflow.
 
 ### Changed
@@ -18,7 +23,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - get_plan(plan_id?), get_story(story_id?), get_task(story_id?, task_id?)
   - update_plan(plan_id, title?, description?, priority?, status?), update_story(story_id, title?, description?, depends_on?, priority?, status?), update_task(story_id, task_id, title?, description?, depends_on?, priority?, status?)
   - delete_plan(plan_id), delete_story(story_id), delete_task(story_id, task_id)
-- Prompts: fixed terminology to match tools (e.g., “proposed steps”), and renamed steps prompt to `propose_steps_for_task` for clarity.
+- Prompts: migrated to FastMCP `base.UserMessage`/`base.AssistantMessage`; clarified wording and key requirements; removed unsupported `arguments` kwarg from prompt registration.
+
+### Fixed
+- Prompt examples now use valid JSON (no trailing commas; corrected keys: `description` instead of `user_story`).
 
 ## [0.5.5] - 2025-09-10
 

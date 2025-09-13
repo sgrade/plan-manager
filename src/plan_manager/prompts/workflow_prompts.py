@@ -9,145 +9,9 @@ Design constraints:
 - Keep content small and skimmable; the client may prefill and edit.
 """
 
-from typing import List, Optional
+from typing import List
 
 from mcp.server.fastmcp.prompts.base import AssistantMessage, UserMessage
-
-from plan_manager.services import (
-    plan_service,
-    story_service,
-)
-from plan_manager.services.plan_repository import get_current_plan_id
-from plan_manager.services.state_repository import get_current_story_id
-
-
-async def propose_stories_for_plan(
-    plan_id: Optional[str] = None,
-    additional_context: Optional[str] = None,
-) -> List:
-    """Suggest a list of stories to implement a given plan."""
-    if not plan_id:
-        try:
-            plan_id = get_current_plan_id()
-        except Exception:
-            plan_id = None
-
-    if not plan_id:
-        plans = plan_service.list_plans()
-        if not plans:
-            return [
-                AssistantMessage(
-                    "No plans found. Please create a plan first using `create_plan`."
-                )
-            ]
-        plan_list = "\n".join(
-            [f"- `{p.get('id')}`: {p.get('title')}" for p in plans])
-        return [
-            AssistantMessage(
-                f"No current plan is set. Please specify a plan ID.\n\nAvailable plans:\n{plan_list}"
-            )
-        ]
-
-    try:
-        plan = plan_service.get_plan(plan_id)
-        prompt = f"""
-Decompose the following plan into a list of user-facing stories.
-
-Plan Title: {plan.get('title')}
-Plan Description: {plan.get('description')}
-"""
-        if additional_context:
-            prompt += f"\nAdditional Context from User: {additional_context}\n"
-
-        prompt += """
-Return a valid JSON object that conforms to the `ProposeStoriesOut` schema from `plan_manager.schemas.prompts`.
-Each story should represent a valuable, user-facing outcome (a MINOR feature).
-"""
-        return [
-            UserMessage(prompt),
-            AssistantMessage(
-                """
-{
-  "stories": [
-    {
-      "title": "First story to implement the plan",
-      "description": "A clear, user-focused description of the first feature."
-    },
-    {
-      "title": "Second story to implement the plan",
-      "description": "A clear, user-focused description of the second feature."
-    }
-  ]
-}
-"""
-            ),
-        ]
-    except KeyError:
-        return [AssistantMessage(f"Error: Plan with ID '{plan_id}' not found.")]
-
-
-async def propose_tasks_for_story(
-    story_id: Optional[str] = None,
-    additional_context: Optional[str] = None,
-) -> List:
-    """Suggest a list of tasks to implement a given story."""
-    if not story_id:
-        try:
-            story_id = get_current_story_id()
-        except Exception:
-            story_id = None
-
-    if not story_id:
-        stories = story_service.list_stories(statuses=None, unblocked=False)
-        if not stories:
-            return [
-                AssistantMessage(
-                    "No stories found. Please create a story first using `create_story`."
-                )
-            ]
-        story_list = "\n".join([f"- `{s.id}`: {s.title}" for s in stories])
-        return [
-            AssistantMessage(
-                f"No current story is set. Please specify a story ID.\n\nAvailable stories:\n{story_list}"
-            )
-        ]
-
-    try:
-        story = story_service.get_story(story_id)
-        prompt = f"""
-Decompose the following story into a list of concrete, actionable tasks for a software agent.
-
-Story Title: {story.get('title')}
-Story Description: {story.get('description')}
-"""
-        if additional_context:
-            prompt += f"\nAdditional Context from User: {additional_context}\n"
-
-        prompt += """
-Return a valid JSON object that conforms to the `ProposeTasksOut` schema from `plan_manager.schemas.prompts`.
-The tasks should be granular enough to be completed in a single set of file changes (a PATCH).
-"""
-        return [
-            UserMessage(prompt),
-            AssistantMessage(
-                """
-{
-  "tasks": [
-    {
-      "title": "First task to implement the story",
-      "description": "A clear and concise description of the first step."
-    },
-    {
-      "title": "Second task to implement the story",
-      "description": "A clear and concise description of the second step."
-    }
-  ]
-}
-"""
-            ),
-        ]
-    except KeyError:
-        return [AssistantMessage(f"Error: Story with ID '{story_id}' not found.")]
 
 
 async def prompt_review_story_proposals_checklist() -> List:
@@ -330,17 +194,6 @@ def register_workflow_prompts(
     mcp_instance,
 ) -> None:
     """Register minimal workflow prompts on the MCP instance."""
-    mcp_instance.prompt(
-        name="propose_stories_for_plan",
-        title="Propose Stories for Plan",
-        description="Decomposes a plan into a list of actionable stories. Uses the current plan if no ID is provided.",
-    )(propose_stories_for_plan)
-
-    mcp_instance.prompt(
-        name="propose_tasks_for_story",
-        title="Propose Tasks for Story",
-        description="Decomposes a story into a list of actionable tasks. Uses the current story if no ID is provided.",
-    )(propose_tasks_for_story)
 
     mcp_instance.prompt(
         name="review_story_proposals_checklist",
@@ -353,12 +206,6 @@ def register_workflow_prompts(
         title="Review Task Proposals Checklist",
         description="Provides a checklist to aid in reviewing task proposals.",
     )(prompt_review_task_proposals_checklist)
-
-    mcp_instance.prompt(
-        name="propose_steps_for_task",
-        title="Propose Steps Template",
-        description="Template to draft implementation steps before starting a task",
-    )(prompt_propose_steps_for_task)
 
     mcp_instance.prompt(
         name="execution_summary_template",

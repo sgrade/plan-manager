@@ -12,7 +12,7 @@ Code changes are allowed in the following cases:
 
 ## Work items and statuses
 - Plan: documents major change; maps to MAJOR in semantic versioning; a collection of stories.
-- Story: documents a user-facing outcome (the **WHAT** and **WHY**). It is a collection of tasks.
+- Story: documents a user-facing outcome (the **WHAT** and **WHY**). It is a collection of tasks. It maps to a MINOR in semantic versioning.
 - Task: documents the implementation steps for the AI agent (the **HOW**). Each task is a discreet unit of work that maps to a PATCH in semantic versioning. While a story provides the high-level context, each task also has its own "what, why, how" at a more granular level.
 - Statuses: apply to plans, stories, and tasks; primary progression is TODO → IN_PROGRESS → PENDING_REVIEW → DONE; side states: BLOCKED, DEFERRED.
 - Dependencies: tasks/stories may block others.
