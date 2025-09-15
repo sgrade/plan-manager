@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `propose_tasks_for_story` (tasks with title, description)
   - `propose_steps_for_task` (PATCH-level steps suitable for changelog bullets)
 - Review checklists and usage guide aligned with the documented workflow.
+- Acceptance criteria in Story
 
 ### Changed
 - BREAKING: Flattened MCP tool inputs to simple parameters (no nested payload objects):

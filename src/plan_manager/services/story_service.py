@@ -27,7 +27,13 @@ from plan_manager.services.state_repository import (
 logger = logging.getLogger(__name__)
 
 
-def create_story(title: str, priority: Optional[int], depends_on: List[str], description: Optional[str]) -> dict:
+def create_story(
+    title: str,
+    description: Optional[str],
+    acceptance_criteria: Optional[List[str]],
+    priority: Optional[int],
+    depends_on: List[str]
+) -> dict:
     generated_id = generate_slug(title)
     plan = plan_repo.load_current()
     existing_ids = [s.id for s in plan.stories]
@@ -38,9 +44,10 @@ def create_story(title: str, priority: Optional[int], depends_on: List[str], des
         new_story = Story(
             id=generated_id,
             title=title,
+            description=description,
+            acceptance_criteria=acceptance_criteria,
             file_path=details_path,
             depends_on=depends_on or [],
-            description=description,
             priority=priority,
         )
     except ValidationError as e:
@@ -58,7 +65,7 @@ def create_story(title: str, priority: Optional[int], depends_on: List[str], des
         logger.info(
             f"Best-effort creation of story file failed for '{generated_id}'.")
 
-    return new_story.model_dump(mode='json', include={'id', 'title', 'status', 'file_path', 'priority', 'creation_time', 'description', 'depends_on'}, exclude_none=True)
+    return new_story.model_dump(mode='json', include={'id', 'title', 'description', 'acceptance_criteria', 'priority', 'depends_on', 'status', 'file_path', 'creation_time'}, exclude_none=True)
 
 
 def get_story(story_id: str) -> dict:
@@ -76,8 +83,9 @@ def update_story(
     story_id: str,
     title: Optional[str] = None,
     description: Optional[str] = None,
-    depends_on: Optional[List[str]] = None,
+    acceptance_criteria: Optional[List[str]] = None,
     priority: Optional[int] = None,
+    depends_on: Optional[List[str]] = None,
 ) -> dict:
     plan = plan_repo.load_current()
     idx = next((i for i, s in enumerate(
@@ -90,6 +98,8 @@ def update_story(
         story_obj.title = title
     if description is not None:
         story_obj.description = description
+    if acceptance_criteria is not None:
+        story_obj.acceptance_criteria = acceptance_criteria
     if depends_on is not None:
         story_obj.depends_on = depends_on
     if priority is not None:

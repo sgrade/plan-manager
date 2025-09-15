@@ -28,10 +28,18 @@ def register_story_tools(mcp_instance) -> None:
     mcp_instance.tool()(set_current_story)
 
 
-def create_story(title: str, priority: Optional[int] = None, depends_on: Optional[list[str]] = None, description: Optional[str] = None) -> StoryOut:
-    """Create a story."""
-    data = svc_create_story(title, priority,
-                            depends_on or [], description)
+def create_story(title: str, description: Optional[str] = None, acceptance_criteria: Optional[list[str]] = None, priority: Optional[int] = None, depends_on: Optional[list[str]] = None) -> StoryOut:
+    """Create a story.
+
+    Args:
+        title: The title of the story.
+        description: The description of the story.
+        acceptance_criteria: The acceptance criteria of the story.
+        priority: The priority of the story.
+        depends_on: The dependencies of the story.
+    """
+    data = svc_create_story(title, description, acceptance_criteria, priority,
+                            depends_on or [])
     return StoryOut(**data)
 
 
@@ -45,10 +53,10 @@ def get_story(story_id: Optional[str] = None) -> StoryOut:
     return StoryOut(**data)
 
 
-def update_story(story_id: str, title: Optional[str] = None, description: Optional[str] = None, depends_on: Optional[list[str]] = None, priority: Optional[int] = None, status: Optional[str] = None) -> StoryOut:
+def update_story(story_id: str, title: Optional[str] = None, description: Optional[str] = None, acceptance_criteria: Optional[list[str]] = None, depends_on: Optional[list[str]] = None, priority: Optional[int] = None) -> StoryOut:
     """Update mutable fields of a story."""
     data = svc_update_story(story_id, title, description,
-                            depends_on, priority, status)
+                            acceptance_criteria, priority, depends_on)
     return StoryOut(**data)
 
 

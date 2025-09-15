@@ -82,6 +82,7 @@ class StoryOut(BaseModel):
     priority: Optional[int] = None
     creation_time: Optional[str] = None
     description: Optional[str] = None
+    acceptance_criteria: Optional[List[str]] = None
     depends_on: List[str] = []
 
 

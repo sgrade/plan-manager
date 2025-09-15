@@ -4,13 +4,13 @@ Sync AI agent(s) and models around common goals and constraints.
 
 ## Overview
 
-AI agents supported by models operate in a limited context window. If the work is larger, the developer needs to periodically align the agent with plans. If multiple LLMs or agents perform different tasks, for example, to optimize costs, they need to be synchronized. Plan Manager makes it easier to align agents and LLMs with a plan under user-defined constraints.
+AI agents supported by models operate in a limited context window. If the amount of work is greater, there is a need to periodically coordinate the agent with broader plans. Moreover, if several AI models or agents perform different tasks, for example, to optimize costs, they need to be synchronized. The Plan Manager makes it easier to coordinate agents and LLMs with a plan according to user-defined constraints.
 
 ## Positioning
 
 For large projects we use project management systems like Jira or Linear. With their help, leaders coordinate work of developers. 
 
-Plan Manager is a tool for a developer or orchestrator to coordinate the work of one or more AI agents or models. For example, ask an expensive thinking model to create a plan and document it in Plan Manager. Delegate work items (stories, tasks) to less expensive models. Review the summary of work before and after the work item is completed, correct deviations from the plan. Export the report to the changelog and/or to larger project management systems.
+Plan Manager is a tool for a single developer or orchestrator to coordinate the work of one or more AI agents or models. For example, ask an expensive thinking model to create a plan and document it in Plan Manager. Delegate work items (stories, tasks) to less expensive models. Review the summary of work before and after the work item is completed, correct deviations from the plan. Export the report to the changelog and/or to larger project management systems.
 
 ## Core concepts
 
@@ -26,11 +26,9 @@ Plan Manager is a tool for a developer or orchestrator to coordinate the work of
 
 ### Docs
 
-The project workflow overview diagrams are in [docs/project_workflow.md](docs/project_workflow.md)
+The overview diagrams are in [docs/project_workflow.md](docs/project_workflow.md)
 
 The project workflow description is in [.cursor/rules/project-management.mdc](.cursor/rules/project-management.mdc)
-
-See [docs/agent-usage-guide.md](docs/agent-usage-guide.md)
 
 ### Hints
 

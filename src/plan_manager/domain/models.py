@@ -21,13 +21,13 @@ class Status(str, Enum):
 class WorkItem(BaseModel):
     id: str
     title: str
-    status: Status = Field(default=Status.TODO)
-    depends_on: Optional[List[str]] = Field(default_factory=list)
     description: Optional[str] = None
+    priority: Optional[int] = None
+    depends_on: Optional[List[str]] = Field(default_factory=list)
+    status: Status = Field(default=Status.TODO)
     creation_time: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc))
     completion_time: Optional[datetime] = None
-    priority: Optional[int] = None
 
     @field_validator("status")
     @classmethod
@@ -55,6 +55,7 @@ class Story(WorkItem):
     """A Story represents a user-facing outcome (the 'what' and 'why').
     Its 'how' is the collection of tasks it contains."""
     file_path: Optional[str] = None
+    acceptance_criteria: Optional[List[str]] = None
     tasks: List['Task'] = Field(default_factory=list)
 
 
