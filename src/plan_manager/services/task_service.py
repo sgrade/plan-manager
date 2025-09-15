@@ -151,8 +151,11 @@ def get_task(story_id: str, task_id: str) -> dict:
     return {"id": fq_task_id, "title": local_task_id.replace('_', ' '), "status": "TODO"}
 
 
-def propose_steps(story_id: str, task_id: str, plan_text: str) -> dict:
-    """Sets the implementation plan for a task, making it ready for pre-execution review."""
+def create_steps(story_id: str, task_id: str, steps: List[dict]) -> dict:
+    """Sets the implementation steps for a task, making it ready for pre-execution review.
+
+    Expects a list of step dicts with 'title' and optional 'description'.
+    """
     plan = plan_repo.load_current()
     story, task_obj, _fq_task_id = _find_task(plan, story_id, task_id)
 
@@ -160,7 +163,15 @@ def propose_steps(story_id: str, task_id: str, plan_text: str) -> dict:
         raise ValueError(
             f"Can only propose a plan for a task in TODO or IN_PROGRESS status. Current status is {task_obj.status}.")
 
-    task_obj.steps = plan_text
+    # Validate and coerce into Step models
+    new_steps: List[Task.Step] = []
+    for s in (steps or []):
+        if not isinstance(s, dict) or 'title' not in s:
+            raise ValueError(
+                "Each step must be an object with at least a 'title'.")
+        new_steps.append(
+            Task.Step(title=s['title'], description=s.get('description')))
+    task_obj.steps = new_steps
 
     # Re-assign the tasks list to ensure the parent model detects the change.
     story.tasks = [t for t in (story.tasks or [])]

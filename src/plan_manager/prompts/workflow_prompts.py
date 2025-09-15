@@ -173,7 +173,7 @@ This pattern applies to plans, stories, and tasks.
 
 **3. Task Execution Lifecycle**
 Once a task is set as current, follow this two-gate approval process:
-1.  **Propose Steps**: If a task is in `TODO` and has no steps, the user will ask you to `prepare` it. You will then call **`propose_task_steps`** with a clear implementation plan (objective, scope, etc.).
+1.  **Propose Steps**: If a task is in `TODO` and has no steps, the user will ask you to `prepare` it. You will then call **`create_task_steps`** with a clear implementation plan (objective, scope, etc.).
 2.  **First Approval**: The user runs **`approve_task`**. The task moves to `IN_PROGRESS`.
 3.  **Implement**: You perform the coding work.
 4.  **Submit for Review**: When finished, call **`submit_for_review`** with a summary of your changes. The task moves to `PENDING_REVIEW`.
@@ -183,7 +183,7 @@ Once a task is set as current, follow this two-gate approval process:
 - **Context:** `get_current`, `report`, `report plan`
 - **Navigation:** `list_plans`, `set_current_plan`, `list_stories`, `set_current_story`, `list_tasks`, `set_current_task`
 - **Creation:** `create_plan`, `create_story`, `create_task`
-- **Task Actions:** `propose_task_steps`, `submit_for_review`, `approve_task`
+- **Task Actions:** `create_task_steps`, `submit_for_review`, `approve_task`
 - **Modification:** `update_*`, `delete_*`, `change`
 """
         )

@@ -66,9 +66,15 @@ class Task(WorkItem):
     file_path: Optional[str] = None
     story_id: Optional[str] = None
     # See Story fields for semantics
-    steps: Optional[str] = Field(
-        default=None,
-        description="The agent's plan for how to implement the task. Reviewed before work begins.",
+    # Steps are small implementation bullets suitable for PATCH-level changes.
+
+    class Step(BaseModel):
+        title: str
+        description: Optional[str] = None
+
+    steps: Optional[List[Step]] = Field(
+        default_factory=list,
+        description="Ordered implementation steps. Each step has a title and an optional description.",
     )
     execution_summary: Optional[str] = Field(
         default=None,

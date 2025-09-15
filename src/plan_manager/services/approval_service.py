@@ -108,7 +108,7 @@ def approve_fast_track(story_id: str, task_id: str) -> Dict[str, Any]:
         if task.status == Status.TODO:
             logger.info(f"Fast-tracking task: {task.id}")
             # We set a dummy plan to satisfy the check in update_task, and set the task as active.
-            task_service.propose_steps(
+            task_service.create_steps(
                 story.id, fq_task_id, "Fast-tracked by user.")
             set_current_task_id(task.id, plan_id)
             updated_task_data = task_service.update_task(

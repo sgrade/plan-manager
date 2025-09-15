@@ -159,7 +159,7 @@ def _generate_story_report(plan: Plan) -> str:
                 f"\nNext Action: The plan for '{next_task_to_do.title}' is ready for review. Set it as active (`set_current_task {local_id}`) and run `approve_task`.")
         else:
             report.append(
-                f"\nNext Action: `propose_task_steps` for Task '{local_id}', or `approve_task {story.id}:{local_id}` to fast-track.")
+                f"\nNext Action: `create_task_steps` for Task '{local_id}', or `approve_task {story.id}:{local_id}` to fast-track.")
     else:
         # Check if all tasks are done
         if all(t.status == Status.DONE for t in story.tasks):

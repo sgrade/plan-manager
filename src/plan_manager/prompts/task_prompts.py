@@ -75,8 +75,9 @@ def build_create_steps_prompt_messages(task_id: Optional[str] = None) -> list[ba
         # This is the "few-shot" example we provide to the model.
         base.UserMessage(
             "You are an AI assistant for agile project management. Break a single task into concrete implementation steps. "
-            "Each step should be a small, self‑contained change appropriate for a single bullet in the next patch release notes (typically under ‘Fixed’ or similar), when user‑visible. "
-            "Respond with a valid JSON array of objects. Each object must contain exactly two keys: 'title' (string) and 'description' (string). "
+            "Each step should be a small, self-contained change appropriate for a single bullet in the next patch release notes (typically under 'Fixed' or similar) when user-visible. "
+            "Respond with a valid JSON array of step objects. Each object MUST include 'title' (string, <= 80 chars). "
+            "Optionally include 'description' (string, <= 200 chars) only if the title could be misunderstood. "
             "Do not include any other text or formatting. "
             "\n\nHere is the example task: Implement registration API endpoint"
         ),
@@ -87,20 +88,17 @@ def build_create_steps_prompt_messages(task_id: Optional[str] = None) -> list[ba
     "description": "Add POST /api/auth/register route to the router with handler stub."
   },
   {
-    "title": "Validate request body",
-    "description": "Validate email format and password policy; return 400 with field errors on failure."
+    "title": "Validate request body"
   },
   {
-    "title": "Hash password securely",
-    "description": "Hash the plaintext password using a strong algorithm and per-user salt."
+    "title": "Hash password securely"
   },
   {
     "title": "Create user record",
     "description": "Persist the new user with sanitized fields; enforce unique email constraint."
   },
   {
-    "title": "Return success response",
-    "description": "Return 201 Created with minimal user payload (no sensitive fields)."
+    "title": "Return success response"
   }
 ]"""
         ),

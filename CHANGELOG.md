@@ -11,9 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Assisted planning prompts registered and made context-aware (optional args, use current plan/story/task when omitted).
 - FastMCP prompt catalog with dynamic registration via `register_prompts` and `PROMPT_SPECS`.
 - New prompts:
-  - `propose_stories_for_plan` (stories with title, description, acceptance_criteria)
-  - `propose_tasks_for_story` (tasks with title, description)
-  - `propose_steps_for_task` (PATCH-level steps suitable for changelog bullets)
+  - `create_plan` (plan with title and description)
+  - `create_stories` (stories with title, description, acceptance_criteria)
+  - `create_tasks` (tasks with title, description)
+  - `create_steps` (PATCH-level steps suitable for changelog bullets)
 - Review checklists and usage guide aligned with the documented workflow.
 - Acceptance criteria in Story
 
@@ -24,9 +25,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - get_plan(plan_id?), get_story(story_id?), get_task(story_id?, task_id?)
   - update_plan(plan_id, title?, description?, priority?, status?), update_story(story_id, title?, description?, depends_on?, priority?, status?), update_task(story_id, task_id, title?, description?, depends_on?, priority?, status?)
   - delete_plan(plan_id), delete_story(story_id), delete_task(story_id, task_id)
-- Prompts: migrated to FastMCP `base.UserMessage`/`base.AssistantMessage`; clarified wording and key requirements; removed unsupported `arguments` kwarg from prompt registration.
-- Update list_plans, list_stories, and list_tasks to use flat parameters instead of a payload
-- Update task_tools to use flat parameters instead of a payload.
+  - list_plans, list_stories, list_tasks
+  - task_tools
 
 ### Removed
 - Remove inputs schema

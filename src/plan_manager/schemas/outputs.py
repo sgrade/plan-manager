@@ -115,6 +115,7 @@ class TaskOut(BaseModel):
     completion_time: Optional[str] = None
     description: Optional[str] = None
     depends_on: List[str] = []
+    steps: Optional[List[dict]] = None
 
 
 class TaskListItem(BaseModel):
