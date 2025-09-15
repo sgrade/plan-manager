@@ -17,7 +17,7 @@ from plan_manager.tools.changelog_tools import register_changelog_tools
 from plan_manager.tools.approval_tools import register_approval_tools
 from plan_manager.tools.report_tools import register_report_tools
 from plan_manager.prompts.workflow_prompts import register_workflow_prompts
-from plan_manager.prompts.propose_prompts import register_propose_prompts
+from plan_manager.prompts.prompt_register import register_propose_prompts
 
 logger = logging.getLogger(__name__)
 

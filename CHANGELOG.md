@@ -27,7 +27,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Prompts: migrated to FastMCP `base.UserMessage`/`base.AssistantMessage`; clarified wording and key requirements; removed unsupported `arguments` kwarg from prompt registration.
 - Update list_plans, list_stories, and list_tasks to use flat parameters instead of a payload
 - Update task_tools to use flat parameters instead of a payload.
-- Propose prompts use few-shot prompting
 
 ### Removed
 - Remove inputs schema
