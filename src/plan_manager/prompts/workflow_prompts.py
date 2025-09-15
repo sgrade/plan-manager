@@ -56,7 +56,7 @@ async def prompt_review_task_proposals_checklist() -> List:
     ]
 
 
-async def prompt_propose_steps_for_task(
+async def prompt_create_steps(
     task_title: str = "", task_description: str = ""
 ) -> List:
     return [

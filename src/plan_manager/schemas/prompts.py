@@ -12,7 +12,7 @@ class StoryProposal(BaseModel):
 
 
 class ProposeStoriesOut(BaseModel):
-    """Output schema for the propose_stories_for_plan prompt."""
+    """Output schema for the create_stories prompt."""
     stories: List[StoryProposal] = Field(
         ..., description="A list of proposed stories to implement the plan.")
 
@@ -26,6 +26,6 @@ class TaskProposal(BaseModel):
 
 
 class ProposeTasksOut(BaseModel):
-    """Output schema for the propose_tasks_for_story prompt."""
+    """Output schema for the create_tasks prompt."""
     tasks: List[TaskProposal] = Field(
         ..., description="A list of proposed tasks to implement the story.")

@@ -7,8 +7,8 @@ from plan_manager.services.state_repository import (
 )
 
 
-def build_propose_tasks_for_story_prompt_messages(story_id: Optional[str] = None) -> list[base.Message]:
-    """Construct the messages for 'propose_tasks_for_story' using the given story_id."""
+def build_create_tasks_prompt_messages(story_id: Optional[str] = None) -> list[base.Message]:
+    """Construct the messages for 'create_tasks' using the given story_id."""
 
     if not story_id:
         try:
@@ -60,8 +60,8 @@ def build_propose_tasks_for_story_prompt_messages(story_id: Optional[str] = None
     ]
 
 
-def build_propose_steps_for_task_prompt_messages(task_id: Optional[str] = None) -> list[base.Message]:
-    """Construct the messages for 'propose_steps_for_task' using the given task_id."""
+def build_create_steps_prompt_messages(task_id: Optional[str] = None) -> list[base.Message]:
+    """Construct the messages for 'create_steps' using the given task_id."""
 
     if not task_id:
         try:
@@ -111,7 +111,7 @@ def build_propose_steps_for_task_prompt_messages(task_id: Optional[str] = None) 
             f"Now, generate implementation steps for this task: {task_id}. "
             "Save this JSON in a temporary file named 'steps.json' in a directory called 'todo/temp'. Create the directories if they doesn't exist; overwrite the file if it already exists. Then STOP. Do not do anything else. "
             "I might review the JSON, edit it, or ask you to edit it. The review is considered complete when I say 'approve'. "
-            "Once I approve, you will create the steps by calling `create_step` tool of the Plan Manager MCP server for each step in the JSON. Use the most recent version of the JSON if it was edited. "
+            "Once I approve, you will create the steps by calling `update_task` tool of the Plan Manager MCP server for the task with ID {task_id}. Use the most recent version of the JSON if it was edited. "
             "Once you have created the steps, you will delete the temporary file."
         ),
     ]

@@ -10,8 +10,8 @@
 
 1.  **Fractal Planning Prompts:**
     *   Introduce a set of generative prompts that can decompose a parent work item into a structured list of proposed children.
-    *   `propose_stories_for_plan`: Takes a Plan's context and suggests a list of Stories.
-    *   `propose_tasks_for_story`: Takes a Story's context and suggests a list of Tasks.
+    *   `create_stories`: Takes a Plan's context and suggests a list of Stories.
+    *   `create_tasks`: Takes a Story's context and suggests a list of Tasks.
 
 2.  **Schema-Driven Output:**
     *   The generative prompts will use Pydantic schemas (`ProposeStoriesOut`, `ProposeTasksOut`) to ensure their output is reliable, structured JSON.
@@ -32,7 +32,7 @@
 
 1.  Create `src/plan_manager/schemas/prompts.py` with the necessary Pydantic models.
 2.  In `src/plan_manager/prompts/workflow_prompts.py`:
-    *   Implement the two generative prompts (`propose_stories_for_plan`, `propose_tasks_for_story`) using the new schemas.
+    *   Implement the two generative prompts (`create_stories`, `create_tasks`) using the new schemas.
     *   Implement the two static review checklist prompts.
     *   Register all four new prompts with the MCP server.
 

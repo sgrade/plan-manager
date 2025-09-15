@@ -6,8 +6,8 @@ from plan_manager.services.state_repository import (
 )
 
 
-def build_propose_stories_for_plan_prompt_messages(plan_id: Optional[str] = None) -> list[base.Message]:
-    """Construct the messages for 'propose_stories_for_plan' using the given plan_id."""
+def build_create_stories_prompt_messages(plan_id: Optional[str] = None) -> list[base.Message]:
+    """Construct the messages for 'create_stories' using the given plan_id."""
 
     if not plan_id:
         try:
