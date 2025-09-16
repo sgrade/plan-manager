@@ -29,3 +29,10 @@ This guide standardizes severity labels and SLAs for Plan Manager issues.
 
 ## Dashboards
 - Saved views for: P0 open, P1 open, needs-info, and by area.
+
+### Accessing views in Plan Manager
+- Plan overview: run `report plan`.
+- Backlog by priority: run `list_tasks` and scan for `priority` (0 is highest).
+- Needs‑info and area: reflect labels in titles/descriptions; group via stories.
+
+Note: First‑class filters are planned in future iterations.
