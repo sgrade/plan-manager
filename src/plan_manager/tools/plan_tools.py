@@ -10,6 +10,7 @@ from plan_manager.services.plan_service import (
 from plan_manager.domain.models import Status
 
 from plan_manager.schemas.outputs import PlanOut, PlanListItem, OperationResult
+from plan_manager.tools.util import coerce_optional_int
 from plan_manager.services.plan_repository import set_current_plan_id, get_current_plan_id
 
 
@@ -23,11 +24,12 @@ def register_plan_tools(mcp_instance) -> None:
     mcp_instance.tool()(set_current_plan)
 
 
-def create_plan(title: str, description: Optional[str] = None, priority: Optional[int] = None) -> PlanOut:
+def create_plan(title: str, description: Optional[str] = None, priority: Optional[float] = None) -> PlanOut:
     """Create a plan."""
-
+    # Coerce priority robustly to provide better error messages at the tool boundary
+    coerced_priority = coerce_optional_int(priority, 'priority')
     data = svc_create_plan(
-        title, description, priority)
+        title, description, coerced_priority)
     return PlanOut(**data)
 
 
@@ -38,10 +40,11 @@ def get_plan(plan_id: Optional[str] = None) -> PlanOut:
     return PlanOut(**data)
 
 
-def update_plan(plan_id: str, title: Optional[str] = None, description: Optional[str] = None, priority: Optional[int] = None, status: Optional[Status] = None) -> PlanOut:
+def update_plan(plan_id: str, title: Optional[str] = None, description: Optional[str] = None, priority: Optional[float] = None, status: Optional[Status] = None) -> PlanOut:
     """Update a plan."""
+    coerced_priority = coerce_optional_int(priority, 'priority')
     data = svc_update_plan(plan_id, title,
-                           description, priority, status)
+                           description, coerced_priority, status)
     return PlanOut(**data)
 
 

@@ -114,6 +114,7 @@ class TaskOut(BaseModel):
     creation_time: Optional[str] = None
     completion_time: Optional[str] = None
     description: Optional[str] = None
+    execution_summary: Optional[str] = None
     depends_on: List[str] = []
     steps: Optional[List[dict]] = None
     review_feedback: Optional[List[dict]] = None

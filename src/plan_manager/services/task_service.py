@@ -134,7 +134,15 @@ def get_task(story_id: str, task_id: str) -> dict:
     task_obj = next((t for t in story.tasks if t.id == fq_task_id), None)
     if task_obj:
         base = task_obj.model_dump(include={
-                                   'id', 'title', 'status', 'priority', 'creation_time', 'description', 'depends_on'}, exclude_none=True)
+                                   'id', 'title', 'status', 'priority', 'creation_time', 'description', 'execution_summary', 'depends_on'}, exclude_none=True)
+        # Normalize datetime fields to ISO strings for transport schema expectations
+        ct = base.get('creation_time')
+        try:
+            # Pydantic BaseModel dumps datetime by default; ensure str
+            if hasattr(ct, 'isoformat'):
+                base['creation_time'] = ct.isoformat()
+        except Exception:
+            base['creation_time'] = None
         local_task_id = fq_task_id.split(':', 1)[1]
         task_details_path = task_file_path(story_id, local_task_id)
         return merge_frontmatter_defaults(task_details_path, base)

@@ -77,19 +77,22 @@ graph TD
     E --> F["Agent runs create_task_steps"];
     F --> G["Agent runs approve_task"];
         
-    
     G --> J[Task is in **IN_PROGRESS** state];
     I --> J;
+    J --> J2["User instructs agent to execute"];
+    J2 --> J3["Agent executes the task"];
+
     
-    J --> K["Agent runs submit_for_review"];
-    K --> L[Task is in PENDING_REVIEW state];
+    J3 --> K["Agent runs submit_for_review"];
+    K --> L["Agent displays execution_summary and asks user to approve or request changes"]
+    L --> M[Task is in PENDING_REVIEW state];
     
-    L --> M{User reviews the code};
-    M --> Q[User runs approve_task] --> N[Task is in DONE state];
-    M --> P[User runs request_changes] --> J;
+    M --> M1{User reviews the code};
+    M1 --> Q[User runs approve_task] --> N[Task is in DONE state];
+    M1 --> M2[User runs request_changes] --> J;
     
     N --> N2["Changelog snippet is returned"];
-    N2 --> O([End]);
+    N2 --> Z([End]);
 
 ```
 

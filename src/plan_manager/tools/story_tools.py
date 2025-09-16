@@ -12,6 +12,7 @@ from plan_manager.services.story_service import (
     list_stories as svc_list_stories,
 )
 from plan_manager.schemas.outputs import StoryOut, OperationResult, StoryListItem
+from plan_manager.tools.util import coerce_optional_int
 from plan_manager.services.state_repository import set_current_story_id, get_current_story_id
 
 
@@ -28,7 +29,7 @@ def register_story_tools(mcp_instance) -> None:
     mcp_instance.tool()(set_current_story)
 
 
-def create_story(title: str, description: Optional[str] = None, acceptance_criteria: Optional[list[str]] = None, priority: Optional[int] = None, depends_on: Optional[list[str]] = None) -> StoryOut:
+def create_story(title: str, description: Optional[str] = None, acceptance_criteria: Optional[list[str]] = None, priority: Optional[float] = None, depends_on: Optional[list[str]] = None) -> StoryOut:
     """Create a story.
 
     Args:
@@ -38,7 +39,8 @@ def create_story(title: str, description: Optional[str] = None, acceptance_crite
         priority: The priority of the story.
         depends_on: The dependencies of the story.
     """
-    data = svc_create_story(title, description, acceptance_criteria, priority,
+    coerced_priority = coerce_optional_int(priority, 'priority')
+    data = svc_create_story(title, description, acceptance_criteria, coerced_priority,
                             depends_on or [])
     return StoryOut(**data)
 
@@ -53,10 +55,11 @@ def get_story(story_id: Optional[str] = None) -> StoryOut:
     return StoryOut(**data)
 
 
-def update_story(story_id: str, title: Optional[str] = None, description: Optional[str] = None, acceptance_criteria: Optional[list[str]] = None, depends_on: Optional[list[str]] = None, priority: Optional[int] = None) -> StoryOut:
+def update_story(story_id: str, title: Optional[str] = None, description: Optional[str] = None, acceptance_criteria: Optional[list[str]] = None, depends_on: Optional[list[str]] = None, priority: Optional[float] = None) -> StoryOut:
     """Update mutable fields of a story."""
+    coerced_priority = coerce_optional_int(priority, 'priority')
     data = svc_update_story(story_id, title, description,
-                            acceptance_criteria, priority, depends_on)
+                            acceptance_criteria, coerced_priority, depends_on)
     return StoryOut(**data)
 
 

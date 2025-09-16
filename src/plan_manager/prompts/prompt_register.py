@@ -19,7 +19,7 @@ class PromptSpec(TypedDict):
 PROMPT_SPECS: List[PromptSpec] = [
     {
         "name": "create_plan",
-        "title": "Create aplan",
+        "title": "Create a plan",
         "description": "Guides the model to create a plan as MAJOR-level change. The plan must have title and description. The plan should be a cohesive scope of work.",
         "handler": build_create_plan_prompt_messages,
     },

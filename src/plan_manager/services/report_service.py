@@ -146,6 +146,9 @@ def _generate_story_report(plan: Plan) -> str:
     if active_task and active_task.status == Status.PENDING_REVIEW:
         report.append(
             f"\nNext Action: '{active_task.title}' is ready for code review. Run `approve_task` to mark it as DONE.")
+        if getattr(active_task, 'execution_summary', None):
+            report.append("\nReview Summary:")
+            report.append(active_task.execution_summary)
         return "\n".join(report)
 
     # Scenario 5: No active task, or active task is DONE/IN_PROGRESS. Suggest next unblocked task.

@@ -34,7 +34,7 @@ All tools return structured results. On failure, responses include human-readabl
    - If steps were created via `/create_steps`: call `create_task_steps`, then `approve_task`.
 
 2) Review
-   - `submit_for_review(summary)` → PENDING_REVIEW (summary is required and drives the changelog).
+   - `submit_for_review(summary)` → PENDING_REVIEW (summary is required and drives the changelog). After the call, immediately show the returned execution_summary to the user and offer next actions: `approve_task` (accept) or `request_changes(feedback)` (reopen; revise, then submit_for_review again).
    - Approve: `approve_task` → DONE, server returns a changelog snippet.
    - Changes: `request_changes(feedback)` → IN_PROGRESS; revise (optionally update steps), then submit again.
 

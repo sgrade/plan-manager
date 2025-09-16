@@ -10,6 +10,7 @@ from plan_manager.services.task_service import (
     create_steps as svc_create_steps,
 )
 from plan_manager.schemas.outputs import TaskOut, TaskListItem, OperationResult
+from plan_manager.tools.util import coerce_optional_int
 from plan_manager.services.state_repository import get_current_story_id, set_current_task_id, get_current_task_id
 from plan_manager.domain.models import Status
 
@@ -26,31 +27,26 @@ def register_task_tools(mcp_instance) -> None:
     mcp_instance.tool()(submit_for_review)
 
 
-def create_task(story_id: str, title: str, priority: Optional[int] = None, depends_on: Optional[list[str]] = None, description: Optional[str] = None) -> TaskOut:
+def create_task(story_id: str, title: str, priority: Optional[float] = None, depends_on: Optional[list[str]] = None, description: Optional[str] = None) -> TaskOut:
     """Create a task under a story."""
-    try:
-        data = svc_create_task(story_id, title,
-                               priority, depends_on or [], description)
-        return TaskOut(**data)
-    except (ValueError, KeyError) as e:
-        return TaskOut(id=None, error=str(e))
+    coerced_priority = coerce_optional_int(priority, 'priority')
+    data = svc_create_task(story_id, title,
+                           coerced_priority, depends_on or [], description)
+    return TaskOut(**data)
 
 
 def get_task(story_id: Optional[str] = None, task_id: Optional[str] = None) -> TaskOut:
     """Fetch a task by ID (local or FQ). Defaults to current task of current story."""
-    try:
-        story_id = story_id or get_current_story_id()
-        if not story_id:
-            raise ValueError(
-                "No current story set. Call set_current_story or provide story_id.")
-        task_id = task_id or get_current_task_id()
-        if not task_id:
-            raise ValueError(
-                "No current task set. Call set_current_task or provide task_id.")
-        data = svc_get_task(story_id, task_id)
-        return TaskOut(**data)
-    except (ValueError, KeyError) as e:
-        return TaskOut(id=None, error=str(e))
+    story_id = story_id or get_current_story_id()
+    if not story_id:
+        raise ValueError(
+            "No current story set. Call set_current_story or provide story_id.")
+    task_id = task_id or get_current_task_id()
+    if not task_id:
+        raise ValueError(
+            "No current task set. Call set_current_task or provide task_id.")
+    data = svc_get_task(story_id, task_id)
+    return TaskOut(**data)
 
 
 def update_task(
@@ -58,25 +54,36 @@ def update_task(
     task_id: str,
     title: Optional[str] = None,
     description: Optional[str] = None,
-    priority: Optional[int] = None,
+    priority: Optional[float] = None,
     depends_on: Optional[list[str]] = None,
     status: Optional[str] = None,
     steps: Optional[list[dict]] = None
 ) -> TaskOut:
     """Update mutable fields of a task."""
-    try:
-        # If steps are provided here, forward them via status/utils path by calling create_steps first
-        if steps is not None:
+    # If steps are provided here, forward them via status/utils path by calling create_steps first
+    if steps is not None:
+        svc_create_steps(story_id=story_id, task_id=task_id, steps=steps)
+    coerced_priority = coerce_optional_int(priority, 'priority')
+    # Coerce status string to Status enum if provided
+    coerced_status = None
+    if status is not None:
+        if isinstance(status, Status):
+            coerced_status = status
+        elif isinstance(status, str):
             try:
-                svc_create_steps(story_id=story_id,
-                                 task_id=task_id, steps=steps)
-            except (ValueError, KeyError) as e:
-                return TaskOut(id=None, error=str(e))
-        data = svc_update_task(story_id, task_id, title,
-                               description, depends_on, priority, status)
-        return TaskOut(**data)
-    except (ValueError, KeyError) as e:
-        return TaskOut(id=None, error=str(e))
+                coerced_status = Status(status.upper())
+            except Exception as e:
+                raise ValueError(
+                    f"Invalid value for parameter 'status': {status!r}. Allowed: {', '.join([s.value for s in Status])}"
+                ) from e
+        else:
+            raise ValueError(
+                f"Invalid type for parameter 'status': expected string or null, got {type(status).__name__}."
+            )
+
+    data = svc_update_task(story_id, task_id, title,
+                           description, depends_on, coerced_priority, coerced_status)
+    return TaskOut(**data)
 
 
 def delete_task(story_id: str, task_id: str) -> OperationResult:
@@ -117,16 +124,19 @@ def set_current_task(task_id: Optional[str] = None) -> OperationResult | List[Ta
 
 
 def submit_for_review(story_id: str, task_id: str, summary: str) -> TaskOut:
-    """Submits a task for code review, moving it to PENDING_REVIEW status."""
-    try:
-        data = svc_submit_for_code_review(
-            story_id=story_id,
-            task_id=task_id,
-            summary_text=summary
-        )
-        return TaskOut(**data)
-    except (ValueError, KeyError) as e:
-        return TaskOut(id=None, error=str(e))
+    """Submits a task for code review, moving it to PENDING_REVIEW status.
+
+    On success, clients SHOULD immediately surface the returned execution_summary
+    to the user for review and present clear next actions:
+    - approve_task (accept and finish), or
+    - request_changes(feedback) (reopen; revise, then submit_for_review again)
+    """
+    data = svc_submit_for_code_review(
+        story_id=story_id,
+        task_id=task_id,
+        summary_text=summary
+    )
+    return TaskOut(**data)
 
 
 def create_task_steps(story_id: str, task_id: str, steps: List[dict]) -> TaskOut:
@@ -134,9 +144,6 @@ def create_task_steps(story_id: str, task_id: str, steps: List[dict]) -> TaskOut
 
     Expects a list of step objects with 'title' and optional 'description'.
     """
-    try:
-        data = svc_create_steps(
-            story_id=story_id, task_id=task_id, steps=steps)
-        return TaskOut(**data)
-    except (ValueError, KeyError) as e:
-        return TaskOut(id=None, error=str(e))
+    data = svc_create_steps(
+        story_id=story_id, task_id=task_id, steps=steps)
+    return TaskOut(**data)
