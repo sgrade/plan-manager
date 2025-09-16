@@ -75,7 +75,7 @@ def build_create_steps_prompt_messages(task_id: Optional[str] = None) -> list[ba
         # This is the "few-shot" example we provide to the model.
         base.UserMessage(
             "You are an AI assistant for agile project management. Break a single task into concrete implementation steps. "
-            "Each step should be a small, self-contained change appropriate for a single bullet in the next patch release notes (typically under 'Fixed' or similar) when user-visible. "
+            "Each step should be a small, self-contained change appropriate for a single bullet in the next patch release notes when user-visible. "
             "Respond with a valid JSON array of step objects. Each object MUST include 'title' (string, <= 80 chars). "
             "Optionally include 'description' (string, <= 200 chars) only if the title could be misunderstood. "
             "Do not include any other text or formatting. "
@@ -107,9 +107,10 @@ def build_create_steps_prompt_messages(task_id: Optional[str] = None) -> list[ba
         # Now that the model has seen the pattern, we ask our actual question.
         base.UserMessage(
             f"Now, generate implementation steps for this task: {task_id}. "
-            "Save this JSON in a temporary file named 'steps.json' in a directory called 'todo/temp'. Create the directories if they doesn't exist; overwrite the file if it already exists. Then STOP. Do not do anything else. "
+            "Save this JSON in a temporary file named 'steps.json' in a directory called 'todo/temp'. Create the directories if they don't exist; overwrite the file if it already exists. Then STOP. Do not do anything else. "
             "I might review the JSON, edit it, or ask you to edit it. The review is considered complete when I say 'approve'. "
-            "Once I approve, you will create the steps by calling `update_task` tool of the Plan Manager MCP server for the task with ID {task_id}. Use the most recent version of the JSON if it was edited. "
+            "Once I approve, you will attach the steps by calling the `create_task_steps` tool of the Plan Manager MCP server for this task, using the most recent version of the JSON if it was edited. "
+            "After the steps are created, call `approve_task` to move the task to IN_PROGRESS. "
             "Once you have created the steps, you will delete the temporary file."
         ),
     ]

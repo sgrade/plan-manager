@@ -1,84 +1,105 @@
-# Project Workflow Diagrams
+## Project Workflow Diagrams
 
 This document outlines the command workflows for the Plan Manager.
+
+### Overview
+
+The [Unified Planning](#unified-planning) diagram shows how to define and select work items. 
+
+The [Work Breakdown (Refinement)](#work-breakdown-refinement) diagram shows how to break a work item into well-defined children.
+
+When a **Task** is picked for execution, its lifecycle begins, as illustrated in the [Task Execution](#task-execution) diagram.
 
 ---
 
 ### Unified Planning
 
-The following diagram illustrates the single, consistent workflow used for planning at every level of the project hierarchy. It includes paths for both manual creation and prompt-assisted ("Assisted") creation of child work items.
+The following diagram illustrates the single, consistent workflow used for creation and selection of the work items (plans, stories, tasks).
 
 ```mermaid
 graph TD
-    A[Start] --> B["User runs <strong>list_&lt;items&gt;</strong>"];
+    A([Start]) --> B["User runs list_&lt;items&gt;"];
     B --> C{Desired &lt;Item&gt; exists?};
-    C -- No --> D["User runs <strong>create_&lt;item&gt;</strong>"];
+    C -- No --> D["User runs create_&lt;item&gt;"];
     D --> B;
-    C -- Yes --> E["User runs <strong>set_current_&lt;item&gt; [id]</strong>"];
+    C -- Yes --> E["User runs set_current_&lt;item&gt; [id]"];
     E --> F["Current &lt;Item&gt; is set"];
-    
-    F --> G{Decompose into children?};
-    G -- No --> Z([End]);
-    
-    subgraph "Child Item Creation & Approval"
-      G -- Yes --> H{How?};
-      
-      H -- Manual --> I["User runs <strong>create_&lt;child&gt;</strong> one-by-one"];
-      I --> I_approve["(Implicit Approval)"];
-
-      H -- Assisted --> J["User runs <strong>/propose_&lt;children&gt;</strong> prompt"];
-      J --> K["System returns a list of proposals (not yet created)"];
-      K --> L["User reviews and approves proposals"];
-      L --> M["Agent runs <strong>create_&lt;child&gt;</strong> for each approved proposal"];
-    end
-
-    I_approve --> N[Children Created];
-    M --> N;
+    F --> Z([End]);
 ```
-
-**The Proposal-Approval Model**
-
-A key concept in this workflow is that newly suggested items (especially from the "Assisted" path) are considered **proposals**, not final work items. The user must give an explicit approval before the agent proceeds to formally create them in the system. For manual creation, this approval is implicit in the act of creating the item.
-
-**Connecting the Workflows**
-
-The "Unified Planning" diagram shows how to select and define work items. When a **Task** is created and approved for the backlog (landing in the `TODO` state), its lifecycle begins, as illustrated in the diagram below.
 
 ---
 
-### Task Execution Lifecycle
+### Work Breakdown (Refinement)
 
-Once a task is set as the current work item, it follows a strict, two-gate review lifecycle. The state diagram below illustrates this process.
+The following diagram illustrates how a higher-level work item is decomposed into children. It includes paths for both manual creation and prompt-assisted ("Assisted") creation of child work items.
+
+A key concept in this workflow is that newly suggested items are considered **proposals**, not final work items. The user must give an explicit approval before the agent proceeds to formally create them in the system. 
+
+Assisted prompts used in this workflow:
+- **create_plan**: draft a plan (epic) JSON, stage for review, then create the plan upon approval.
+- **create_stories**: propose stories for a plan, stage for review, then create stories upon approval.
+- **create_tasks**: propose tasks for a story, stage for review, then create tasks upon approval.
+- **create_steps**: propose implementation steps for a task, stage for review, then attach steps upon approval.
 
 ```mermaid
 graph TD
-    A([Start]) --> B[Task is in <strong>TODO</strong> state];
-    B --> C{What does the user do?};
-    
-    C -- User runs <strong>prepare</strong> --> D[Agent runs <strong>propose_steps</strong>];
-    D --> E["Proposed task steps documented <br> (Status is still <strong>TODO</strong>)"];
-    E --> F["User runs <strong>approve_task</strong>"];
-    
-    C -- User runs <strong>approve_task [task_id]</strong> --> G[Fast-Track];
-    
-    F --> H[Task is in <strong>IN_PROGRESS</strong> state];
-    G --> H;
-    
-    H --> I["Agent runs <strong>submit_for_review</strong>"];
-    I --> J[Task is in <strong>PENDING_REVIEW</strong> state];
-    
-    J --> K{User reviews the code};
-    K -- User runs <strong>approve_task</strong> --> L[Task is in <strong>DONE</strong> state];
-    K -- User runs <strong>change [instructions]</strong> --> H;
-    
-    L --> L2["Changelog snippet is returned"];
-    L2 --> M([End]);
-
+    A([Start]) --> B{How?};
+    B -- Manual --> C[User guides the agent in the chat] --> E;
+    B -- Assisted --> D["User runs /create_&lt;children&gt; prompt"] --> E;
+    E["Agent follows the prompts to propose children"];
+    E --> F["User reviews the proposals"];
+    F --> G{"Changes required?"};
+    G -- Yes --> C;
+    G -- No --> H["User types approve"] --> I;
+    I["Agent runs create_&lt;child&gt; for each item in the approved proposal"];
+    I --> J[Children Created];
+    J --> L([End]);
 ```
 
 ---
 
-### A Note on Plan and Story Statuses
+### Task Execution
+
+Once a task is set as the current work item, it follows a strict, two-gate review lifecycle:
+1. Pre-execution review
+2. Post-execution review
+
+The diagrams below illustrate this process.
+
+```mermaid
+graph TD
+    A([Start]) --> B[Task is in TODO state];
+    B --> C{What does the user<br/>do?};
+    
+    C --> D[User runs /create_steps prompt];
+    C --> H[User runs approve_task] --> I[approve_task seeds: Fast-tracked by user.];
+    D --> E["Agent follows Work Breakdown workflow"];
+    E --> F["Agent runs create_task_steps"];
+    F --> G["Agent runs approve_task"];
+        
+    
+    G --> J[Task is in **IN_PROGRESS** state];
+    I --> J;
+    
+    J --> K["Agent runs submit_for_review"];
+    K --> L[Task is in PENDING_REVIEW state];
+    
+    L --> M{User reviews the code};
+    M -- User runs approve_task --> N[Task is in DONE state];
+    M -- User runs change [instructions] --> J;
+    
+    N --> N2["Changelog snippet is returned"];
+    N2 --> O([End]);
+
+```
+
+Notes:
+- Task steps may already exist if they were created during Assisted planning. In that case, you proceed directly to **approve_task**.
+- The execution lifecycle enforces that steps exist before moving a task from **TODO** to **IN_PROGRESS**.
+
+---
+
+### Plan and Story Statuses
 
 It is important to note that only `Task` items have a direct, manageable lifecycle. The status of a `Story` or a `Plan` is a **rolled-up property** that is automatically calculated based on the statuses of its children.
 
