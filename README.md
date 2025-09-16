@@ -14,7 +14,7 @@ Plan Manager is a tool for a single developer or orchestrator to coordinate the 
 
 ## Core concepts
 
-- Plan: container for stories.
+- Plan: groups stories.
 - Story: user-facing goal; contains tasks.
 - Task: discrete unit of agent work.
 - Statuses: apply to plans, stories, and tasks; primary progression is TODO → IN_PROGRESS → PENDING_REVIEW → DONE; side states: BLOCKED, DEFERRED.
@@ -28,7 +28,9 @@ Plan Manager is a tool for a single developer or orchestrator to coordinate the 
 
 The overview diagrams are in [docs/project_workflow.md](docs/project_workflow.md)
 
-The project workflow description is in [.cursor/rules/project-management.mdc](.cursor/rules/project-management.mdc)
+There are two documents primarily for agents using Plan Manager, which can also be useful for humans to understand how the agents learn about Plan Manager:
+- [quickstart_agents.md](docs/quickstart_agents.md) - exposed via the MCP server [instructions](https://modelcontextprotocol.io/specification/2025-06-18/schema#initializeresult) attribute.
+- [usage_guide_agents.md](docs/usage_guide_agents.md) - exposed as an MCP [resource](https://modelcontextprotocol.io/specification/2025-06-18/server/resources).
 
 ### Hints
 

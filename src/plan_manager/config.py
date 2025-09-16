@@ -46,3 +46,12 @@ RELOAD_INCLUDES = os.getenv("RELOAD_INCLUDE", "*.py").split(",")
 RELOAD_EXCLUDES = os.getenv("RELOAD_EXCLUDE", "logs/*").split(",")
 TIMEOUT_GRACEFUL_SHUTDOWN = int(os.getenv("TIMEOUT_GRACEFUL_SHUTDOWN", "3"))
 TIMEOUT_KEEP_ALIVE = int(os.getenv("TIMEOUT_KEEP_ALIVE", "5"))
+
+# --- Docs / Agent Guides ---
+# Workspace-relative paths to agent-facing docs so deployments can override.
+USAGE_GUIDE_REL_PATH = os.getenv(
+    "USAGE_GUIDE_REL_PATH", os.path.join("docs", "usage_guide_agents.md")
+)
+QUICKSTART_REL_PATH = os.getenv(
+    "QUICKSTART_REL_PATH", os.path.join("docs", "quickstart_agents.md")
+)

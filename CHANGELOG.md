@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `create_steps` (PATCH-level steps suitable for changelog bullets)
 - Review checklists and usage guide aligned with the documented workflow.
 - Acceptance criteria in Story
+- Formal way to request changes in task execution workflow
 
 ### Changed
 - BREAKING: Flattened MCP tool inputs to simple parameters (no nested payload objects):
@@ -27,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - delete_plan(plan_id), delete_story(story_id), delete_task(story_id, task_id)
   - list_plans, list_stories, list_tasks
   - task_tools
+- Replace usage prompts with MCP server instructions (quickstart) and resource (usage guide)
 
 ### Removed
 - Remove inputs schema

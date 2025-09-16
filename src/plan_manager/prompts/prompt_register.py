@@ -44,7 +44,7 @@ PROMPT_SPECS: List[PromptSpec] = [
 ]
 
 
-def register_create_prompts(mcp_instance, prompt_specs: Optional[List[PromptSpec]] = None) -> None:
+def register_prompts(mcp_instance, prompt_specs: Optional[List[PromptSpec]] = None) -> None:
     """Register prompts with the MCP instance using provided specs.
 
     This indirection makes it easy to later support dynamic runtime changes
