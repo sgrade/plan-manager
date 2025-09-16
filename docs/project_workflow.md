@@ -61,8 +61,8 @@ graph TD
 ### Task Execution
 
 Once a task is set as the current work item, it follows a strict, two-gate review lifecycle:
-1. Pre-execution review
-2. Post-execution review
+1. Ready to start (gate)
+2. PR (gate)
 
 The diagrams below illustrate this process.
 
@@ -85,17 +85,13 @@ graph TD
     K --> L[Task is in PENDING_REVIEW state];
     
     L --> M{User reviews the code};
-    M -- User runs approve_task --> N[Task is in DONE state];
-    M -- User runs change [instructions] --> J;
+    M --> Q[User runs approve_task] --> N[Task is in DONE state];
+    M --> P[User runs request_changes] --> J;
     
     N --> N2["Changelog snippet is returned"];
     N2 --> O([End]);
 
 ```
-
-Notes:
-- Task steps may already exist if they were created during Assisted planning. In that case, you proceed directly to **approve_task**.
-- The execution lifecycle enforces that steps exist before moving a task from **TODO** to **IN_PROGRESS**.
 
 ---
 

@@ -10,6 +10,7 @@ logger = logging.getLogger(__name__)
 def register_approval_tools(mcp_instance) -> None:
     """Register approval tools with the MCP instance."""
     mcp_instance.tool()(approve_task)
+    mcp_instance.tool()(request_changes)
 
 # This is a placeholder. In a real MCP server, this would be registered as a tool.
 
@@ -59,3 +60,16 @@ def approve_task() -> ApproveTaskOut:
         # Log the full exception for debugging
         logger.exception("An unexpected error occurred during approval.")
         return ApproveTaskOut(success=False, message=f"An unexpected error occurred: {e}", changelog_snippet=None)
+
+
+def request_changes(feedback: str) -> ApproveTaskOut:
+    """Request changes for the current task (PENDING_REVIEW -> IN_PROGRESS)."""
+    logger.debug("request_changes tool called.")
+    try:
+        result = approval_service.request_changes(feedback=feedback)
+        # Reuse ApproveTaskOut for consistent shape
+        return ApproveTaskOut(success=result.get('success', False), message=result.get('message', ''), changelog_snippet=None)
+    except Exception as e:
+        logger.exception(
+            "An unexpected error occurred during request_changes.")
+        return ApproveTaskOut(success=False, message=str(e), changelog_snippet=None)

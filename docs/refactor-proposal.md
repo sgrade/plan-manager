@@ -1,38 +1,64 @@
 # Refactoring & Improvement Proposals
 
-### Assisted Planning Workflow
+## Task Execution Workflow – Align with Simplified Agile Flow
 
-**Problem:** Decomposing high-level work items (like Plans or Stories) into their constituent children (Stories or Tasks) is a manual, repetitive process. The user must manually create each child item one by one.
+Goal: keep the “happy path” simple and deterministic, while supporting a clean rework loop during post‑execution review.
 
-**Proposal:** Introduce a new, prompt-driven "Assisted Creation" workflow to automate the planning and decomposition of work items. This will be a user-controlled feature that complements the existing manual creation process.
+### Current Highlights
+- Steps serve as the “ready” gate before starting work (TODO → IN_PROGRESS).
+- approve_task on PENDING_REVIEW moves a task to DONE and returns a changelog snippet.
+- We now implicitly fast‑track TODO tasks when approve_task is called and steps are missing (seeds a minimal step).
 
-**Key Features:**
+### Proposed Changes (Task-level)
+- Approve semantics (tool‑driven, no prompt):
+  - TODO:
+    - If blocked by dependencies → return structured error listing blockers.
+    - Else if steps exist → IN_PROGRESS.
+    - Else → seed steps=[{"title":"Fast-tracked by user."}] and IN_PROGRESS.
+  - PENDING_REVIEW → DONE (emit changelog snippet).
+  - Other states → structured guidance (what’s missing / next action).
 
-1.  **Fractal Planning Prompts:**
-    *   Introduce a set of generative prompts that can decompose a parent work item into a structured list of proposed children.
-    *   `create_stories`: Takes a Plan's context and suggests a list of Stories.
-    *   `create_tasks`: Takes a Story's context and suggests a list of Tasks.
+- Post‑execution review (rework path):
+  - New tool: `request_changes(story_id, task_id, feedback: str)`
+    - Transition: PENDING_REVIEW → IN_PROGRESS
+    - Persist feedback to the task (append‑only)
+    - Increment `rework_count`
+  - Submit for review remains: IN_PROGRESS → PENDING_REVIEW via `submit_for_review`.
 
-2.  **Schema-Driven Output:**
-    *   The generative prompts will use Pydantic schemas (`ProposeStoriesOut`, `ProposeTasksOut`) to ensure their output is reliable, structured JSON.
-    *   These schemas will be located in a new `src/plan_manager/schemas/prompts.py` file.
+### State Machine Updates
+- Allow PENDING_REVIEW → IN_PROGRESS only via `request_changes` (with non‑empty feedback).
+- Keep existing gate for TODO → IN_PROGRESS: unblocked + steps present or implicit fast‑track seed.
 
-3.  **Conversational Review & Approval:**
-    *   The output of the generative prompts will be presented to the user as a list of **proposals**.
-    *   The user will review this list and give approval via a natural language command to the agent.
-    *   The agent will be responsible for iterating through the approved proposals and calling the existing, singular `create_*` tools. No new "bulk create" server logic is needed.
+### Data Model Additions
+- Task.review_feedback: list of items `{ message: str, at: iso8601, by?: str }` (append‑only)
+- Task.rework_count: int (default 0)
+- Optional: Task.steps_history: list of snapshots for audit (full replacements of steps)
 
-4.  **Optional Review Checklists (New Prompts):**
-    *   To support the user's review process, introduce simple, static, informational prompts.
-    *   `review_story_proposals_checklist`: Provides a checklist for evaluating Story proposals.
-    *   `review_task_proposals_checklist`: Provides a checklist for evaluating Task proposals.
-    *   These prompts will not use schemas as their output is for human consumption only.
+### Tools & Contracts
+- approve_task: returns structured result (ApproveTaskOut) for both success and failure.
+- request_changes: returns OperationResult(success, message).
+- submit_for_review: unchanged; requires IN_PROGRESS; sets execution_summary and moves to PENDING_REVIEW.
 
-**Implementation Plan:**
+### Prompts
+- Keep prompts for generative work only (create_plan/create_stories/create_tasks/create_steps).
 
-1.  Create `src/plan_manager/schemas/prompts.py` with the necessary Pydantic models.
-2.  In `src/plan_manager/prompts/workflow_prompts.py`:
-    *   Implement the two generative prompts (`create_stories`, `create_tasks`) using the new schemas.
-    *   Implement the two static review checklist prompts.
-    *   Register all four new prompts with the MCP server.
+### Activity & Telemetry (optional)
+- Emit events: review_requested, changes_requested(feedback), resubmitted_for_review, review_approved.
+- Changelog: include “(reworked x times)” when `rework_count > 0`.
 
+### Docs & Diagrams
+- Task Execution diagram:
+  - Assisted path: `/create_steps` → `create_task_steps` → `approve_task` → IN_PROGRESS
+  - Fast‑track path: `approve_task` seeds minimal step → IN_PROGRESS
+  - Post‑execution: `submit_for_review` → PENDING_REVIEW →
+    - approve_task → DONE (+changelog), or
+    - request_changes(feedback) → IN_PROGRESS (rework loop)
+
+### Backward Compatibility
+- Not required. Existing behavior already matches implicit fast‑track; we add the rework loop explicitly.
+
+### Rollout Steps
+1) Add `request_changes` tool and data model fields.
+2) Update `update_task` to restrict PENDING_REVIEW → IN_PROGRESS to `request_changes` only.
+3) Add optional `create_rework_plan` prompt (if desired).
+4) Update documentation and Mermaid diagrams (already in progress).

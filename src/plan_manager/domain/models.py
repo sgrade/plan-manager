@@ -81,6 +81,15 @@ class Task(WorkItem):
         description="Brief outcome summary after completion (what changed, where).",
     )
 
+    class ReviewFeedback(BaseModel):
+        message: str
+        at: datetime = Field(
+            default_factory=lambda: datetime.now(timezone.utc))
+        by: Optional[str] = None
+
+    review_feedback: List[ReviewFeedback] = Field(default_factory=list)
+    rework_count: int = Field(default=0)
+
 
 Story.model_rebuild()
 
