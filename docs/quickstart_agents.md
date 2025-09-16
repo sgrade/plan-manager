@@ -1,23 +1,18 @@
 Plan Manager: Quickstart for Agents
 
-- Concepts
-  - Plan (epic/major), Story (what/why, minor), Task (how, patch).
-  - IDs (plan/story/task) come from context; set via set_current_*.
+- Context: set via `set_current_plan`, `set_current_story`, `set_current_task`.
 
-- Happy paths
-  - Planning: create_stories → create_story; create_tasks → create_task; optional for bigger tasks: /create_steps → create_task_steps.
-  - Execution:
-    - Start: approve_task on a TODO task (auto‑seeds a minimal step if none) → IN_PROGRESS; or create_task_steps → approve_task.
-    - Review: submit_for_review(summary) → PENDING_REVIEW; approve_task → DONE (returns changelog); if changes: request_changes(feedback) → IN_PROGRESS → resubmit.
+- Plan/Breakdown:
+  - `/create_stories` → `create_story`
+  - `/create_tasks` → `create_task`
+  - Optional: `/create_steps` → `create_task_steps`
 
-- Guardrails
-  - Dependencies gate for TODO → IN_PROGRESS.
-  - Changelog comes from execution_summary (submit_for_review), not steps. Ignore any placeholder fast‑track step.
+- Execute:
+  - At TODO: ask “What does the user do?” → either `/create_steps` → `create_task_steps` → `approve_task`, or `approve_task` to start now (fast‑track seeds a minimal step if none).
+  - Review: `submit_for_review(summary)` → show execution_summary → user runs `approve_task` (accept) or `request_changes(feedback)` (reopen; revise, then resubmit).
 
-- Shapes and errors
-  - Tools return structured results (e.g., ApproveTaskOut) with guidance on failure.
+- Guardrails: dependency gate (TODO→IN_PROGRESS); changelog from `execution_summary`.
 
-- Tips
-  - Keep summaries short and patch‑scoped. Use set_current_* to clarify context.
+- Tips: keep summaries short; wait for user after context changes.
 
-See resource://plan-manager/usage-guide for details.
+Details: see `resource://plan-manager/usage_guide_agents.md`.

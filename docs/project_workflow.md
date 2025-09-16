@@ -69,7 +69,8 @@ The diagrams below illustrate this process.
 ```mermaid
 graph TD
     A([Start]) --> B[Task is in TODO state];
-    B --> C{What does the user<br/>do?};
+    B --> C1[Agent waits until user acts];
+    C1 --> C{What does the user<br/>do?};
     
     C --> D[User runs /create_steps prompt];
     C --> H[User runs approve_task] --> I[approve_task seeds: Fast-tracked by user.];

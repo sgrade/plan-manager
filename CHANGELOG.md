@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed:
 - Show execution summary in TaskOut and report: Expose review summaries in UI surfaces: 1) Add execution_summary to TaskOut and include it in get_task; 2) Display Review Summary in report when current task is PENDING_REVIEW to streamline code review without extra commands.
 - Audit MCP tool parameter schemas: Audited MCP tools and services. Findings: 1) Priority type mismatch at transport vs domain; implemented boundary coercion with clear error messages and updated tool signatures to accept numeric types. 2) Task status string vs enum mismatch; updated tool to coerce to Status enum. 3) Minor prompt typo fixed ("Create aplan" -> "Create a plan"). Error handling improved in task tools: now raise exceptions instead of returning invalid TaskOuts.
+- Establish triage labels and P0/P1/P2 criteria: Added performance labeling guidance (use area:performance with type:enhancement unless functional defect) and concrete P1 vs P2 examples. Docs updated in triage_guide.md.
 
 ## [v0.6.0] - 2025-09-16
 

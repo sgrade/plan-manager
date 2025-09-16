@@ -9,7 +9,7 @@ from plan_manager.services.task_service import (
     submit_for_code_review as svc_submit_for_code_review,
     create_steps as svc_create_steps,
 )
-from plan_manager.schemas.outputs import TaskOut, TaskListItem, OperationResult
+from plan_manager.schemas.outputs import TaskOut, TaskListItem, OperationResult, ApproveTaskOut
 from plan_manager.tools.util import coerce_optional_int
 from plan_manager.services.state_repository import get_current_story_id, set_current_task_id, get_current_task_id
 from plan_manager.domain.models import Status
@@ -115,28 +115,68 @@ def list_tasks(statuses: Optional[List[Status]] = None, story_id: Optional[str] 
     return items[start:end]
 
 
-def set_current_task(task_id: Optional[str] = None) -> OperationResult | List[TaskListItem]:
-    """Set the current task for the current story. If no ID is provided, lists available tasks."""
-    if task_id:
-        set_current_task_id(task_id)
-        return OperationResult(success=True, message=f"Current task set to '{task_id}'")
-    return list_tasks()
+def set_current_task(task_id: Optional[str] = None) -> OperationResult:
+    """Set the current task for the current story."""
+    # Ensure a story is selected
+    story_id = get_current_story_id()
+    if not story_id:
+        return OperationResult(success=False, message="No current story set. Run `set_current_story` first.")
+
+    # Require a task identifier
+    if not task_id:
+        return OperationResult(success=False, message="No task specified. Run `list_tasks` to view tasks, then `set_current_task <id>`.")
+
+    # Validate provided ID against tasks under the current story
+    tasks = svc_list_tasks(statuses=None, story_id=story_id)
+
+    def _local_id(tid: str) -> str:
+        return tid.split(':', 1)[1] if ':' in tid else tid
+
+    fq_task_id: Optional[str] = None
+    if ':' in task_id:
+        # Fully-qualified ID provided; verify existence
+        if any(t.id == task_id for t in tasks):
+            fq_task_id = task_id
+        else:
+            return OperationResult(success=False, message=f"Task '{task_id}' not found. Run `list_tasks` to choose a valid id.")
+    else:
+        # Local ID provided; resolve uniqueness
+        matches = [t.id for t in tasks if _local_id(t.id) == task_id]
+        if len(matches) == 1:
+            fq_task_id = matches[0]
+        elif len(matches) > 1:
+            return OperationResult(success=False, message=f"Ambiguous task id '{task_id}'. Use fully-qualified '<story_id>:<task_id>'.")
+        else:
+            return OperationResult(success=False, message=f"Task '{task_id}' not found. Run `list_tasks` to choose a valid id.")
+
+    set_current_task_id(fq_task_id)
+    return OperationResult(
+        success=True,
+        message=(
+            f"Current task set to '{fq_task_id}'. Next: at TODO ask 'What does the user do?' → "
+            f"either `/create_steps` → `create_task_steps` → `approve_task`, or run `approve_task` to start now."
+        ),
+    )
 
 
-def submit_for_review(story_id: str, task_id: str, summary: str) -> TaskOut:
-    """Submits a task for code review, moving it to PENDING_REVIEW status.
-
-    On success, clients SHOULD immediately surface the returned execution_summary
-    to the user for review and present clear next actions:
-    - approve_task (accept and finish), or
-    - request_changes(feedback) (reopen; revise, then submit_for_review again)
-    """
+def submit_for_review(story_id: str, task_id: str, summary: str) -> ApproveTaskOut:
+    """Submits a task for code review, moving it to PENDING_REVIEW status."""
     data = svc_submit_for_code_review(
         story_id=story_id,
         task_id=task_id,
         summary_text=summary
     )
-    return TaskOut(**data)
+    execution_summary = data.get('execution_summary')
+    local_id = (data.get('id') or task_id).split(':')[-1]
+    message_lines = [
+        f"Task '{data.get('title', local_id)}' is now PENDING_REVIEW.",
+        "\nReview Summary:",
+        execution_summary,
+        "\nNext actions:",
+        "- approve_task (accept and finish), or",
+        "- request_changes(feedback) (reopen; revise, then submit_for_review again)",
+    ]
+    return ApproveTaskOut(success=True, message="\n".join(message_lines), changelog_snippet=None)
 
 
 def create_task_steps(story_id: str, task_id: str, steps: List[dict]) -> TaskOut:

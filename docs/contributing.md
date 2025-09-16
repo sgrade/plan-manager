@@ -12,6 +12,11 @@ Semantic Versioning: [https://semver.org](https://semver.org)
 
 Changelog: [https://keepachangelog.com](https://keepachangelog.com)
 
+## Triage
+
+Refer to the Triage Guide for labels, severity definitions, SLAs, and routine:
+see [triage_guide.md](./triage_guide.md).
+
 ## Development Environment
 
 This project is configured to run inside a [Dev Container](https://containers.dev/).

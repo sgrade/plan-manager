@@ -30,13 +30,14 @@ All tools return structured results. On failure, responses include human-readabl
 
 ### Execution (two-gate, PR-style)
 1) Start work (TODO → IN_PROGRESS)
-   - Default fast‑track: run `approve_task` on a TODO task. If no steps exist, the server auto‑seeds a minimal step and advances.
-   - If steps were created via `/create_steps`: call `create_task_steps`, then `approve_task`.
+   - At TODO: ask “What does the user do?” and choose a path:
+     - Plan first: `/create_steps` → `create_task_steps`, then the user runs `approve_task`.
+     - Start now: the user runs `approve_task` (fast‑track; seeds a minimal step if none).
 
 2) Review
-   - `submit_for_review(summary)` → PENDING_REVIEW (summary is required and drives the changelog). After the call, immediately show the returned execution_summary to the user and offer next actions: `approve_task` (accept) or `request_changes(feedback)` (reopen; revise, then submit_for_review again).
-   - Approve: `approve_task` → DONE, server returns a changelog snippet.
-   - Changes: `request_changes(feedback)` → IN_PROGRESS; revise (optionally update steps), then submit again.
+   - `submit_for_review(summary)` → PENDING_REVIEW (summary is required and drives the changelog). After the call, immediately show the returned execution_summary to the user and offer next actions: the user runs `approve_task` (accept) or the user runs `request_changes(feedback)` (reopen; revise, then submit_for_review again).
+   - Approve: the user runs `approve_task` → DONE, server returns a changelog snippet.
+   - Changes: the user runs `request_changes(feedback)` → IN_PROGRESS; revise (optionally update steps), then submit again.
 
 ## Deterministic rules & guardrails
 - Dependency gate: TODO → IN_PROGRESS only if the task is unblocked.
