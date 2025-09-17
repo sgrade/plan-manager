@@ -9,6 +9,7 @@ from plan_manager.services.changelog_service import generate_changelog_for_task
 from plan_manager.services.status_utils import apply_status_change
 from plan_manager.services.activity_repository import append_event
 from plan_manager.services.shared import validate_and_save
+from plan_manager.telemetry import incr, timer
 from plan_manager.logging_context import get_correlation_id
 
 logger = logging.getLogger(__name__)
@@ -71,11 +72,13 @@ def approve_current_task() -> Dict[str, Any]:
         if task.steps:
             logger.info({'event': 'approve_plan', 'task_id': task.id,
                         'corr_id': get_correlation_id()})
-            updated_task_data = task_service.update_task(
-                story_id=story.id,
-                task_id=task.id,
-                status=Status.IN_PROGRESS
-            )
+            with timer("approve_task.duration_ms", kind="plan", task_id=task.id):
+                updated_task_data = task_service.update_task(
+                    story_id=story.id,
+                    task_id=task.id,
+                    status=Status.IN_PROGRESS
+                )
+            incr("approve_task.count", kind="plan")
             return {"success": True, "message": f"Task '{task.title}' approved and moved to IN_PROGRESS.", "changelog_snippet": None, **updated_task_data}
         else:
             raise ValueError(
@@ -85,11 +88,13 @@ def approve_current_task() -> Dict[str, Any]:
     elif task.status == Status.PENDING_REVIEW:
         logger.info({'event': 'approve_review', 'task_id': task.id,
                     'corr_id': get_correlation_id()})
-        updated_task_data = task_service.update_task(
-            story_id=story.id,
-            task_id=task.id,
-            status=Status.DONE
-        )
+        with timer("approve_task.duration_ms", kind="review", task_id=task.id):
+            updated_task_data = task_service.update_task(
+                story_id=story.id,
+                task_id=task.id,
+                status=Status.DONE
+            )
+        incr("approve_task.count", kind="review")
 
         # Generate changelog snippet
         updated_task = Task(**updated_task_data)

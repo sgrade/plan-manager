@@ -10,6 +10,16 @@ def _env_bool(name: str, default: bool = False) -> bool:
     return val.strip().lower() in ("1", "true", "yes", "on")
 
 
+def _env_float(name: str, default: float = 1.0) -> float:
+    val = os.getenv(name)
+    if val is None:
+        return default
+    try:
+        return float(val)
+    except Exception:
+        return default
+
+
 # --- Core Paths ---
 # Determine the workspace root, which serves as the default base for other paths.
 WORKSPACE_ROOT = os.getcwd()
@@ -55,3 +65,8 @@ USAGE_GUIDE_REL_PATH = os.getenv(
 QUICKSTART_REL_PATH = os.getenv(
     "QUICKSTART_REL_PATH", os.path.join("docs", "quickstart_agents.md")
 )
+
+# --- Telemetry ---
+# Lightweight, opt-in counters/timers for key flows
+TELEMETRY_ENABLED = _env_bool("PLAN_MANAGER_TELEMETRY_ENABLED")
+TELEMETRY_SAMPLE_RATE = _env_float("PLAN_MANAGER_TELEMETRY_SAMPLE_RATE", 1.0)

@@ -10,6 +10,7 @@ from plan_manager.services.task_service import (
     create_steps as svc_create_steps,
 )
 from plan_manager.schemas.outputs import TaskOut, TaskListItem, OperationResult, ApproveTaskOut
+from plan_manager.telemetry import incr, timer
 from plan_manager.tools.util import coerce_optional_int
 from plan_manager.services.state_repository import get_current_story_id, set_current_task_id, get_current_task_id
 from plan_manager.domain.models import Status
@@ -162,11 +163,13 @@ def set_current_task(task_id: Optional[str] = None) -> OperationResult:
 
 def submit_for_review(story_id: str, task_id: str, summary: str) -> ApproveTaskOut:
     """Submits a task for code review, moving it to PENDING_REVIEW status."""
-    data = svc_submit_for_code_review(
-        story_id=story_id,
-        task_id=task_id,
-        summary_text=summary
-    )
+    with timer("submit_for_review.duration_ms", task_id=task_id):
+        data = svc_submit_for_code_review(
+            story_id=story_id,
+            task_id=task_id,
+            summary_text=summary
+        )
+    incr("submit_for_review.count")
     execution_summary = data.get('execution_summary')
     local_id = (data.get('id') or task_id).split(':')[-1]
     message_lines = [

@@ -42,6 +42,10 @@ Client reconnect tip:
 - USAGE_GUIDE_REL_PATH (default: `docs/usage_guide_agents.md`)
 - QUICKSTART_REL_PATH (default: `docs/quickstart_agents.md`)
 
+## Telemetry
+- PLAN_MANAGER_TELEMETRY_ENABLED (default: `false`) — enable lightweight counters/timers
+- PLAN_MANAGER_TELEMETRY_SAMPLE_RATE (default: `1.0`) — 0.0..1.0 sampling
+
 ## Examples
 ```bash
 # Enable dev reload and verbose logs
