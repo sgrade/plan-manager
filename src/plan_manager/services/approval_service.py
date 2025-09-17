@@ -9,6 +9,7 @@ from plan_manager.services.changelog_service import generate_changelog_for_task
 from plan_manager.services.status_utils import apply_status_change
 from plan_manager.services.activity_repository import append_event
 from plan_manager.services.shared import validate_and_save
+from plan_manager.logging_context import get_correlation_id
 
 logger = logging.getLogger(__name__)
 
@@ -63,12 +64,13 @@ def approve_current_task() -> Dict[str, Any]:
     if task.status == Status.TODO:
         if not task.steps:
             # Seed minimal steps to satisfy the pre-execution gate, then set task as active.
-            logger.info(
-                f"Seeding minimal steps to satisfy the pre-execution gate for task: {task.id}")
+            logger.info({'event': 'seed_steps', 'task_id': task.id,
+                        'corr_id': get_correlation_id()})
             task_service.create_steps(story.id, task.id, steps=[
                 {"title": "Fast-tracked by user."}])
         if task.steps:
-            logger.info(f"Approving implementation plan for task: {task.id}")
+            logger.info({'event': 'approve_plan', 'task_id': task.id,
+                        'corr_id': get_correlation_id()})
             updated_task_data = task_service.update_task(
                 story_id=story.id,
                 task_id=task.id,
@@ -81,7 +83,8 @@ def approve_current_task() -> Dict[str, Any]:
 
     # Case 2: Approving a code review
     elif task.status == Status.PENDING_REVIEW:
-        logger.info(f"Approving code review for task: {task.id}")
+        logger.info({'event': 'approve_review', 'task_id': task.id,
+                    'corr_id': get_correlation_id()})
         updated_task_data = task_service.update_task(
             story_id=story.id,
             task_id=task.id,

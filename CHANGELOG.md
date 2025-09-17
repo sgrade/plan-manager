@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Set up weekly triage routine: Added weekly triage cadence and ownership details to triage_guide.md (schedule, participants, reminders, outcomes, ≤15‑min agenda).
 - AGENTS.md - this file guides agents that use the Plan Manager MCP server.
 - Correlation: correlation IDs to mutations: middleware and propagated corr_id into plan/story/task creation logs; each request includes x-correlation-id.
+- Structured JSON logs now emitted for critical actions (create, approve transitions) with fields like event, ids/titles, statuses, and corr_id. Works with correlation middleware for end-to-end tracing.
 
 ### Changed:
 - Show execution summary in TaskOut and report: Expose review summaries in UI surfaces.
