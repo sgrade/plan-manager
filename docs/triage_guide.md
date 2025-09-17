@@ -27,6 +27,17 @@ This guide standardizes severity labels and SLAs for Plan Manager issues.
 - Initial: apply labels, set P0/P1/P2, add repro steps or mark needs-info.
 - Weekly: review new/untriaged items; re-evaluate severities; assign owners.
 
+### Weekly cadence & ownership
+- Schedule: every Monday, 10:00 UTC (adjust as needed for your team).
+- Participants: maintainer + last week’s contributors.
+- Reminders: calendar event and chat reminder 15 minutes before start.
+- Outcomes: updated labels/severities, explicit owner per P0/P1, "needs-info" pings sent.
+
+Suggested agenda (≤15 minutes):
+1) Scan new items → label + severity.
+2) Review open P0/P1 → confirm owners and ETAs.
+3) Sweep needs‑info → send/refresh pings; close stale if justified.
+
 ## Dashboards
 - Saved views for: P0 open, P1 open, needs-info, and by area.
 

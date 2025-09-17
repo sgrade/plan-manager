@@ -3,8 +3,8 @@ from mcp.server.fastmcp.prompts import base
 
 from plan_manager.prompts.plan_prompts import build_create_plan_prompt_messages
 from plan_manager.prompts.story_prompts import build_create_stories_prompt_messages
-from plan_manager.prompts.task_prompts import build_create_tasks_prompt_messages
-from plan_manager.prompts.task_prompts import build_create_steps_prompt_messages
+from plan_manager.prompts.task_prompts import create_tasks_messages
+from plan_manager.prompts.task_prompts import create_steps_messages
 
 
 class PromptSpec(TypedDict):
@@ -33,13 +33,13 @@ PROMPT_SPECS: List[PromptSpec] = [
         "name": "create_tasks",
         "title": "Create tasks for a story",
         "description": "Guides the model to create tasks for a story as PATCH-level changes. Each task must have title and may have a description.",
-        "handler": build_create_tasks_prompt_messages,
+        "handler": create_tasks_messages,
     },
     {
         "name": "create_steps",
         "title": "Create steps for a task",
         "description": "Guides the model to create implementation steps for a task as PATCH changelog bullet points. Each step must have title and may have a description.",
-        "handler": build_create_steps_prompt_messages,
+        "handler": create_steps_messages,
     },
 ]
 

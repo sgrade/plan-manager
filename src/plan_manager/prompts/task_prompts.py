@@ -7,8 +7,8 @@ from plan_manager.services.state_repository import (
 )
 
 
-def build_create_tasks_prompt_messages(story_id: Optional[str] = None) -> list[base.Message]:
-    """Construct the messages for 'create_tasks' using the given story_id."""
+def create_tasks_messages(story_id: Optional[str] = None) -> list[base.Message]:
+    """Construct the messages for 'create_tasks' prompt using the given story_id."""
 
     if not story_id:
         try:
@@ -60,8 +60,8 @@ def build_create_tasks_prompt_messages(story_id: Optional[str] = None) -> list[b
     ]
 
 
-def build_create_steps_prompt_messages(task_id: Optional[str] = None) -> list[base.Message]:
-    """Construct the messages for 'create_steps' using the given task_id."""
+def create_steps_messages(task_id: Optional[str] = None) -> list[base.Message]:
+    """Construct the messages for 'create_steps' prompt using the given task_id."""
 
     if not task_id:
         try:

@@ -150,12 +150,15 @@ def set_current_task(task_id: Optional[str] = None) -> OperationResult:
             return OperationResult(success=False, message=f"Task '{task_id}' not found. Run `list_tasks` to choose a valid id.")
 
     set_current_task_id(fq_task_id)
+    message_lines = [
+        f"Current task set to '{fq_task_id}' with `TODO` status.",
+        "Next actions:",
+        "- `/create_steps`, so the agent can propose implementation steps, or",
+        "- `approve_task`, so the agent can start working on the task.",
+    ]
     return OperationResult(
         success=True,
-        message=(
-            f"Current task set to '{fq_task_id}'. Next: at TODO ask 'What does the user do?' → "
-            f"either `/create_steps` → `create_task_steps` → `approve_task`, or run `approve_task` to start now."
-        ),
+        message="\n".join(message_lines)
     )
 
 
@@ -170,13 +173,17 @@ def submit_for_review(story_id: str, task_id: str, summary: str) -> ApproveTaskO
     local_id = (data.get('id') or task_id).split(':')[-1]
     message_lines = [
         f"Task '{data.get('title', local_id)}' is now PENDING_REVIEW.",
-        "\nReview Summary:",
+        "Review Summary:",
         execution_summary,
-        "\nNext actions:",
-        "- approve_task (accept and finish), or",
-        "- request_changes(feedback) (reopen; revise, then submit_for_review again)",
+        "Next actions:",
+        "- `approve_task` (accept and finish), or",
+        "- `request_changes` (feedback): reopen; revise, then submit_for_review again",
     ]
-    return ApproveTaskOut(success=True, message="\n".join(message_lines), changelog_snippet=None)
+    return ApproveTaskOut(
+        success=True,
+        message="\n".join(message_lines),
+        changelog_snippet=None
+    )
 
 
 def create_task_steps(story_id: str, task_id: str, steps: List[dict]) -> TaskOut:
