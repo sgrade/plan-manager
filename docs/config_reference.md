@@ -16,6 +16,7 @@ Notes:
 - LOG_FILE_PATH (default: `$LOG_DIR/mcp_server_app.log`)
 - LOG_LEVEL (default: `INFO`) — e.g., DEBUG, INFO, WARNING, ERROR
 - PLAN_MANAGER_ENABLE_FILE_LOG (default: `false`) — enable file logging
+Note: The server prints structured logs to stdout by default; file log is optional.
 
 ## Workflow guardrails
 - REQUIRE_APPROVAL_BEFORE_PROGRESS (default: `true`)
