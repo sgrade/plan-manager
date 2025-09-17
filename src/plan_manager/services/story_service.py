@@ -1,8 +1,8 @@
 import logging
 import os
 import shutil
-from typing import Optional, List
 
+from typing import Optional, List
 from pydantic import ValidationError
 
 from plan_manager.domain.models import Story, Status
@@ -17,6 +17,7 @@ from plan_manager.services.shared import (
 )
 from plan_manager.services.shared import find_dependents
 from plan_manager.config import WORKSPACE_ROOT
+from plan_manager.logging_context import get_correlation_id
 from plan_manager.services.state_repository import (
     get_current_story_id,
     set_current_story_id,
@@ -35,6 +36,11 @@ def create_story(
     depends_on: List[str]
 ) -> dict:
     generated_id = generate_slug(title)
+    logger.info({
+        'event': 'create_story',
+        'title': title,
+        'corr_id': get_correlation_id(),
+    })
     plan = plan_repo.load_current()
     existing_ids = [s.id for s in plan.stories]
     generated_id = ensure_unique_id_from_set(generated_id, existing_ids)
@@ -88,6 +94,11 @@ def update_story(
     depends_on: Optional[List[str]] = None,
 ) -> dict:
     plan = plan_repo.load_current()
+    logger.info({
+        'event': 'update_story',
+        'id': story_id,
+        'corr_id': get_correlation_id(),
+    })
     idx = next((i for i, s in enumerate(
         plan.stories) if s.id == story_id), None)
     if idx is None:
@@ -121,6 +132,11 @@ def update_story(
 
 def delete_story(story_id: str) -> dict:
     plan = plan_repo.load_current()
+    logger.info({
+        'event': 'delete_story',
+        'id': story_id,
+        'corr_id': get_correlation_id(),
+    })
     idx = next((i for i, s in enumerate(
         plan.stories) if s.id == story_id), None)
     if idx is None:

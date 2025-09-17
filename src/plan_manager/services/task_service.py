@@ -1,6 +1,6 @@
 import logging
-from typing import Optional, List
 
+from typing import Optional, List
 from pydantic import ValidationError
 
 from plan_manager.domain.models import Task, Story, Status, Plan
@@ -25,6 +25,7 @@ from plan_manager.services.shared import (
     merge_frontmatter_defaults,
     is_unblocked,
 )
+from plan_manager.logging_context import get_correlation_id
 
 
 logger = logging.getLogger(__name__)
@@ -72,9 +73,14 @@ def _generate_task_id_from_title(title: str) -> str:
 
 
 def create_task(story_id: str, title: str, priority: Optional[int], depends_on: List[str], description: Optional[str]) -> dict:
-    logger.info(
-        f"Handling create_task: story_id='{story_id}', title='{title}', priority='{priority}', depends_on={depends_on}"
-    )
+    logger.info({
+        'event': 'create_task',
+        'story_id': story_id,
+        'title': title,
+        'priority': priority,
+        'depends_on': depends_on,
+        'corr_id': get_correlation_id(),
+    })
     plan = plan_repo.load_current()
     story: Optional[Story] = next(
         (s for s in plan.stories if s.id == story_id), None)

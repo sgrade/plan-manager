@@ -5,12 +5,15 @@ Streamable HTTP. Supports server-initiated streaming via SSE per spec.
 """
 
 import logging
-from plan_manager.io.files import read_markdown
-from plan_manager.config import QUICKSTART_REL_PATH
+import uuid
+
 from mcp.server.fastmcp import FastMCP
 
+from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.applications import Starlette
 
+from plan_manager.io.files import read_markdown
+from plan_manager.config import QUICKSTART_REL_PATH
 from plan_manager.tools.story_tools import register_story_tools
 from plan_manager.tools.task_tools import register_task_tools
 from plan_manager.tools.plan_tools import register_plan_tools
@@ -20,6 +23,8 @@ from plan_manager.tools.approval_tools import register_approval_tools
 from plan_manager.tools.report_tools import register_report_tools
 from plan_manager.prompts.prompt_register import register_prompts
 from plan_manager.resources.usage_resources import register_usage_resources
+from plan_manager.logging_context import set_correlation_id
+
 
 logger = logging.getLogger(__name__)
 
@@ -53,5 +58,21 @@ def starlette_app() -> Starlette:
     register_usage_resources(mcp)
 
     app = mcp.streamable_http_app()
+
+    class CorrelationIdMiddleware(BaseHTTPMiddleware):
+        async def dispatch(self, request, call_next):
+            try:
+                incoming = request.headers.get("x-correlation-id")
+                corr_id = incoming or str(uuid.uuid4())
+                set_correlation_id(corr_id)
+                response = await call_next(request)
+                # reflect header for downstream debugging
+                response.headers["x-correlation-id"] = corr_id
+                return response
+            finally:
+                # Clear at end of request
+                set_correlation_id(None)
+
+    app.add_middleware(CorrelationIdMiddleware)
 
     return app

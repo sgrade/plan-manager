@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Verified triage_guide.md covers monitoring P0/P1, needs‑info, and area views.
   - Set up weekly triage routine: Added weekly triage cadence and ownership details to triage_guide.md (schedule, participants, reminders, outcomes, ≤15‑min agenda).
 - AGENTS.md - this file guides agents that use the Plan Manager MCP server.
+- Correlation: correlation IDs to mutations: middleware and propagated corr_id into plan/story/task creation logs; each request includes x-correlation-id.
 
 ### Changed:
 - Show execution summary in TaskOut and report: Expose review summaries in UI surfaces.

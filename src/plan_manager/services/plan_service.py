@@ -1,11 +1,12 @@
 import logging
-from typing import Optional, List, Dict, Any
 
+from typing import Optional, List, Dict, Any
 from pydantic import ValidationError
 
 from plan_manager.domain.models import Plan, Status
 from plan_manager.services import plan_repository as repo
 from plan_manager.services.shared import generate_slug, ensure_unique_id_from_set
+from plan_manager.logging_context import get_correlation_id
 
 
 logger = logging.getLogger(__name__)
@@ -13,7 +14,12 @@ logger = logging.getLogger(__name__)
 
 def create_plan(title: str, description: Optional[str], priority: Optional[int]) -> Dict[str, Any]:
     plan_id = generate_slug(title)
-    logger.info(f"Handling create_plan: id='{plan_id}', title='{title}'")
+    logger.info({
+        'event': 'create_plan',
+        'id': plan_id,
+        'title': title,
+        'corr_id': get_correlation_id(),
+    })
     # Ensure not already exists in index (append -2, -3 on collision)
     existing_ids = {p.get('id') for p in repo.list_plans()}
     plan_id = ensure_unique_id_from_set(plan_id, existing_ids)
