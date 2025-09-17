@@ -1,5 +1,7 @@
 # Contributing
 
+This document is for human contributors to this repository.
+
 ## Core guidelines
 
 Keep the server simple: tools enforce workflow; prompts are convenience only; roots/elicitation are client-side.
@@ -16,6 +18,8 @@ Changelog: [https://keepachangelog.com](https://keepachangelog.com)
 
 Refer to the Triage Guide for labels, severity definitions, SLAs, and routine:
 see [triage_guide.md](./triage_guide.md).
+
+For agent usage guidance (when Plan Manager is used as a service in other projects), see `AGENTS.md` at the repo root.
 
 ## Development Environment
 
@@ -103,3 +107,7 @@ To test with MCP-Inspector, check [../dev/mcp-inspector/README.md](../dev/mcp-in
 
 -   **Terminal Output**: By default the logs are written to stdout as [recommended](https://12factor.net/logs).
 -   **Log file**: If you need the logs in a file, set `PLAN_MANAGER_ENABLE_FILE_LOG` to `true` in the devcontainer.json. The server's detailed application logs will be written to `logs/mcp_server_app.log` (configurable).
+
+## Configuration Reference
+
+See [config_reference.md](./config_reference.md) for all environment variables, defaults, and examples.

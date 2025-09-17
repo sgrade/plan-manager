@@ -69,7 +69,7 @@ The diagrams below illustrate this process.
 ```mermaid
 graph TD
     A([Start]) --> B[Task is in TODO state];
-    B --> C1[Agent waits until user acts];
+    B --> C1[Agent asks the user "What would you like to do?];
     C1 --> C{What does the user<br/>do?};
     
     C --> D[User runs /create_steps prompt];

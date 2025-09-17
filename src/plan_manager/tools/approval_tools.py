@@ -19,6 +19,8 @@ def approve_task() -> ApproveTaskOut:
     """
     Contextually approves the current task. This command is the primary way
     to move a task forward through its lifecycle.
+
+    Important: agents should only call this tool after the user runs `approve_task` or provides similar instruction.
     """
     logger.debug("approve_task tool called.")
     try:

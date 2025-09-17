@@ -151,10 +151,8 @@ def set_current_task(task_id: Optional[str] = None) -> OperationResult:
 
     set_current_task_id(fq_task_id)
     message_lines = [
-        f"Current task set to '{fq_task_id}' with `TODO` status.",
-        "Next actions:",
-        "- `/create_steps`, so the agent can propose implementation steps, or",
-        "- `approve_task`, so the agent can start working on the task.",
+        f"Current task set: '{task_id}' (TODO).",
+        "Next user action: `/create_steps` to plan, or `approve_task` to start."
     ]
     return OperationResult(
         success=True,
@@ -175,9 +173,7 @@ def submit_for_review(story_id: str, task_id: str, summary: str) -> ApproveTaskO
         f"Task '{data.get('title', local_id)}' is now PENDING_REVIEW.",
         "Review Summary:",
         execution_summary,
-        "Next actions:",
-        "- `approve_task` (accept and finish), or",
-        "- `request_changes` (feedback): reopen; revise, then submit_for_review again",
+        "Next user action: `approve_task` to finish, or `request_changes` to revise.",
     ]
     return ApproveTaskOut(
         success=True,
