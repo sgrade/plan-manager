@@ -1,6 +1,6 @@
 # Contributing
 
-This document is for human contributors to this repository.
+This document guides human contributors to this repository.
 
 ## Core guidelines
 
