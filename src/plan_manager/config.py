@@ -47,6 +47,9 @@ REQUIRE_EXECUTION_INTENT_BEFORE_IN_PROGRESS = _env_bool(
 REQUIRE_EXECUTION_SUMMARY_BEFORE_DONE = _env_bool(
     "REQUIRE_EXECUTION_SUMMARY_BEFORE_DONE", True)
 
+# --- UI / Browser ---
+ENABLE_BROWSER = _env_bool("PLAN_MANAGER_ENABLE_BROWSER", True)
+
 # --- Uvicorn Configuration ---
 HOST = os.getenv("HOST", "127.0.0.1")
 PORT = int(os.getenv("PORT", "3000"))

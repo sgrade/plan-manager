@@ -11,9 +11,10 @@ from mcp.server.fastmcp import FastMCP
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.applications import Starlette
+from starlette.responses import RedirectResponse
 
 from plan_manager.io.files import read_markdown
-from plan_manager.config import QUICKSTART_REL_PATH
+from plan_manager.config import QUICKSTART_REL_PATH, ENABLE_BROWSER
 from plan_manager.tools.story_tools import register_story_tools
 from plan_manager.tools.task_tools import register_task_tools
 from plan_manager.tools.plan_tools import register_plan_tools
@@ -23,6 +24,7 @@ from plan_manager.tools.report_tools import register_report_tools
 from plan_manager.prompts.prompt_register import register_prompts
 from plan_manager.resources.usage_resources import register_usage_resources
 from plan_manager.logging_context import set_correlation_id
+from plan_manager.server.browser import browse_endpoint
 
 
 logger = logging.getLogger(__name__)
@@ -56,6 +58,13 @@ def starlette_app() -> Starlette:
     register_usage_resources(mcp)
 
     app = mcp.streamable_http_app()
+
+    # Add routes for the file browser if enabled
+    if ENABLE_BROWSER:
+        app.add_route("/browse", lambda r: RedirectResponse(
+            url="/browse/"), name="browse_redirect")
+        app.add_route("/browse/", browse_endpoint, name="browse_root")
+        app.add_route("/browse/{path:path}", browse_endpoint, name="browse")
 
     class CorrelationIdMiddleware(BaseHTTPMiddleware):
         async def dispatch(self, request, call_next):

@@ -39,7 +39,7 @@ def main():
         logger.info("Reloading disabled. App will not restart on code changes.")
 
     uvicorn.run(
-        "plan_manager.server:starlette_app",
+        "plan_manager.server.app:starlette_app",
         factory=True,
         # IMPORTANT: This tells uvicorn to use our configuration above.
         log_config=None,

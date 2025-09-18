@@ -24,6 +24,14 @@ Plan Manager is a tool for a single developer or orchestrator to coordinate work
 
 ## Usage
 
+### Connecting to the Server
+
+- **Start the server:** `uv run pm`
+- **Endpoint:** `http://localhost:3000/mcp`
+- **Browse files:** `http://localhost:3000/browse`
+
+Note: change `localhost` to `host.docker.internal` if accessing from another container on the same host.
+
 ### Docs
 
 The overview diagrams are in [docs/project_workflow.md](docs/project_workflow.md)

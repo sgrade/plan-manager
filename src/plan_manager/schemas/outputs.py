@@ -32,8 +32,8 @@ class ReportOut(BaseModel):
     """Structured report output returned by MCP tools."""
     report: str
 
-# --- Plan Schemas ---
 
+# --- Plan Schemas ---
 
 class PlanOut(BaseModel):
     """Structured plan output returned by MCP tools."""

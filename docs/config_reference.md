@@ -26,6 +26,10 @@ Note: The server prints structured logs to stdout by default; file log is option
 - REQUIRE_EXECUTION_SUMMARY_BEFORE_DONE (default: `true`)
   - Require an execution summary before DONE
 
+## UI / Browser
+- PLAN_MANAGER_ENABLE_BROWSER (default: `true`)
+  - Enable the `/browse` endpoint for viewing files
+
 ## Uvicorn / Server
 - HOST (default: `127.0.0.1`)
 - PORT (default: `3000`)
@@ -41,7 +45,7 @@ Client reconnect tip:
 
 ## Docs / Agent guides
 - USAGE_GUIDE_REL_PATH (default: `docs/usage_guide_agents.md`)
-- QUICKSTART_REL_PATH (default: `docs/quickstart_agents.md`)
+- QUICKSTART_REL_PATH (default: `docs/quick_start_agents.md`)
 
 ## Telemetry
 - PLAN_MANAGER_TELEMETRY_ENABLED (default: `false`) — enable lightweight counters/timers

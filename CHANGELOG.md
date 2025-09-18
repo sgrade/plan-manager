@@ -7,9 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added:
+- Simple browser to see the work items; can be switched off.
+
 ### Changed:
 - Create a shared task ID resolution function and update the tool and service layers to use it.
 - Add a local_id to the Task domain model and the TaskOut and TaskListItem schemas.
+- Moved the starlette app to server directory.
 
 ## [0.6.1] - 2025-09-18
 
