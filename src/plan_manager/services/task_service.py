@@ -24,6 +24,7 @@ from plan_manager.services.shared import (
     find_dependents,
     merge_frontmatter_defaults,
     is_unblocked,
+    resolve_task_id,
 )
 from plan_manager.logging_context import get_correlation_id
 from plan_manager.telemetry import incr, timer
@@ -99,14 +100,17 @@ def create_task(story_id: str, title: str, priority: Optional[int], depends_on: 
 
 def get_task(story_id: str, task_id: str) -> dict:
     plan = plan_repository.load_current()
+    s_id, local_task_id = resolve_task_id(task_id, story_id)
+
     story: Optional[Story] = next(
-        (s for s in plan.stories if s.id == story_id), None)
+        (s for s in plan.stories if s.id == s_id), None)
     if not story:
-        raise KeyError(f"story with ID '{story_id}' not found.")
-    fq_task_id = f"{story_id}:{task_id}" if ':' not in task_id else task_id
+        raise KeyError(f"story with ID '{s_id}' not found.")
+
+    fq_task_id = f"{s_id}:{local_task_id}"
     if not story.tasks or not any(t.id == fq_task_id for t in story.tasks):
         raise KeyError(
-            f"task with ID '{fq_task_id}' not found under story '{story_id}'.")
+            f"task with ID '{fq_task_id}' not found under story '{s_id}'.")
     task_obj = next((t for t in story.tasks if t.id == fq_task_id), None)
     if task_obj:
         base = task_obj.model_dump(include={
@@ -119,11 +123,9 @@ def get_task(story_id: str, task_id: str) -> dict:
                 base['creation_time'] = ct.isoformat()
         except Exception:
             base['creation_time'] = None
-        local_task_id = fq_task_id.split(':', 1)[1]
-        task_details_path = task_file_path(story_id, local_task_id)
+        task_details_path = task_file_path(s_id, local_task_id)
         return merge_frontmatter_defaults(task_details_path, base)
-    local_task_id = fq_task_id.split(':', 1)[1]
-    task_details_path = task_file_path(story_id, local_task_id)
+    task_details_path = task_file_path(s_id, local_task_id)
     front, _body = read_item_file(task_details_path)
     if front:
         out = {'id': front.get('id', fq_task_id), 'title': front.get(
@@ -137,17 +139,19 @@ def get_task(story_id: str, task_id: str) -> dict:
 
 def _find_task(plan, story_id, task_id):
     """Helper to find a task and its story, returning (story, task) or raising KeyError."""
-    story: Optional[Story] = next(
-        (s for s in plan.stories if s.id == story_id), None)
-    if not story:
-        raise KeyError(f"Story with ID '{story_id}' not found.")
+    s_id, local_task_id = resolve_task_id(task_id, story_id)
 
-    fq_task_id = f"{story_id}:{task_id}" if ':' not in task_id else task_id
+    story: Optional[Story] = next(
+        (s for s in plan.stories if s.id == s_id), None)
+    if not story:
+        raise KeyError(f"Story with ID '{s_id}' not found.")
+
+    fq_task_id = f"{s_id}:{local_task_id}"
     task_obj: Optional[Task] = next(
         (t for t in (story.tasks or []) if t.id == fq_task_id), None)
     if not task_obj:
         raise KeyError(
-            f"Task with ID '{fq_task_id}' not found under story '{story_id}'.")
+            f"Task with ID '{fq_task_id}' not found under story '{s_id}'.")
     return story, task_obj, fq_task_id
 
 
@@ -482,7 +486,7 @@ def submit_for_code_review(story_id: str, task_id: str, summary_text: str) -> di
     return task_obj.model_dump(mode='json', exclude_none=True)
 
 
-def request_changes(feedback: str) -> Dict[str, Any]:
+def request_changes(story_id: str, task_id: str, feedback: str) -> Dict[str, Any]:
     """Request changes for the CURRENT task: PENDING_REVIEW -> IN_PROGRESS.
 
     - Requires a current plan/story/task and task.status == PENDING_REVIEW
@@ -492,26 +496,8 @@ def request_changes(feedback: str) -> Dict[str, Any]:
     if not feedback or not feedback.strip():
         raise ValueError("Feedback is required to request changes.")
 
-    plan_id = plan_repository.get_current_plan_id()
-    if not plan_id:
-        raise ValueError("No active plan. Please select a plan first.")
-    plan = plan_repository.load(plan_id)
-
-    task_id = get_current_task_id(plan_id)
-    if not task_id:
-        raise ValueError(
-            "No active task. There is nothing to request changes for.")
-
-    story_id = get_current_story_id(plan_id) or task_id.split(':')[0]
-    story = next((s for s in plan.stories if s.id == story_id), None)
-    if not story:
-        raise RuntimeError(
-            f"Data inconsistency: Story '{story_id}' not found for active task.")
-
-    task = next((t for t in (story.tasks or []) if t.id == task_id), None)
-    if not task:
-        raise RuntimeError(
-            f"Data inconsistency: Active task '{task_id}' not found in story '{story_id}'.")
+    plan = plan_repository.load_current()
+    story, task, _ = _find_task(plan, story_id, task_id)
 
     if task.status != Status.PENDING_REVIEW:
         raise ValueError(

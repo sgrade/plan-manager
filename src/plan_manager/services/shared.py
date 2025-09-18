@@ -5,6 +5,7 @@ from plan_manager.io.paths import slugify, task_file_path
 from plan_manager.io.file_mirror import save_item_to_file, read_item_file
 from plan_manager.services import plan_repository as plan_repo
 from plan_manager.domain.models import Status, Story, Task, Plan
+from plan_manager.services.state_repository import get_current_story_id
 
 
 logger = logging.getLogger(__name__)
@@ -30,6 +31,37 @@ def ensure_unique_id_from_set(base_id: str, existing_ids: List[str] | set[str]) 
         if candidate not in taken:
             return candidate
         counter += 1
+
+
+def resolve_task_id(
+    task_id: str, story_id: Optional[str] = None
+) -> tuple[str, str]:
+    """Resolve a task ID into a (story_id, local_task_id) tuple.
+
+    - If task_id is fully-qualified ('story:task'), it is parsed.
+    - If task_id is local, story_id must be provided or available in the current context.
+    - Rejects ambiguous inputs and ensures a valid, usable pair is returned.
+    """
+    if ":" in task_id:
+        try:
+            parsed_story_id, local_task_id = task_id.split(":", 1)
+            if story_id and story_id != parsed_story_id:
+                raise ValueError(
+                    f"Mismatched story_id: provided '{story_id}' but task has '{parsed_story_id}'."
+                )
+            return parsed_story_id, local_task_id
+        except ValueError as e:
+            raise ValueError(
+                f"Invalid fully-qualified task ID '{task_id}'. Expected 'story_id:task_id'."
+            ) from e
+    else:
+        # Local ID: require story context
+        s_id = story_id or get_current_story_id()
+        if not s_id:
+            raise ValueError(
+                "Cannot use a local task ID without a current story. Call `set_current_story` or provide a fully-qualified ID ('story:task')."
+            )
+        return s_id, task_id
 
 
 def parse_status(value: Optional[str | Status]) -> Optional[Status]:

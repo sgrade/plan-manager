@@ -21,6 +21,7 @@ from plan_manager.schemas.outputs import (
 )
 from plan_manager.telemetry import incr, timer
 from plan_manager.tools.util import coerce_optional_int
+from plan_manager.services.shared import resolve_task_id
 from plan_manager.services.state_repository import get_current_story_id, set_current_task_id, get_current_task_id
 from plan_manager.domain.models import Status
 from plan_manager.services.task_service import task_service
@@ -52,22 +53,19 @@ def create_task(story_id: str, title: str, priority: Optional[float] = None, dep
     return TaskOut(**data)
 
 
-def get_task(story_id: Optional[str] = None, task_id: Optional[str] = None) -> TaskOut:
+def get_task(task_id: Optional[str] = None) -> TaskOut:
     """Fetch a task by ID (local or FQ). Defaults to current task of current story."""
-    story_id = story_id or get_current_story_id()
-    if not story_id:
-        raise ValueError(
-            "No current story set. Call set_current_story or provide story_id.")
-    task_id = task_id or get_current_task_id()
-    if not task_id:
+    effective_task_id = task_id or get_current_task_id()
+    if not effective_task_id:
         raise ValueError(
             "No current task set. Call set_current_task or provide task_id.")
-    data = svc_get_task(story_id, task_id)
+
+    story_id, local_task_id = resolve_task_id(effective_task_id)
+    data = svc_get_task(story_id, local_task_id)
     return TaskOut(**data)
 
 
 def update_task(
-    story_id: str,
     task_id: str,
     title: Optional[str] = None,
     description: Optional[str] = None,
@@ -77,9 +75,10 @@ def update_task(
     steps: Optional[list[dict]] = None
 ) -> TaskOut:
     """Update mutable fields of a task."""
+    story_id, local_task_id = resolve_task_id(task_id)
     # If steps are provided here, forward them via status/utils path by calling create_steps first
     if steps is not None:
-        svc_create_steps(story_id=story_id, task_id=task_id, steps=steps)
+        svc_create_steps(story_id=story_id, task_id=local_task_id, steps=steps)
     coerced_priority = coerce_optional_int(priority, 'priority')
     # Coerce status string to Status enum if provided
     coerced_status = None
@@ -98,15 +97,16 @@ def update_task(
                 f"Invalid type for parameter 'status': expected string or null, got {type(status).__name__}."
             )
 
-    data = svc_update_task(story_id, task_id, title,
+    data = svc_update_task(story_id, local_task_id, title,
                            description, depends_on, coerced_priority, coerced_status)
     return TaskOut(**data)
 
 
-def delete_task(story_id: str, task_id: str) -> OperationResult:
+def delete_task(task_id: str) -> OperationResult:
     """Delete a task by ID (fails if other items depend on it)."""
     try:
-        data = svc_delete_task(story_id, task_id)
+        story_id, local_task_id = resolve_task_id(task_id)
+        data = svc_delete_task(story_id, local_task_id)
         return OperationResult(**data)
     except (ValueError, KeyError) as e:
         return OperationResult(success=False, message=str(e))
@@ -148,9 +148,6 @@ def _status_to_gate(status: Status, steps: Optional[List[dict]]) -> WorkflowGate
 
 
 def _compute_next_actions_for_task(task: TaskOut, gate: WorkflowGate) -> List[NextAction]:
-    story_id = task.id.split(":", 1)[0] if ":" in task.id else None
-    local_task_id = task.id.split(":", 1)[1] if ":" in task.id else task.id
-
     actions: List[NextAction] = []
 
     if gate == WorkflowGate.BLOCKED:
@@ -172,7 +169,7 @@ def _compute_next_actions_for_task(task: TaskOut, gate: WorkflowGate) -> List[Ne
                 label="Draft implementation steps for this task",
                 who=WhoRuns.USER,
                 recommended=True,
-                arguments={"story_id": story_id, "task_id": local_task_id}
+                arguments={"task_id": task.id}
             ))
             actions.append(NextAction(
                 kind="tool",
@@ -198,8 +195,7 @@ def _compute_next_actions_for_task(task: TaskOut, gate: WorkflowGate) -> List[Ne
             label="Submit task for code review",
             who=WhoRuns.AGENT,
             recommended=True,
-            arguments={"story_id": story_id,
-                       "task_id": local_task_id, "summary": ""}
+            arguments={"task_id": task.id, "summary": ""}
         ))
         return actions
 
@@ -217,20 +213,21 @@ def _compute_next_actions_for_task(task: TaskOut, gate: WorkflowGate) -> List[Ne
             label="Request changes and return task to IN_PROGRESS",
             who=WhoRuns.USER,
             recommended=False,
-            arguments={"feedback": ""}
+            arguments={"feedback": "", "task_id": task.id}
         ))
         return actions
 
     return actions
 
 
-def create_task_steps(story_id: str, task_id: str, steps: List[dict]) -> TaskWorkflowResult:
+def create_task_steps(task_id: str, steps: List[dict]) -> TaskWorkflowResult:
     """Proposes implementation steps for a task, moving it to a reviewable state.
 
     Expects a list of step objects with 'title' and optional 'description'.
     """
+    story_id, local_task_id = resolve_task_id(task_id)
     data = svc_create_steps(
-        story_id=story_id, task_id=task_id, steps=steps)
+        story_id=story_id, task_id=local_task_id, steps=steps)
     task = TaskOut(**data)
     gate = _status_to_gate(task.status, task.steps)
     next_actions = _compute_next_actions_for_task(task, gate)
@@ -259,31 +256,11 @@ def set_current_task(task_id: Optional[str] = None) -> TaskWorkflowResult:
     if not task_id:
         return TaskWorkflowResult(success=False, message="No task specified. Run `list_tasks` to view tasks, then `set_current_task <id>`.", action=ActionType.SET_CURRENT_TASK)
 
-    # Validate provided ID against tasks under the current story
-    tasks = svc_list_tasks(statuses=None, story_id=story_id)
-
-    def _local_id(tid: str) -> str:
-        return tid.split(':', 1)[1] if ':' in tid else tid
-
-    fq_task_id: Optional[str] = None
-    if ':' in task_id:
-        # Fully-qualified ID provided; verify existence
-        if any(t.id == task_id for t in tasks):
-            fq_task_id = task_id
-        else:
-            return TaskWorkflowResult(success=False, message=f"Task '{task_id}' not found. Run `list_tasks` to choose a valid id.", action=ActionType.SET_CURRENT_TASK)
-    else:
-        # Local ID provided; resolve uniqueness
-        matches = [t.id for t in tasks if _local_id(t.id) == task_id]
-        if len(matches) == 1:
-            fq_task_id = matches[0]
-        elif len(matches) > 1:
-            return TaskWorkflowResult(success=False, message=f"Ambiguous task id '{task_id}'. Use fully-qualified '<story_id>:<task_id>'.", action=ActionType.SET_CURRENT_TASK)
-        else:
-            return TaskWorkflowResult(success=False, message=f"Task '{task_id}' not found. Run `list_tasks` to choose a valid id.", action=ActionType.SET_CURRENT_TASK)
+    s_id, local_task_id = resolve_task_id(task_id, story_id)
+    fq_task_id = f"{s_id}:{local_task_id}"
 
     set_current_task_id(fq_task_id)
-    data = svc_get_task(story_id, fq_task_id)
+    data = svc_get_task(s_id, fq_task_id)
     task = TaskOut(**data)
     gate = _status_to_gate(task.status, task.steps)
     next_actions = _compute_next_actions_for_task(task, gate)
@@ -394,11 +371,13 @@ def approve_task() -> TaskWorkflowResult:
         return tmp
 
 
-def request_changes(feedback: str) -> TaskWorkflowResult:
+def request_changes(task_id: str, feedback: str) -> TaskWorkflowResult:
     """Request changes for the current task (PENDING_REVIEW -> IN_PROGRESS)."""
     logger.debug("request_changes tool called.")
     try:
-        result = task_service.request_changes(feedback=feedback)
+        s_id, local_task_id = resolve_task_id(task_id)
+        result = task_service.request_changes(
+            story_id=s_id, task_id=local_task_id, feedback=feedback)
         # Fetch the now-current task to include snapshot and next actions
         story_id = get_current_story_id()
         cur_task_id = get_current_task_id()
@@ -430,12 +409,13 @@ def request_changes(feedback: str) -> TaskWorkflowResult:
         return tmp
 
 
-def submit_for_review(story_id: str, task_id: str, summary: str) -> TaskWorkflowResult:
+def submit_for_review(task_id: str, summary: str) -> TaskWorkflowResult:
     """Submits a task for code review, moving it to PENDING_REVIEW status."""
-    with timer("submit_for_review.duration_ms", task_id=task_id):
+    story_id, local_task_id = resolve_task_id(task_id)
+    with timer("submit_for_review.duration_ms", task_id=local_task_id):
         data = svc_submit_for_code_review(
             story_id=story_id,
-            task_id=task_id,
+            task_id=local_task_id,
             summary_text=summary
         )
     incr("submit_for_review.count")
