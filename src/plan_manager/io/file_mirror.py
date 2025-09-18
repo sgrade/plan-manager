@@ -74,14 +74,6 @@ def save_item_to_file(details_path: str, front_source: Any, content: Optional[st
         if hasattr(front_source, 'model_dump'):
             # Use JSON mode to serialize Enums (e.g., Status) as strings
             front = front_source.model_dump(mode='json', exclude_none=True)
-            # If this is a Story-like object, ensure tasks are written as a list of IDs
-            try:
-                if isinstance(front.get('tasks', None), list) and front_source.__class__.__name__ in ('Story',):
-                    front['tasks'] = [t.get('id') if isinstance(
-                        t, dict) else getattr(t, 'id', None) for t in front['tasks']]
-                    front['tasks'] = [tid for tid in front['tasks'] if tid]
-            except Exception:
-                pass
         elif isinstance(front_source, dict):
             front = {k: v for k, v in front_source.items() if v is not None}
         else:

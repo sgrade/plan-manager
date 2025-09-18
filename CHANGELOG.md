@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Create a shared task ID resolution function and update the tool and service layers to use it.
 - Add a local_id to the Task domain model and the TaskOut and TaskListItem schemas.
 - Moved the starlette app to server directory.
+- Data persistence layer has been successfully migrated to a normalized file structure: plan.yaml simplified, responsibilities shared with other files.
 
 ## [0.6.1] - 2025-09-18
 

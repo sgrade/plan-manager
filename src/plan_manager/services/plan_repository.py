@@ -4,8 +4,10 @@ import logging
 import shutil
 
 from typing import List, Dict, Any
-from plan_manager.domain.models import Plan
+from plan_manager.domain.models import Plan, Story, Task
 from plan_manager.config import TODO_DIR, PLANS_INDEX_FILE_PATH
+from plan_manager.io.file_mirror import save_item_to_file, read_item_file
+from plan_manager.io.paths import story_file_path, task_file_path
 
 
 logger = logging.getLogger(__name__)
@@ -28,25 +30,59 @@ def _ensure_plans_index_exists() -> None:
 
 def save(plan: Plan, plan_id: str = 'default') -> None:
     """Persist a validated Plan model to todo/<plan_id>/plan.yaml and ensure it's in the index."""
-    _ensure_plans_index_exists()
-    with open(PLANS_INDEX_FILE_PATH, 'r', encoding='utf-8') as idxf:
-        idx = yaml.safe_load(idxf) or {}
-    plans_list = idx.get('plans') or []
-    if plan_id not in [p.get('id') for p in plans_list]:
-        status = getattr(plan, 'status', 'TODO')
-        status_value = status.value if hasattr(status, 'value') else status
-        plans_list.append({"id": plan_id, "title": getattr(
-            plan, 'title', plan_id), "status": status_value})
-        idx['plans'] = plans_list
-        with open(PLANS_INDEX_FILE_PATH, 'w', encoding='utf-8') as idxf:
-            yaml.safe_dump(idx, idxf, default_flow_style=False,
-                           sort_keys=False)
+    # 1. Save the main plan file (manifest)
+    plan_path = _plan_file_path(plan_id)
+    os.makedirs(os.path.dirname(plan_path), exist_ok=True)
+    plan_manifest = plan.model_dump(
+        mode='json', exclude={'stories'}, exclude_none=True)
+    plan_manifest['stories'] = [s.id for s in plan.stories]
+    with open(plan_path, 'w', encoding='utf-8') as f:
+        yaml.safe_dump(plan_manifest, f,
+                       default_flow_style=False, sort_keys=False)
 
-    data = plan.model_dump(mode='json', exclude_none=True)
-    file_path = _plan_file_path(plan_id)
-    os.makedirs(os.path.dirname(file_path), exist_ok=True)
-    with open(file_path, 'w', encoding='utf-8') as f:
-        yaml.safe_dump(data, f, default_flow_style=False, sort_keys=False)
+    # 2. Save each story to its own file
+    for story in plan.stories:
+        _save_story(story)
+
+    # 3. Update the global plans index
+    _update_plan_in_index(plan)
+
+
+def _save_story(story: Story) -> None:
+    """Saves a story and its tasks to their respective files."""
+    story_path = story_file_path(story.id)
+    story.file_path = story_path
+    save_item_to_file(story_path, story, overwrite=True)
+
+    # Save each task to its own file
+    for task in story.tasks:
+        task_path = task_file_path(story.id, task.local_id)
+        task.file_path = task_path
+        save_item_to_file(task_path, task, overwrite=True)
+
+
+def _update_plan_in_index(plan: Plan) -> None:
+    """Ensure the plan is in the index and its status is up-to-date."""
+    _ensure_plans_index_exists()
+    with open(PLANS_INDEX_FILE_PATH, 'r', encoding='utf-8') as f:
+        idx = yaml.safe_load(f) or {}
+
+    plans_list = idx.get('plans', [])
+    plan_found = False
+    for p in plans_list:
+        if p.get('id') == plan.id:
+            p['status'] = plan.status.value
+            p['title'] = plan.title
+            plan_found = True
+            break
+
+    if not plan_found:
+        plans_list.append(
+            {"id": plan.id, "title": plan.title, "status": plan.status.value})
+
+    idx['plans'] = plans_list
+    with open(PLANS_INDEX_FILE_PATH, 'w', encoding='utf-8') as f:
+        yaml.safe_dump(idx, f, default_flow_style=False, sort_keys=False)
 
 
 def delete(plan_id: str) -> None:
@@ -100,31 +136,61 @@ def list_plans() -> List[Dict[str, Any]]:
 
 
 def load(plan_id: str) -> Plan:
-    """Load a specific plan by ID from todo/<plan_id>/plan.yaml.
+    """Load a specific plan by ID, rehydrating it from normalized files."""
+    # 1. Load the plan manifest
+    plan_path = _plan_file_path(plan_id)
+    if not os.path.exists(plan_path):
+        raise FileNotFoundError(f"Plan file not found for ID '{plan_id}'")
 
-    Requires that the plan exists in the index.
-    """
-    # Validate against index
-    with open(PLANS_INDEX_FILE_PATH, 'r', encoding='utf-8') as idxf:
-        idx = yaml.safe_load(idxf) or {}
-    plans_list = idx.get('plans') or []
-    if plan_id not in [p.get('id') for p in plans_list]:
-        raise FileNotFoundError(
-            f"Plan '{plan_id}' is not registered in the index at {PLANS_INDEX_FILE_PATH}")
+    with open(plan_path, 'r', encoding='utf-8') as f:
+        plan_manifest = yaml.safe_load(f) or {}
 
-    file_path = _plan_file_path(plan_id)
-    plan_dir = os.path.dirname(file_path)
-    os.makedirs(plan_dir, exist_ok=True)
-    if not os.path.exists(file_path):
-        with open(file_path, 'w', encoding='utf-8') as f:
-            yaml.safe_dump({"id": plan_id, "title": plan_id, "stories": []}, f,
-                           default_flow_style=False, sort_keys=False)
-        logger.info(
-            f"Initialized new plan file for '{plan_id}' at {file_path}")
+    # 2. Load stories and their tasks
+    stories = []
+    for story_id in plan_manifest.get('stories', []):
+        story = _load_story(story_id)
+        if story:
+            stories.append(story)
 
-    with open(file_path, 'r', encoding='utf-8') as f:
-        raw = yaml.safe_load(f) or {}
-    return Plan.model_validate(raw)
+    plan_manifest['stories'] = stories
+    return Plan.model_validate(plan_manifest)
+
+
+def _load_story(story_id: str) -> Story | None:
+    """Loads a single story and its tasks from their files."""
+    try:
+        story_path = story_file_path(story_id)
+        frontmatter, _ = read_item_file(story_path)
+        if not frontmatter:
+            return None
+
+        tasks = []
+        for task_id in frontmatter.get('tasks', []):
+            task = _load_task(story_id, task_id)
+            if task:
+                tasks.append(task)
+
+        frontmatter['tasks'] = tasks
+        return Story.model_validate(frontmatter)
+    except Exception as e:
+        logger.warning(f"Failed to load story '{story_id}': {e}")
+        return None
+
+
+def _load_task(story_id: str, task_id: str) -> Task | None:
+    """Loads a single task from its file."""
+    try:
+        # task_id can be fully qualified, so extract local_id for path
+        local_id = task_id.split(':')[-1]
+        task_path = task_file_path(story_id, local_id)
+        frontmatter, _ = read_item_file(task_path)
+        if not frontmatter:
+            return None
+        return Task.model_validate(frontmatter)
+    except Exception as e:
+        logger.warning(
+            f"Failed to load task '{task_id}' in story '{story_id}': {e}")
+        return None
 
 
 def load_current() -> Plan:
