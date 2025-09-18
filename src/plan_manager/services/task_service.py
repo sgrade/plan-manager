@@ -4,7 +4,7 @@ from typing import Optional, List
 from pydantic import ValidationError
 
 from plan_manager.domain.models import Task, Story, Status, Plan
-from plan_manager.services import plan_repository as plan_repo
+from plan_manager.services import plan_repository
 from plan_manager.io.paths import task_file_path
 from plan_manager.io.file_mirror import save_item_to_file, read_item_file, delete_item_file
 from plan_manager.services.status_utils import rollup_story_status, apply_status_change
@@ -26,46 +26,16 @@ from plan_manager.services.shared import (
     is_unblocked,
 )
 from plan_manager.logging_context import get_correlation_id
+from plan_manager.telemetry import incr, timer
+from plan_manager.services import task_service
+from plan_manager.services.changelog_service import generate_changelog_for_task
+from typing import Dict, Any
 
 
 logger = logging.getLogger(__name__)
 
 
-def _update_dependent_task_statuses(plan: Plan):
-    """
-    Iterates through all tasks and updates their status to BLOCKED or TODO
-    based on the current state of their dependencies.
-    """
-    logger.debug(f"Running blocker status update for plan '{plan.id}'.")
-    for story in plan.stories:
-        for task in (story.tasks or []):
-            if task.status in [Status.TODO, Status.BLOCKED]:
-                currently_unblocked = is_unblocked(task, plan)
-
-                if task.status == Status.TODO and not currently_unblocked:
-                    task.status = Status.BLOCKED
-                    logger.info(
-                        f"Task '{task.id}' is now BLOCKED due to unmet dependencies.")
-                elif task.status == Status.BLOCKED and currently_unblocked:
-                    task.status = Status.TODO
-                    logger.info(
-                        f"Task '{task.id}' is now UNBLOCKED and set to TODO.")
-
-
-def _find_task(plan, story_id, task_id):
-    """Helper to find a task and its story, returning (story, task) or raising KeyError."""
-    story: Optional[Story] = next(
-        (s for s in plan.stories if s.id == story_id), None)
-    if not story:
-        raise KeyError(f"Story with ID '{story_id}' not found.")
-
-    fq_task_id = f"{story_id}:{task_id}" if ':' not in task_id else task_id
-    task_obj: Optional[Task] = next(
-        (t for t in (story.tasks or []) if t.id == fq_task_id), None)
-    if not task_obj:
-        raise KeyError(
-            f"Task with ID '{fq_task_id}' not found under story '{story_id}'.")
-    return story, task_obj, fq_task_id
+# ---------- CRUD operations ----------
 
 
 def _generate_task_id_from_title(title: str) -> str:
@@ -81,7 +51,7 @@ def create_task(story_id: str, title: str, priority: Optional[int], depends_on: 
         'depends_on': depends_on,
         'corr_id': get_correlation_id(),
     })
-    plan = plan_repo.load_current()
+    plan = plan_repository.load_current()
     story: Optional[Story] = next(
         (s for s in plan.stories if s.id == story_id), None)
     if not story:
@@ -128,7 +98,7 @@ def create_task(story_id: str, title: str, priority: Optional[int], depends_on: 
 
 
 def get_task(story_id: str, task_id: str) -> dict:
-    plan = plan_repo.load_current()
+    plan = plan_repository.load_current()
     story: Optional[Story] = next(
         (s for s in plan.stories if s.id == story_id), None)
     if not story:
@@ -165,61 +135,41 @@ def get_task(story_id: str, task_id: str) -> dict:
     return {"id": fq_task_id, "title": local_task_id.replace('_', ' '), "status": "TODO"}
 
 
-def create_steps(story_id: str, task_id: str, steps: List[dict]) -> dict:
-    """Sets the implementation steps for a task, making it ready for pre-execution review.
+def _find_task(plan, story_id, task_id):
+    """Helper to find a task and its story, returning (story, task) or raising KeyError."""
+    story: Optional[Story] = next(
+        (s for s in plan.stories if s.id == story_id), None)
+    if not story:
+        raise KeyError(f"Story with ID '{story_id}' not found.")
 
-    Expects a list of step dicts with 'title' and optional 'description'.
+    fq_task_id = f"{story_id}:{task_id}" if ':' not in task_id else task_id
+    task_obj: Optional[Task] = next(
+        (t for t in (story.tasks or []) if t.id == fq_task_id), None)
+    if not task_obj:
+        raise KeyError(
+            f"Task with ID '{fq_task_id}' not found under story '{story_id}'.")
+    return story, task_obj, fq_task_id
+
+
+def _update_dependent_task_statuses(plan: Plan):
     """
-    plan = plan_repo.load_current()
-    story, task_obj, _fq_task_id = _find_task(plan, story_id, task_id)
+    Iterates through all tasks and updates their status to BLOCKED or TODO
+    based on the current state of their dependencies.
+    """
+    logger.debug(f"Running blocker status update for plan '{plan.id}'.")
+    for story in plan.stories:
+        for task in (story.tasks or []):
+            if task.status in [Status.TODO, Status.BLOCKED]:
+                currently_unblocked = is_unblocked(task, plan)
 
-    if task_obj.status not in [Status.TODO, Status.IN_PROGRESS]:
-        raise ValueError(
-            f"Can only propose a plan for a task in TODO or IN_PROGRESS status. Current status is {task_obj.status}.")
-
-    # Validate and coerce into Step models
-    new_steps: List[Task.Step] = []
-    for s in (steps or []):
-        if not isinstance(s, dict) or 'title' not in s:
-            raise ValueError(
-                "Each step must be an object with at least a 'title'.")
-        new_steps.append(
-            Task.Step(title=s['title'], description=s.get('description')))
-    task_obj.steps = new_steps
-
-    # Re-assign the tasks list to ensure the parent model detects the change.
-    story.tasks = [t for t in (story.tasks or [])]
-
-    validate_and_save(plan)
-    return task_obj.model_dump(mode='json', exclude_none=True)
-
-
-def submit_for_code_review(story_id: str, task_id: str, summary_text: str) -> dict:
-    """Sets the execution summary and moves the task to PENDING_REVIEW."""
-    plan = plan_repo.load_current()
-    story, task_obj, _fq_task_id = _find_task(plan, story_id, task_id)
-
-    if task_obj.status != Status.IN_PROGRESS:
-        raise ValueError(
-            f"Can only submit for review a task that is IN_PROGRESS. Current status is {task_obj.status}.")
-
-    task_obj.execution_summary = summary_text
-
-    prev_status = task_obj.status
-    apply_status_change(task_obj, Status.PENDING_REVIEW)
-    append_event(plan.id, 'task_status_changed', {'task_id': task_obj.id}, {
-        'from': prev_status.value, 'to': task_obj.status.value
-    })
-
-    # Trigger story status rollup
-    prev_story_status = story.status
-    next_story_status = rollup_story_status(
-        [t.status for t in (story.tasks or [])])
-    if prev_story_status != next_story_status:
-        apply_status_change(story, next_story_status)
-
-    validate_and_save(plan)
-    return task_obj.model_dump(mode='json', exclude_none=True)
+                if task.status == Status.TODO and not currently_unblocked:
+                    task.status = Status.BLOCKED
+                    logger.info(
+                        f"Task '{task.id}' is now BLOCKED due to unmet dependencies.")
+                elif task.status == Status.BLOCKED and currently_unblocked:
+                    task.status = Status.TODO
+                    logger.info(
+                        f"Task '{task.id}' is now UNBLOCKED and set to TODO.")
 
 
 def update_task(
@@ -231,7 +181,7 @@ def update_task(
     priority: Optional[int] = None,
     status: Optional[Status] = None,
 ) -> dict:
-    plan = plan_repo.load_current()
+    plan = plan_repository.load_current()
     story, task_obj, fq_task_id = _find_task(plan, story_id, task_id)
 
     # Prevent starting a blocked task
@@ -292,7 +242,7 @@ def update_task(
     if prev_story_status != next_story_status:
         apply_status_change(story, next_story_status)
         # Save again if story status changed
-        plan_repo.save(plan, plan_id=plan.id)
+        plan_repository.save(plan, plan_id=plan.id)
         if story.file_path:
             try:
                 save_item_to_file(story.file_path, story,
@@ -319,7 +269,7 @@ def update_task(
 
 
 def delete_task(story_id: str, task_id: str) -> dict:
-    plan = plan_repo.load_current()
+    plan = plan_repository.load_current()
     story: Optional[Story] = next(
         (s for s in plan.stories if s.id == story_id), None)
     if not story:
@@ -336,7 +286,7 @@ def delete_task(story_id: str, task_id: str) -> dict:
         )
 
     story.tasks = [t for t in (story.tasks or []) if t.id != fq_task_id]
-    plan_repo.save(plan)
+    plan_repository.save(plan)
     try:
         local_task_id = fq_task_id.split(':', 1)[1]
         task_details_path = task_file_path(story_id, local_task_id)
@@ -369,7 +319,7 @@ def delete_task(story_id: str, task_id: str) -> dict:
 
 
 def list_tasks(statuses: Optional[List[Status]], story_id: Optional[str] = None) -> List[Task]:
-    plan = plan_repo.load_current()
+    plan = plan_repository.load_current()
     tasks: List[Task] = []
     for s in plan.stories:
         if story_id and s.id != story_id:
@@ -394,3 +344,217 @@ def list_tasks(statuses: Optional[List[Status]], story_id: Optional[str] = None)
 
     filtered.sort(key=lambda t: (_prio_key(t), _ctime_key(t), t.id))
     return filtered
+
+
+def create_steps(story_id: str, task_id: str, steps: List[dict]) -> dict:
+    """Sets the implementation steps for a task, making it ready for pre-execution review.
+
+    Expects a list of step dicts with 'title' and optional 'description'.
+    """
+    plan = plan_repository.load_current()
+    story, task_obj, _fq_task_id = _find_task(plan, story_id, task_id)
+
+    if task_obj.status not in [Status.TODO, Status.IN_PROGRESS]:
+        raise ValueError(
+            f"Can only propose a plan for a task in TODO or IN_PROGRESS status. Current status is {task_obj.status}.")
+
+    # Validate and coerce into Step models
+    new_steps: List[Task.Step] = []
+    for s in (steps or []):
+        if not isinstance(s, dict) or 'title' not in s:
+            raise ValueError(
+                "Each step must be an object with at least a 'title'.")
+        new_steps.append(
+            Task.Step(title=s['title'], description=s.get('description')))
+    task_obj.steps = new_steps
+
+    # Re-assign the tasks list to ensure the parent model detects the change.
+    story.tasks = [t for t in (story.tasks or [])]
+
+    validate_and_save(plan)
+    return task_obj.model_dump(mode='json', exclude_none=True)
+
+
+# ---------- Task workflow operations ----------
+
+
+def approve_current_task() -> Dict[str, Any]:
+    """
+    Approves the currently active task, moving it to its next state.
+    This is the core engine for moving a task through its lifecycle.
+    """
+    plan_id = plan_repository.get_current_plan_id()
+    if not plan_id:
+        raise ValueError("No active plan. Please select a plan first.")
+    plan = plan_repository.load(plan_id)
+
+    task_id = get_current_task_id(plan_id)
+    if not task_id:
+        raise ValueError("No active task. There is nothing to approve.")
+
+    story_id = get_current_story_id(plan_id)
+    if not story_id:
+        # This should ideally not happen if a task is active
+        story_id = task_id.split(':')[0]
+
+    story = next((s for s in plan.stories if s.id == story_id), None)
+    if not story:
+        raise RuntimeError(
+            f"Data inconsistency: Story '{story_id}' not found for active task.")
+
+    task = next((t for t in (story.tasks or []) if t.id == task_id), None)
+    if not task:
+        raise RuntimeError(
+            f"Data inconsistency: Active task '{task_id}' not found in story '{story_id}'.")
+
+    # Case 1: Approving a pre-execution review
+    if task.status == Status.TODO:
+        if not task.steps:
+            # Seed minimal steps to satisfy the pre-execution gate, then set task as active.
+            logger.info({'event': 'seed_steps', 'task_id': task.id,
+                        'corr_id': get_correlation_id()})
+            task_service.create_steps(story.id, task.id, steps=[
+                {"title": "Fast-tracked by user."}])
+        if task.steps:
+            logger.info({'event': 'approve_plan', 'task_id': task.id,
+                        'corr_id': get_correlation_id()})
+            with timer("approve_task.duration_ms", kind="plan", task_id=task.id):
+                updated_task_data = task_service.update_task(
+                    story_id=story.id,
+                    task_id=task.id,
+                    status=Status.IN_PROGRESS
+                )
+            incr("approve_task.count", kind="plan")
+            return {"success": True, "message": f"Task '{task.title}' approved and moved to IN_PROGRESS.", "changelog_snippet": None, **updated_task_data}
+        else:
+            raise ValueError(
+                "No steps found. Run /create_steps to define steps, or run approve again to fast-track.")
+
+    # Case 2: Approving a code review
+    elif task.status == Status.PENDING_REVIEW:
+        logger.info({'event': 'approve_review', 'task_id': task.id,
+                    'corr_id': get_correlation_id()})
+        with timer("approve_task.duration_ms", kind="review", task_id=task.id):
+            updated_task_data = task_service.update_task(
+                story_id=story.id,
+                task_id=task.id,
+                status=Status.DONE
+            )
+        incr("approve_task.count", kind="review")
+
+        # Generate changelog snippet
+        updated_task = Task(**updated_task_data)
+        changelog_snippet = generate_changelog_for_task(updated_task)
+
+        return {"success": True, "message": f"Task '{task.title}' approved and moved to DONE.", "changelog_snippet": changelog_snippet, **updated_task_data}
+
+    # Case 3: Task is not in a reviewable state
+    else:
+        raise ValueError(
+            f"The active task '{task.title}' is not in a reviewable state (current status: {task.status}).")
+
+
+def submit_for_code_review(story_id: str, task_id: str, summary_text: str) -> dict:
+    """Sets the execution summary and moves the task to PENDING_REVIEW."""
+    plan = plan_repository.load_current()
+    story, task_obj, _fq_task_id = _find_task(plan, story_id, task_id)
+
+    if task_obj.status != Status.IN_PROGRESS:
+        raise ValueError(
+            f"Can only submit for review a task that is IN_PROGRESS. Current status is {task_obj.status}.")
+
+    task_obj.execution_summary = summary_text
+
+    prev_status = task_obj.status
+    apply_status_change(task_obj, Status.PENDING_REVIEW)
+    append_event(plan.id, 'task_status_changed', {'task_id': task_obj.id}, {
+        'from': prev_status.value, 'to': task_obj.status.value
+    })
+
+    # Trigger story status rollup
+    prev_story_status = story.status
+    next_story_status = rollup_story_status(
+        [t.status for t in (story.tasks or [])])
+    if prev_story_status != next_story_status:
+        apply_status_change(story, next_story_status)
+
+    validate_and_save(plan)
+    return task_obj.model_dump(mode='json', exclude_none=True)
+
+
+def request_changes(feedback: str) -> Dict[str, Any]:
+    """Request changes for the CURRENT task: PENDING_REVIEW -> IN_PROGRESS.
+
+    - Requires a current plan/story/task and task.status == PENDING_REVIEW
+    - Persists feedback via activity log
+    - Transitions status to IN_PROGRESS and saves the plan
+    """
+    if not feedback or not feedback.strip():
+        raise ValueError("Feedback is required to request changes.")
+
+    plan_id = plan_repository.get_current_plan_id()
+    if not plan_id:
+        raise ValueError("No active plan. Please select a plan first.")
+    plan = plan_repository.load(plan_id)
+
+    task_id = get_current_task_id(plan_id)
+    if not task_id:
+        raise ValueError(
+            "No active task. There is nothing to request changes for.")
+
+    story_id = get_current_story_id(plan_id) or task_id.split(':')[0]
+    story = next((s for s in plan.stories if s.id == story_id), None)
+    if not story:
+        raise RuntimeError(
+            f"Data inconsistency: Story '{story_id}' not found for active task.")
+
+    task = next((t for t in (story.tasks or []) if t.id == task_id), None)
+    if not task:
+        raise RuntimeError(
+            f"Data inconsistency: Active task '{task_id}' not found in story '{story_id}'.")
+
+    if task.status != Status.PENDING_REVIEW:
+        raise ValueError(
+            f"Task '{task.title}' is not awaiting review. Current status: {task.status}.")
+
+    # Log feedback
+    try:
+        append_event(plan.id, 'review_changes_requested', {'task_id': task.id}, {
+            'feedback': feedback.strip()
+        })
+    except Exception:
+        # Non-fatal; continue
+        pass
+
+    # Persist feedback and increment rework counter
+    try:
+        task.review_feedback = (task.review_feedback or []) + [
+            Task.ReviewFeedback(message=feedback.strip())
+        ]
+        task.rework_count = (getattr(task, 'rework_count', 0) or 0) + 1
+    except Exception:
+        # Non-fatal; continue
+        pass
+
+    # Transition back to IN_PROGRESS
+    apply_status_change(task, Status.IN_PROGRESS)
+    validate_and_save(plan)
+
+    return {"success": True, "message": f"Changes requested for task '{task.title}'. Moved to IN_PROGRESS."}
+
+
+def find_reviewable_tasks() -> List[Task]:
+    """Finds all tasks across all stories that are in a reviewable state."""
+    plan_id = plan_repository.get_current_plan_id()
+    if not plan_id:
+        return []
+    plan = plan_repository.load(plan_id)
+
+    reviewable = []
+    for story in plan.stories:
+        for task in (story.tasks or []):
+            is_pending_pre_review = task.status == Status.TODO and task.steps
+            is_pending_code_review = task.status == Status.PENDING_REVIEW
+            if is_pending_pre_review or is_pending_code_review:
+                reviewable.append(task)
+    return reviewable

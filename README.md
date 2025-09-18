@@ -10,7 +10,7 @@ AI agents supported by models operate in a limited context window. If the amount
 
 For large projects we use project management systems like Jira or Linear. With their help, leaders coordinate work of developers. 
 
-Plan Manager is a tool for a single developer or orchestrator to coordinate the work of one or more AI agents or models. For example, ask an expensive thinking model to create a plan and document it in Plan Manager. Delegate work items (stories, tasks) to less expensive models. Review the summary of work before and after the work item is completed, correct deviations from the plan. Export the report to the changelog and/or to larger project management systems.
+Plan Manager is a tool for a single developer or orchestrator to coordinate work of one or more AI agents or models. For example, ask an expensive thinking model to create a plan and document it in Plan Manager. Delegate work items (stories, tasks) to less expensive models. Review the summary of work before and after the work item is completed, correct deviations from the plan. Export the report to the changelog and/or to larger project management systems.
 
 ## Core concepts
 
@@ -36,8 +36,8 @@ There are two documents primarily for agents using Plan Manager, which can also 
 
 Use `/` in the client (Cursor) chat window to list Plan Manager prompts (instructions, templates to interact with the server).
 
-Use MCP inspector to learn more about Plan Manager capabilities - [doc](dev/mcp-inspector/README.md).
+Use MCP inspector to explore Plan Manager capabilities - [doc](dev/mcp-inspector/README.md).
 
 ## Development
 
-See [contributing.md](contributing.md)
+See [contributing.md](docs/contributing.md)

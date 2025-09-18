@@ -111,3 +111,7 @@ To test with MCP-Inspector, check [../dev/mcp-inspector/README.md](../dev/mcp-in
 ## Configuration Reference
 
 See [config_reference.md](./config_reference.md) for all environment variables, defaults, and examples.
+
+## Release Checklist
+
+See [release_checklist.md](./release_checklist.md) for the beta release gates and steps.

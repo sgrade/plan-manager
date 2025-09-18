@@ -6,7 +6,8 @@ transport concerns (serialization, stability of output contracts) separate
 from core domain entities and rules.
 """
 from typing import Optional, List
-from pydantic import BaseModel
+from enum import Enum
+from pydantic import BaseModel, Field
 from plan_manager.domain.models import Status
 
 
@@ -133,8 +134,63 @@ class TaskListItem(BaseModel):
     creation_time: Optional[str] = None
 
 
-class ApproveTaskOut(BaseModel):
-    """Output schema for the approve_task command."""
+# --- Unified Task Workflow Schemas ---
+
+
+class WorkflowGate(str, Enum):
+    """High-level gate aligned to the Task Execution workflow diagram."""
+    READY_TO_START = "READY_TO_START"  # Task in TODO
+    EXECUTING = "EXECUTING"            # Task IN_PROGRESS
+    AWAITING_REVIEW = "AWAITING_REVIEW"  # Task PENDING_REVIEW
+    DONE = "DONE"                      # Task DONE
+    BLOCKED = "BLOCKED"                # Task BLOCKED
+
+
+class ActionType(str, Enum):
+    """Categorical description of what action this tool performed."""
+    NONE = "NONE"
+    SET_CURRENT_TASK = "SET_CURRENT_TASK"
+    CREATE_STEPS = "CREATE_STEPS"
+    APPROVE = "APPROVE"
+    SUBMIT_FOR_REVIEW = "SUBMIT_FOR_REVIEW"
+    REQUEST_CHANGES = "REQUEST_CHANGES"
+
+
+class WhoRuns(str, Enum):
+    """Who is expected to perform the next action."""
+    USER = "USER"
+    AGENT = "AGENT"
+    AGENT_AFTER_USER_APPROVAL = "AGENT_AFTER_USER_APPROVAL"
+    EITHER = "EITHER"
+
+
+class NextAction(BaseModel):
+    """Next step suggestion with clear actor and execution modality."""
+    kind: str = Field(
+        default="tool", description="'tool' or 'prompt' or 'instruction'")
+    name: str = Field(
+        description="Tool or prompt name, e.g., 'approve_task' or '/create_steps'")
+    label: str = Field(description="Human-readable label for UI")
+    who: WhoRuns
+    recommended: bool = False
+    blocked_reason: Optional[str] = None
+    arguments: Optional[dict] = None
+
+
+# Intentionally no separate agent policy type: agents derive behavior from next_actions.who
+
+
+class TaskWorkflowResult(BaseModel):
+    """Unified structured result for task workflow operations.
+
+    Provides: outcome, updated task snapshot (if available), current gate, and
+    explicit next actions with actor clarity to steer the workflow.
+    """
     success: bool
     message: str
+    task: Optional[TaskOut] = None
+    gate: Optional[WorkflowGate] = None
+    action: ActionType = ActionType.NONE
+    next_actions: List[NextAction] = Field(default_factory=list)
     changelog_snippet: Optional[str] = None
+    # Keep output minimal; agents infer behavior from next_actions.who

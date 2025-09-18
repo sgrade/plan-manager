@@ -19,7 +19,6 @@ from plan_manager.tools.task_tools import register_task_tools
 from plan_manager.tools.plan_tools import register_plan_tools
 from plan_manager.tools.context_tools import register_context_tools
 from plan_manager.tools.changelog_tools import register_changelog_tools
-from plan_manager.tools.approval_tools import register_approval_tools
 from plan_manager.tools.report_tools import register_report_tools
 from plan_manager.prompts.prompt_register import register_prompts
 from plan_manager.resources.usage_resources import register_usage_resources
@@ -51,7 +50,6 @@ def starlette_app() -> Starlette:
     register_plan_tools(mcp)
     register_story_tools(mcp)
     register_task_tools(mcp)
-    register_approval_tools(mcp)
     register_report_tools(mcp)
     register_changelog_tools(mcp)
     register_prompts(mcp)

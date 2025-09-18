@@ -16,12 +16,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - AGENTS.md - this file guides agents that use the Plan Manager MCP server.
 - Correlation: correlation IDs to mutations: middleware and propagated corr_id into plan/story/task creation logs; each request includes x-correlation-id.
 - Structure logs for critical actions: Added structured JSON logs for key actions with corr_id, aligned with the correlation middleware.
-- Basic telemetry for key flows: Implemented env-gated counters/timers with sampling; instrumented approve_task and submit_for_review; documented telemetry env vars.
+- Basic telemetry for key flows: Implemented env-gated counters/timers with sampling; insrumented approve_task and submit_for_review; documented telemetry env vars.
+- Release Gating and Beta Criteria:
+  - Define beta gating checklist: Added docs/release_checklist.md with gates, manual QA, logging/telemetry checks, versioning/tagging, and sign‑offs; linked from contributing.md.
 
 ### Changed:
 - Show execution summary in TaskOut and report: Expose review summaries in UI surfaces.
 - Quickstart polish and cross-links: Polished Quickstart wording and added a concise cross‑link to triage_guide.md; kept detailed behavior in usage_guide_agents.md.
 - Configuration reference updates: Added docs/config_reference.md with env vars, defaults, and examples (reload, logging, paths, reconnect notes). Linked from contributing and AGENTS.md.
+- Unified output for task workflow functions.
 
 ### Fixed:
 - Priority type mismatch at transport vs domain; implemented boundary coercion with clear error messages and updated tool signatures to accept numeric types. 
