@@ -13,8 +13,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.applications import Starlette
 from starlette.responses import RedirectResponse
 
-from plan_manager.io.files import read_markdown
-from plan_manager.config import QUICKSTART_REL_PATH, ENABLE_BROWSER
+from plan_manager.config import ENABLE_BROWSER
 from plan_manager.tools.story_tools import register_story_tools
 from plan_manager.tools.task_tools import register_task_tools
 from plan_manager.tools.plan_tools import register_plan_tools
@@ -32,10 +31,7 @@ logger = logging.getLogger(__name__)
 
 def _read_quickstart_instructions() -> str:
     """Load Quickstart instructions for InitializeResult from markdown file."""
-    try:
-        return read_markdown(QUICKSTART_REL_PATH)
-    except Exception:
-        return "Plan Manager: Quickstart not found. See resource://plan-manager/usage_guide_agents.md or project docs."
+    return "Plan Manager coordinates AI agents around a plan. See resource://plan-manager/usage_guide_agents.md for details."
 
 
 def starlette_app() -> Starlette:

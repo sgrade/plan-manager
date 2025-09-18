@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add a local_id to the Task domain model and the TaskOut and TaskListItem schemas.
 - Moved the starlette app to server directory.
 - Data persistence layer has been successfully migrated to a normalized file structure: plan.yaml simplified, responsibilities shared with other files.
+- Remove the quickstart guide for agents. The usage guide for agents is the single document - avoids duplications.
 
 ### Fixed:
 -  Missing plan status propagation logic.

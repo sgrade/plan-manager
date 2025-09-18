@@ -36,8 +36,7 @@ Note: change `localhost` to `host.docker.internal` if accessing from another con
 
 The overview diagrams are in [docs/project_workflow.md](docs/project_workflow.md)
 
-There are two documents primarily for agents using Plan Manager, which can also be useful for humans to understand how the agents learn about Plan Manager:
-- [quickstart_agents.md](docs/quickstart_agents.md) - exposed via the MCP server [instructions](https://modelcontextprotocol.io/specification/2025-06-18/schema#initializeresult) attribute.
+There is a document primarily for agents using Plan Manager, which can also be useful for humans to understand how the agents learn about Plan Manager:
 - [usage_guide_agents.md](docs/usage_guide_agents.md) - exposed as an MCP [resource](https://modelcontextprotocol.io/specification/2025-06-18/server/resources).
 
 ### Hints
