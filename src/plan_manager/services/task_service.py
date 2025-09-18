@@ -7,7 +7,7 @@ from plan_manager.domain.models import Task, Story, Status, Plan
 from plan_manager.services import plan_repository
 from plan_manager.io.paths import task_file_path
 from plan_manager.io.file_mirror import save_item_to_file, read_item_file, delete_item_file
-from plan_manager.services.status_utils import rollup_story_status, apply_status_change
+from plan_manager.services.status_utils import rollup_story_status, apply_status_change, rollup_plan_status
 from plan_manager.services.activity_repository import append_event
 from plan_manager.services.state_repository import (
     get_current_task_id,
@@ -230,24 +230,12 @@ def update_task(
             append_event(plan.id, 'task_status_changed', {'task_id': task_obj.id}, {
                          'from': prev_status.value, 'to': task_obj.status.value})
 
-    validate_and_save(plan)
-
-    local_task_id = fq_task_id.split(':', 1)[1]
-    task_details_path = task_file_path(story_id, local_task_id)
-    try:
-        save_item_to_file(task_details_path, task_obj,
-                          content=None, overwrite=False)
-    except Exception:
-        logger.info(
-            f"Best-effort update of task file failed for '{fq_task_id}'.")
-
+    # 1. Roll up story status
     prev_story_status = story.status
     next_story_status = rollup_story_status(
         [t.status for t in (story.tasks or [])])
     if prev_story_status != next_story_status:
         apply_status_change(story, next_story_status)
-        # Save again if story status changed
-        plan_repository.save(plan, plan_id=plan.id)
         if story.file_path:
             try:
                 save_item_to_file(story.file_path, story,
@@ -255,6 +243,15 @@ def update_task(
             except Exception:
                 logger.info(
                     f"Best-effort rollup update of story file failed for '{story_id}'.")
+
+    # 3. Roll up plan status
+    prev_plan_status = plan.status
+    next_plan_status = rollup_plan_status([s.status for s in plan.stories])
+    if prev_plan_status != next_plan_status:
+        apply_status_change(plan, next_plan_status)
+
+    # 4. Save the final state
+    plan_repository.save(plan, plan_id=plan.id)
 
     # Selection invariants (simplified)
     try:
@@ -462,7 +459,7 @@ def approve_current_task() -> Dict[str, Any]:
 def submit_for_code_review(story_id: str, task_id: str, summary_text: str) -> dict:
     """Sets the execution summary and moves the task to PENDING_REVIEW."""
     plan = plan_repository.load_current()
-    story, task_obj, _fq_task_id = _find_task(plan, story_id, task_id)
+    _, task_obj, _ = _find_task(plan, story_id, task_id)
 
     if task_obj.status != Status.IN_PROGRESS:
         raise ValueError(
@@ -470,21 +467,12 @@ def submit_for_code_review(story_id: str, task_id: str, summary_text: str) -> di
 
     task_obj.execution_summary = summary_text
 
-    prev_status = task_obj.status
-    apply_status_change(task_obj, Status.PENDING_REVIEW)
-    append_event(plan.id, 'task_status_changed', {'task_id': task_obj.id}, {
-        'from': prev_status.value, 'to': task_obj.status.value
-    })
-
-    # Trigger story status rollup
-    prev_story_status = story.status
-    next_story_status = rollup_story_status(
-        [t.status for t in (story.tasks or [])])
-    if prev_story_status != next_story_status:
-        apply_status_change(story, next_story_status)
-
-    validate_and_save(plan)
-    return task_obj.model_dump(mode='json', exclude_none=True)
+    # Delegate to update_task to handle status transition and rollups
+    return update_task(
+        story_id=story_id,
+        task_id=task_id,
+        status=Status.PENDING_REVIEW
+    )
 
 
 def request_changes(story_id: str, task_id: str, feedback: str) -> Dict[str, Any]:
@@ -498,36 +486,42 @@ def request_changes(story_id: str, task_id: str, feedback: str) -> Dict[str, Any
         raise ValueError("Feedback is required to request changes.")
 
     plan = plan_repository.load_current()
-    story, task, _ = _find_task(plan, story_id, task_id)
+    _, task, _ = _find_task(plan, story_id, task_id)
 
     if task.status != Status.PENDING_REVIEW:
         raise ValueError(
             f"Task '{task.title}' is not awaiting review. Current status: {task.status}.")
 
-    # Log feedback
+    # Log feedback and update rework count
+    _log_review_feedback(plan.id, task, feedback)
+
+    # Delegate to update_task for status change
+    update_task(
+        story_id=story_id,
+        task_id=task_id,
+        status=Status.IN_PROGRESS
+    )
+
+    return {"success": True, "message": f"Changes requested for task '{task.title}'. Moved to IN_PROGRESS."}
+
+
+def _log_review_feedback(plan_id: str, task: Task, feedback: str):
+    """Helper to log review feedback and update task state."""
     try:
-        append_event(plan.id, 'review_changes_requested', {'task_id': task.id}, {
+        append_event(plan_id, 'review_changes_requested', {'task_id': task.id}, {
             'feedback': feedback.strip()
         })
     except Exception:
-        # Non-fatal; continue
-        pass
+        logger.warning(
+            f"Failed to log review_changes_requested event for task {task.id}")
 
-    # Persist feedback and increment rework counter
     try:
         task.review_feedback = (task.review_feedback or []) + [
             Task.ReviewFeedback(message=feedback.strip())
         ]
         task.rework_count = (getattr(task, 'rework_count', 0) or 0) + 1
     except Exception:
-        # Non-fatal; continue
-        pass
-
-    # Transition back to IN_PROGRESS
-    apply_status_change(task, Status.IN_PROGRESS)
-    validate_and_save(plan)
-
-    return {"success": True, "message": f"Changes requested for task '{task.title}'. Moved to IN_PROGRESS."}
+        logger.warning(f"Failed to persist review feedback for task {task.id}")
 
 
 def find_reviewable_tasks() -> List[Task]:

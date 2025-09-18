@@ -16,6 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Moved the starlette app to server directory.
 - Data persistence layer has been successfully migrated to a normalized file structure: plan.yaml simplified, responsibilities shared with other files.
 
+### Fixed:
+-  Missing plan status propagation logic.
+
 ## [0.6.1] - 2025-09-18
 
 ### Added:

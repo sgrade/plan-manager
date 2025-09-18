@@ -35,3 +35,15 @@ def rollup_story_status(task_statuses: list[Status | str]) -> Status:
     if any(v == 'IN_PROGRESS' for v in values):
         return Status.IN_PROGRESS
     return Status.TODO
+
+
+def rollup_plan_status(story_statuses: list[Status | str]) -> Status:
+    """Derive a plan status from its story statuses."""
+    values = [s.value if isinstance(s, Status) else s for s in story_statuses]
+    if not values:
+        return Status.TODO
+    if all(v == 'DONE' for v in values):
+        return Status.DONE
+    if any(v == 'IN_PROGRESS' for v in values):
+        return Status.IN_PROGRESS
+    return Status.TODO
