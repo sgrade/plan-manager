@@ -73,6 +73,7 @@ def create_task(story_id: str, title: str, priority: Optional[int], depends_on: 
             description=description,
             priority=priority,
             story_id=story_id,
+            local_id=task_local_id,
         )
     except ValidationError as e:
         logger.exception(

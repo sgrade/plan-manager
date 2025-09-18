@@ -109,15 +109,16 @@ class TaskOut(BaseModel):
     automation.
     """
     id: str
+    local_id: Optional[str] = None
     title: str
+    description: Optional[str] = None
     status: Status
     priority: Optional[int] = None
     creation_time: Optional[str] = None
     completion_time: Optional[str] = None
-    description: Optional[str] = None
-    execution_summary: Optional[str] = None
     depends_on: List[str] = []
     steps: Optional[List[dict]] = None
+    execution_summary: Optional[str] = None
     review_feedback: Optional[List[dict]] = None
     rework_count: Optional[int] = None
 
@@ -128,6 +129,7 @@ class TaskListItem(BaseModel):
     Optimized for lists and tables; excludes heavy or rarely used fields.
     """
     id: str
+    local_id: Optional[str] = None
     title: str
     status: Status
     priority: Optional[int] = None

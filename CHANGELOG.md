@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed:
 - Create a shared task ID resolution function and update the tool and service layers to use it.
+- Add a local_id to the Task domain model and the TaskOut and TaskListItem schemas.
 
 ## [0.6.1] - 2025-09-18
 

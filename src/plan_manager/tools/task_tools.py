@@ -28,6 +28,13 @@ from plan_manager.services.task_service import task_service
 from plan_manager.logging import logger
 
 
+def _create_task_out(data: dict) -> TaskOut:
+    """Create a TaskOut object from a dictionary, populating the local_id."""
+    if "id" in data and ":" in data["id"]:
+        data["local_id"] = data["id"].split(":", 1)[1]
+    return TaskOut(**data)
+
+
 def register_task_tools(mcp_instance) -> None:
     """Register task tools with the MCP instance."""
     mcp_instance.tool()(list_tasks)
@@ -50,7 +57,7 @@ def create_task(story_id: str, title: str, priority: Optional[float] = None, dep
     coerced_priority = coerce_optional_int(priority, 'priority')
     data = svc_create_task(story_id, title,
                            coerced_priority, depends_on or [], description)
-    return TaskOut(**data)
+    return _create_task_out(data)
 
 
 def get_task(task_id: Optional[str] = None) -> TaskOut:
@@ -62,7 +69,7 @@ def get_task(task_id: Optional[str] = None) -> TaskOut:
 
     story_id, local_task_id = resolve_task_id(effective_task_id)
     data = svc_get_task(story_id, local_task_id)
-    return TaskOut(**data)
+    return _create_task_out(data)
 
 
 def update_task(
@@ -99,7 +106,7 @@ def update_task(
 
     data = svc_update_task(story_id, local_task_id, title,
                            description, depends_on, coerced_priority, coerced_status)
-    return TaskOut(**data)
+    return _create_task_out(data)
 
 
 def delete_task(task_id: str) -> OperationResult:
@@ -125,6 +132,7 @@ def list_tasks(statuses: Optional[List[Status]] = None, story_id: Optional[str] 
                 status=t.status,
                 priority=t.priority,
                 creation_time=t.creation_time.isoformat() if t.creation_time else None,
+                local_id=t.id.split(":", 1)[1] if ":" in t.id else t.id,
             )
         )
     start = max(0, offset or 0)
@@ -228,7 +236,7 @@ def create_task_steps(task_id: str, steps: List[dict]) -> TaskWorkflowResult:
     story_id, local_task_id = resolve_task_id(task_id)
     data = svc_create_steps(
         story_id=story_id, task_id=local_task_id, steps=steps)
-    task = TaskOut(**data)
+    task = _create_task_out(data)
     gate = _status_to_gate(task.status, task.steps)
     next_actions = _compute_next_actions_for_task(task, gate)
     message_lines = [
@@ -261,11 +269,11 @@ def set_current_task(task_id: Optional[str] = None) -> TaskWorkflowResult:
 
     set_current_task_id(fq_task_id)
     data = svc_get_task(s_id, fq_task_id)
-    task = TaskOut(**data)
+    task = _create_task_out(data)
     gate = _status_to_gate(task.status, task.steps)
     next_actions = _compute_next_actions_for_task(task, gate)
     message_lines = [
-        f"Current task set: '{task.title}' ({task.id.split(':')[-1]}).",
+        f"Current task set: '{task.title}' ({task.local_id}).",
     ]
     result = TaskWorkflowResult(
         success=True,
@@ -289,8 +297,8 @@ def approve_task() -> TaskWorkflowResult:
     try:
         result = task_service.approve_current_task()
         # result includes updated task fields
-        task = TaskOut(**{k: v for k, v in result.items()
-                       if k not in ("success", "message", "changelog_snippet")})
+        task = _create_task_out({k: v for k, v in result.items()
+                                 if k not in ("success", "message", "changelog_snippet")})
         gate = _status_to_gate(task.status, task.steps)
         next_actions = _compute_next_actions_for_task(task, gate)
         result = TaskWorkflowResult(
@@ -387,7 +395,7 @@ def request_changes(task_id: str, feedback: str) -> TaskWorkflowResult:
         if story_id and cur_task_id:
             try:
                 data = svc_get_task(story_id, cur_task_id)
-                task = TaskOut(**data)
+                task = _create_task_out(data)
                 gate = _status_to_gate(task.status, task.steps)
                 next_actions = _compute_next_actions_for_task(task, gate)
             except Exception:
@@ -419,7 +427,7 @@ def submit_for_review(task_id: str, summary: str) -> TaskWorkflowResult:
             summary_text=summary
         )
     incr("submit_for_review.count")
-    task = TaskOut(**data)
+    task = _create_task_out(data)
     execution_summary = task.execution_summary
     message_lines = [
         f"Task '{task.title}' is now PENDING_REVIEW.",

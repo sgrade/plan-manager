@@ -65,6 +65,7 @@ class Task(WorkItem):
     granular 'what' (title), 'why' (description), and 'how' (steps)."""
     file_path: Optional[str] = None
     story_id: Optional[str] = None
+    local_id: Optional[str] = None
     # See Story fields for semantics
     # Steps are small implementation bullets suitable for PATCH-level changes.
 

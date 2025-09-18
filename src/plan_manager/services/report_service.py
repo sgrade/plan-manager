@@ -117,9 +117,8 @@ def _generate_story_report(plan: Plan) -> str:
         f"Tasks ({sum(1 for t in story.tasks if t.status == Status.DONE)}/{len(story.tasks)} done):")
     for task in sorted(story.tasks, key=lambda t: t.creation_time):
         is_active_marker = ">>" if task.id == active_task_id else "  "
-        local_id = task.id.split(':')[-1]
         report.append(
-            f"{is_active_marker} [{task.status.value:<13}] {local_id} - {task.title}")
+            f"{is_active_marker} [{task.status.value:<13}] {task.local_id} - {task.title}")
 
     # Scenario 2: A task is active and BLOCKED
     if active_task and not is_unblocked(active_task, plan):
@@ -156,13 +155,12 @@ def _generate_story_report(plan: Plan) -> str:
                            if t.status == Status.TODO and is_unblocked(t, plan)), None)
 
     if next_task_to_do:
-        local_id = next_task_to_do.id.split(':')[-1]
         if next_task_to_do.steps:
             report.append(
-                f"\nNext Action: The plan for '{next_task_to_do.title}' is ready for review. Set it as active (`set_current_task {local_id}`) and run `approve_task`.")
+                f"\nNext Action: The plan for '{next_task_to_do.title}' is ready for review. Set it as active (`set_current_task {next_task_to_do.local_id}`) and run `approve_task`.")
         else:
             report.append(
-                f"\nNext Action: `create_task_steps` for Task '{local_id}', or `approve_task {story.id}:{local_id}` to fast-track.")
+                f"\nNext Action: `create_task_steps` for Task '{next_task_to_do.local_id}', or `approve_task {story.id}:{next_task_to_do.local_id}` to fast-track.")
     else:
         # Check if all tasks are done
         if all(t.status == Status.DONE for t in story.tasks):
