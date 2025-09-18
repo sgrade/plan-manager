@@ -60,3 +60,18 @@ All tools return structured results. On failure, responses include human-readabl
 - Keep `execution_summary` short, user-visible, and patch-scoped (what changed, where).
 - When the user gives feedback in chat, call `request_changes(feedback)` to reopen the task for rework.
 - Use `set_current_*` to clarify context before approval or review actions.
+
+## Examples: Tool parameter types
+
+- Priority (integer 0–5)
+  - `priority: 2` → accepted
+  - `priority: 2.0` → accepted (coerced to 2)
+  - `priority: 2.5` → rejected with a clear message, e.g.:
+    - "Invalid type for parameter 'priority': expected integer, got non-integer number 2.5."
+
+- Status (string)
+  - `status: "IN_PROGRESS"` → accepted
+  - Mixed case strings are normalized (e.g., `"in_progress"` → `IN_PROGRESS`), invalid values are rejected with allowed options listed.
+
+- IDs
+  - For tasks, either use a fully-qualified id (`<story_id>:<task_id>`) or a local id that is unique within the current story.
