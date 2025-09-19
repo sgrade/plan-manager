@@ -19,7 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Separate select current task workflow from other parts of task execution workflow.
 
 ### Fixed:
--  Missing plan status propagation logic.
+- Missing plan status propagation logic.
+- Make browse endpoint work even if todo directory does not exist.
 
 ## [0.6.1] - 2025-09-18
 

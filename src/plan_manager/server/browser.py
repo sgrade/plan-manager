@@ -53,12 +53,21 @@ async def browse_endpoint(request):
     relative_path = request.path_params.get("path", "")
 
     try:
-        base_dir = Path(TODO_DIR).resolve(strict=True)
-        file_path = base_dir.joinpath(relative_path).resolve(strict=True)
-        if not file_path.is_relative_to(base_dir):
+        # Ensure the base directory exists; if not, create it so /browse/ works from a clean repo
+        base_dir = Path(TODO_DIR)
+        base_dir.mkdir(parents=True, exist_ok=True)
+        base_root = base_dir.resolve()
+
+        # Resolve the requested path safely within the base directory
+        file_path = (base_dir / relative_path).resolve()
+        if not file_path.is_relative_to(base_root):
             raise HTTPException(status_code=403, detail="Forbidden")
-    except (FileNotFoundError, ValueError):
-        raise HTTPException(status_code=404, detail="Not Found")
+
+        # If a non-root path is requested but doesn't exist, return 404
+        if relative_path and not file_path.exists():
+            raise HTTPException(status_code=404, detail="Not Found")
+    except HTTPException:
+        raise
     except Exception:
         raise HTTPException(status_code=500, detail="Server Error")
 
