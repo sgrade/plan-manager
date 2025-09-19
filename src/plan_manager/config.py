@@ -65,8 +65,8 @@ TIMEOUT_KEEP_ALIVE = int(os.getenv("TIMEOUT_KEEP_ALIVE", "5"))
 USAGE_GUIDE_REL_PATH = os.getenv(
     "USAGE_GUIDE_REL_PATH", os.path.join("docs", "usage_guide_agents.md")
 )
-QUICKSTART_REL_PATH = os.getenv(
-    "QUICKSTART_REL_PATH", os.path.join("docs", "quickstart_agents.md")
+PROJECT_WORKFLOW_REL_PATH = os.getenv(
+    "PROJECT_WORKFLOW_REL_PATH", os.path.join("docs", "project_workflow.md")
 )
 
 # --- Telemetry ---

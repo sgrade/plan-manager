@@ -22,23 +22,6 @@ Plan Manager is a tool for a single developer or orchestrator to coordinate the 
 
 All tools return structured results. On failure, responses include human-readable guidance.
 
-## Happy paths
-### Planning (assisted optional)
-- `/create_stories` → call `create_story` for each approved proposal.
-- `/create_tasks` → call `create_task` for each approved proposal.
-- Optional for larger tasks: `/create_steps` → `create_task_steps` before starting work.
-
-### Execution (two-gate, PR-style)
-1) Start work (TODO → IN_PROGRESS)
-   - At TODO: ask “What does the user do?” and choose a path:
-     - Plan first: `/create_steps` → `create_task_steps`, then the user runs `approve_task`.
-     - Start now: the user runs `approve_task` (fast‑track; seeds a minimal step if none).
-
-2) Review
-   - `submit_for_review(summary)` → PENDING_REVIEW (summary is required and drives the changelog). After the call, immediately show the returned execution_summary to the user and offer next actions: the user runs `approve_task` (accept) or the user runs `request_changes(feedback)` (reopen; revise, then submit_for_review again).
-   - Approve: the user runs `approve_task` → DONE, server returns a changelog snippet.
-   - Changes: the user runs `request_changes(feedback)` → IN_PROGRESS; revise (optionally update steps), then submit again.
-
 ## Deterministic rules & guardrails
 - Dependency gate: TODO → IN_PROGRESS only if the task is unblocked.
 - Steps:
@@ -60,6 +43,7 @@ All tools return structured results. On failure, responses include human-readabl
 - Keep `execution_summary` short, user-visible, and patch-scoped (what changed, where).
 - When the user gives feedback in chat, call `request_changes(feedback)` to reopen the task for rework.
 - Use `set_current_*` to clarify context before approval or review actions.
+- If you call `approve_task` on a `TODO` task and the operation fails due to a dependency, use the `report` tool to inspect the blockers and inform the user.
 
 ## Examples: Tool parameter types
 

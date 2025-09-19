@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 def _read_quickstart_instructions() -> str:
     """Load Quickstart instructions for InitializeResult from markdown file."""
-    return "Plan Manager coordinates AI agents around a plan. See resource://plan-manager/usage_guide_agents.md for details."
+    return "Plan Manager coordinates AI agents around a plan. See diagrams in resource://plan-manager/project_workflow.md and details in resource://plan-manager/usage_guide_agents.md."
 
 
 def starlette_app() -> Starlette:

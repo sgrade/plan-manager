@@ -45,7 +45,7 @@ Client reconnect tip:
 
 ## Docs / Agent guides
 - USAGE_GUIDE_REL_PATH (default: `docs/usage_guide_agents.md`)
-- QUICKSTART_REL_PATH (default: `docs/quick_start_agents.md`)
+- PROJECT_WORKFLOW_REL_PATH (default: `docs/project_workflow.md`)
 
 ## Telemetry
 - PLAN_MANAGER_TELEMETRY_ENABLED (default: `false`) — enable lightweight counters/timers

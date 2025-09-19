@@ -11,3 +11,5 @@ This file guides agents that use the Plan Manager MCP server.
 - Start server: `uv run pm`
 - Endpoint: `http://localhost:3000/mcp`
 - Details: `docs/contributing.md`
+
+Note: After MCP server is reloaded, Cursor (the client) does not reconnect automatically. To make Cursor reconnect, flip the MCP server switch in Cursor settings to off, then on.
