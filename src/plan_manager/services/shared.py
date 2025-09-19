@@ -120,7 +120,18 @@ def write_story_details(story: Story) -> None:
     """Write story details to file."""
     if getattr(story, 'file_path', None):
         try:
-            save_item_to_file(story.file_path, story,
+            # Persist tasks as identifiers only to keep story frontmatter small and stable
+            front = story.model_dump(mode='json', exclude_none=True)
+            front['tasks'] = [
+                (t.local_id if getattr(t, 'local_id', None) else (
+                    t.id.split(':', 1)[1] if isinstance(
+                        getattr(t, 'id', None), str) and ':' in t.id else getattr(t, 'id', None)
+                ))
+                for t in (story.tasks or [])
+            ]
+            front['tasks'] = [tid for tid in front['tasks']
+                              if isinstance(tid, str) and tid]
+            save_item_to_file(story.file_path, front,
                               content=None, overwrite=False)
         except Exception:
             logger.info(

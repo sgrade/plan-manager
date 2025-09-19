@@ -52,7 +52,21 @@ def _save_story(story: Story) -> None:
     """Saves a story and its tasks to their respective files."""
     story_path = story_file_path(story.id)
     story.file_path = story_path
-    save_item_to_file(story_path, story, overwrite=True)
+    # Persist story frontmatter with task IDs (not embedded task objects)
+    try:
+        front = story.model_dump(mode='json', exclude_none=True)
+        # Replace tasks with list of task identifiers (use local IDs for readability)
+        front['tasks'] = [t.local_id if hasattr(t, 'local_id') and t.local_id else (
+            t.id.split(':', 1)[1] if isinstance(
+                getattr(t, 'id', None), str) and ':' in t.id else getattr(t, 'id', None)
+        ) for t in (story.tasks or [])]
+        # Remove any None entries from tasks list
+        front['tasks'] = [tid for tid in front['tasks']
+                          if isinstance(tid, str) and tid]
+        save_item_to_file(story_path, front, overwrite=True)
+    except Exception:
+        # Fallback to prior behavior if shaping fails
+        save_item_to_file(story_path, story, overwrite=True)
 
     # Save each task to its own file
     for task in story.tasks:

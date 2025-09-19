@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Moved the starlette app to server directory.
 - Data persistence layer has been successfully migrated to a normalized file structure: plan.yaml simplified, responsibilities shared with other files.
 - Remove the quickstart guide for agents. The usage guide for agents is the single document - avoids duplications.
+- Separate select current task workflow from other parts of task execution workflow.
 
 ### Fixed:
 -  Missing plan status propagation logic.

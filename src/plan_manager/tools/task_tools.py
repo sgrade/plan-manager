@@ -174,7 +174,7 @@ def _compute_next_actions_for_task(task: TaskOut, gate: WorkflowGate) -> List[Ne
             actions.append(NextAction(
                 kind="prompt",
                 name="/create_steps",
-                label="Draft implementation steps for this task",
+                label="Gate 1: Draft implementation steps",
                 who=WhoRuns.USER,
                 recommended=True,
                 arguments={"task_id": task.id}
@@ -182,7 +182,7 @@ def _compute_next_actions_for_task(task: TaskOut, gate: WorkflowGate) -> List[Ne
             actions.append(NextAction(
                 kind="tool",
                 name="approve_task",
-                label="Fast-track: approve to start without steps",
+                label="Gate 1: Fast-track to start without steps",
                 who=WhoRuns.USER,
                 recommended=False
             ))
@@ -190,7 +190,7 @@ def _compute_next_actions_for_task(task: TaskOut, gate: WorkflowGate) -> List[Ne
             actions.append(NextAction(
                 kind="tool",
                 name="approve_task",
-                label="Approve plan to start execution",
+                label="Gate 1: Approve plan to start execution",
                 who=WhoRuns.USER,
                 recommended=True
             ))
@@ -240,7 +240,8 @@ def create_task_steps(task_id: str, steps: List[dict]) -> TaskWorkflowResult:
     gate = _status_to_gate(task.status, task.steps)
     next_actions = _compute_next_actions_for_task(task, gate)
     message_lines = [
-        f"Steps drafted for task '{task.title}'.",
+        f"Gate 1: Pre-Execution — steps attached for task '{task.title}'.",
+        "Run approve_task to start work.",
     ]
     result = TaskWorkflowResult(
         success=True,
@@ -312,54 +313,9 @@ def approve_task() -> TaskWorkflowResult:
         )
         return result
 
-    except ValueError:
-        # Expected user-flow errors (e.g., no active task). Provide structured guidance.
-        reviewable_tasks = task_service.find_reviewable_tasks()
-
-        if not reviewable_tasks:
-            return TaskWorkflowResult(success=False, message="There are no tasks to approve.", action=ActionType.APPROVE)
-
-        elif len(reviewable_tasks) == 1:
-            task = reviewable_tasks[0]
-            local_id = task.id.split(':')[-1]
-            msg = (
-                f"Task '{task.title}' ({local_id}) is ready for review. "
-                f"Set it as current with `set_current_task {local_id}`, then run `approve_task`."
-            )
-            next_actions = [NextAction(
-                kind="tool",
-                name="set_current_task",
-                label=f"Set current task to '{task.title}'",
-                who=WhoRuns.USER,
-                recommended=True,
-                arguments={"task_id": local_id}
-            )]
-            tmp = TaskWorkflowResult(
-                success=False, message=msg, action=ActionType.APPROVE, next_actions=next_actions)
-            return tmp
-
-        else:
-            task_list = "\n".join(
-                [f"- {t.title} ({t.id.split(':')[-1]})" for t in reviewable_tasks])
-            msg = (
-                "Multiple tasks are ready for review. Please set the current task, then run approve_task:\n"
-                f"{task_list}"
-            )
-            # Provide selectable next actions for user to set current task
-            next_actions = []
-            for t in reviewable_tasks:
-                lid = t.id.split(':')[-1]
-                next_actions.append(NextAction(
-                    kind="tool",
-                    name="set_current_task",
-                    label=f"Set current task to '{t.title}' ({lid})",
-                    who=WhoRuns.USER,
-                    recommended=False,
-                    arguments={"task_id": lid}
-                ))
-            tmp = TaskWorkflowResult(
-                success=False, message=msg, action=ActionType.APPROVE, next_actions=next_actions)
-            return tmp
+    except ValueError as e:
+        # Keep selection orchestration client-side; return clear error only.
+        return TaskWorkflowResult(success=False, message=str(e), action=ActionType.APPROVE)
 
     except KeyError as e:
         tmp = TaskWorkflowResult(

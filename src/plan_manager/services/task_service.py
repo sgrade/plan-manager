@@ -360,14 +360,27 @@ def create_steps(story_id: str, task_id: str, steps: List[dict]) -> dict:
         raise ValueError(
             f"Can only propose a plan for a task in TODO or IN_PROGRESS status. Current status is {task_obj.status}.")
 
-    # Validate and coerce into Step models
+    # Validate and coerce into Step models (assisted JSON validation)
+    if steps is None:
+        raise ValueError("Steps must be a non-empty array of step objects.")
+
+    if not isinstance(steps, list) or len(steps) == 0:
+        raise ValueError("Steps must be a non-empty array of step objects.")
+
     new_steps: List[Task.Step] = []
-    for s in (steps or []):
-        if not isinstance(s, dict) or 'title' not in s:
+    for idx, s in enumerate(steps):
+        if not isinstance(s, dict):
+            raise ValueError(f"Step at index {idx} must be an object.")
+        title = s.get('title')
+        if not isinstance(title, str) or not title.strip():
             raise ValueError(
-                "Each step must be an object with at least a 'title'.")
-        new_steps.append(
-            Task.Step(title=s['title'], description=s.get('description')))
+                f"Step at index {idx} must include a non-empty 'title' string.")
+        description = s.get('description')
+        if description is not None and not isinstance(description, str):
+            raise ValueError(
+                f"'description' for step at index {idx} must be a string if provided.")
+        new_steps.append(Task.Step(title=title.strip(),
+                         description=(description or None)))
     task_obj.steps = new_steps
 
     # Re-assign the tasks list to ensure the parent model detects the change.
@@ -409,7 +422,7 @@ def approve_current_task() -> Dict[str, Any]:
         raise RuntimeError(
             f"Data inconsistency: Active task '{task_id}' not found in story '{story_id}'.")
 
-    # Case 1: Approving a pre-execution review
+    # Case 1: Approving a pre-execution review (Gate 1)
     if task.status == Status.TODO:
         if not task.steps:
             # Seed minimal steps to satisfy the pre-execution gate, then set task as active.
@@ -417,6 +430,23 @@ def approve_current_task() -> Dict[str, Any]:
                         'corr_id': get_correlation_id()})
             task_service.create_steps(story.id, task.id, steps=[
                 {"title": "Fast-tracked by user."}])
+        # Refresh plan/task after potential mutation above
+        try:
+            plan = plan_repository.load(plan_id)
+            story = next((s for s in plan.stories if s.id ==
+                         story_id), None) or story
+            task = next((t for t in (story.tasks or [])
+                        if t.id == task_id), None) or task
+        except Exception:
+            pass
+        # Idempotent dependency gating: if still no steps or blocked, error out clearly
+        if not task.steps:
+            raise ValueError(
+                "No steps found. Run /create_steps to define steps, or run approve again to fast-track.")
+        # Enforce dependency gate reliably right before transition
+        if not is_unblocked(task, plan):
+            raise ValueError(
+                f"Task '{task.title}' is BLOCKED by unmet dependencies. Resolve blockers before starting.")
         if task.steps:
             logger.info({'event': 'approve_plan', 'task_id': task.id,
                         'corr_id': get_correlation_id()})
@@ -428,9 +458,6 @@ def approve_current_task() -> Dict[str, Any]:
                 )
             incr("approve_task.count", kind="plan")
             return {"success": True, "message": f"Task '{task.title}' approved and moved to IN_PROGRESS.", "changelog_snippet": None, **updated_task_data}
-        else:
-            raise ValueError(
-                "No steps found. Run /create_steps to define steps, or run approve again to fast-track.")
 
     # Case 2: Approving a code review
     elif task.status == Status.PENDING_REVIEW:

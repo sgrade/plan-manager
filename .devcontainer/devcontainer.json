@@ -72,6 +72,7 @@
     // "forwardPorts": [],
     // Use 'postCreateCommand' to run commands after the container is created.
     "postCreateCommand": "uv sync",
+    "postStartCommand": "uv sync",
     // // Set `remoteUser` to `root` to connect as root instead. More info: https://aka.ms/vscode-remote/containers/non-root.
     // Docker Desktop for Windows: If we use the non-root user, we can't use the git command in the terminal.
     // "remoteUser": "vscode",

@@ -26,6 +26,7 @@ dependencies = [
     "starlette",          # ASGI framework used by FastMCP
     "uvicorn[standard]",  # ASGI server for running the MCP server
     "pydantic>=2.0",      # Schema validation for story and Plan models
+    "pytest",             # Testing framework
 ]
 
 [project.urls]

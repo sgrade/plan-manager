@@ -103,6 +103,28 @@ curl -sN \
 
 To test with MCP-Inspector, check [../dev/mcp-inspector/README.md](../dev/mcp-inspector/README.md)
 
+### Running Tests
+
+- All tests:
+
+  ```bash
+  uv run pytest
+  ```
+
+- Integration tests only:
+
+  ```bash
+  uv run pytest -m integration
+  ```
+
+  The `integration` marker is defined in `pytest.ini`. Integration tests may touch the filesystem and run end-to-end flows.
+
+- Manual smoke (Task Execution workflow up to IN_PROGRESS):
+
+  ```bash
+  PYTHONPATH=src uv run python dev/scripts/smoke_exec_workflow.py
+  ```
+
 ### Logging
 
 -   **Terminal Output**: By default the logs are written to stdout as [recommended](https://12factor.net/logs).
