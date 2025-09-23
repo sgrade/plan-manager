@@ -23,18 +23,26 @@ Plan Manager is a tool for a single developer or orchestrator to coordinate the 
 All tools return structured results. On failure, responses include human-readable guidance.
 
 ## Deterministic rules & guardrails
-- Dependency gate: TODO → IN_PROGRESS only if the task is unblocked.
-- Steps:
-  - Not required for fast‑track; the server seeds a minimal placeholder.
-  - Use `create_task_steps` when you want explicit pre‑execution review.
+- Selection (client‑driven):
+  - Always list tasks and then explicitly select one: `list_tasks` → `set_current_task <id>`.
+  - The server never auto‑selects a task; approvals operate on the current task only.
+  - If no current task is set, approval tools return a clear error.
+- Gate 1: Pre‑Execution approval (start work):
+  - Plan‑first path: draft steps via the `/create_steps` prompt, wait for user approval, then `create_task_steps`, then `approve_task`.
+  - Fast‑track path: call `approve_task` directly; the server will seed a minimal placeholder step.
+  - Steps JSON is validated server‑side; invalid or empty arrays are rejected with actionable messages.
+- Dependency gate:
+  - TODO → IN_PROGRESS only if unblocked; blocked approvals fail with a clear "BLOCKED" message.
 - Changelog:
-  - Generated from the `execution_summary` provided to `submit_for_review` when moving PENDING_REVIEW → DONE.
+  - Generated from `execution_summary` on PENDING_REVIEW → DONE via `approve_task`.
   - Steps are not required for a changelog; ignore the placeholder fast‑track step in summaries.
 - State transitions (enforced):
   - TODO → IN_PROGRESS (via `approve_task`, dependency gate; steps optional)
   - IN_PROGRESS → PENDING_REVIEW (via `submit_for_review(summary)`)
   - PENDING_REVIEW → DONE (via `approve_task`)
   - PENDING_REVIEW → IN_PROGRESS (via `request_changes(feedback)`)
+- Error handling:
+  - The server returns prescriptive, human‑readable guidance on failure. Do not infer or guess—follow the message.
 
 ## Prompts (assisted planning)
 - `/create_plan`, `/create_stories`, `/create_tasks`, `/create_steps` propose content; tools create items. Always get explicit user approval before creation.
