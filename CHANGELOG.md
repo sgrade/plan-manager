@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed:
 - Missing plan status propagation logic.
 - Make browse endpoint work even if todo directory does not exist.
+- Persistent error executing tool submit_for_review: An execution summary must be provided before submitting for review.
 
 ## [0.6.1] - 2025-09-18
 

@@ -87,7 +87,7 @@ graph TD
     C1 --> C2{What does the user do?};
     
     subgraph Gate 1: Pre-Execution Approval
-        C2 -- Plan First --> D2[User runs /create_steps prompt];
+        C2 -- Plan First --> D2["User runs /create_steps prompt"];
         D2 --> E2["Agent saves proposed steps to todo/temp/steps.json"];
         E2 --> F2["User reviews/edits the steps.json file"];
         F2 --> G2["User says 'approve' in chat"];
@@ -102,14 +102,14 @@ graph TD
         
     J --> J2["User instructs agent to execute"];
     J2 --> J3["Agent executes the task"];
-    J3 --> K["Agent runs submit_for_review"];
+    J3 --> K["Agent runs submit_for_review(execution_summary)"];
     
     subgraph Gate 2: Code Review Approval
         K --> L["Agent displays execution_summary and asks user to approve or request changes"]
         L --> M[Task is in PENDING_REVIEW state];
         M --> M1{User reviews the code};
-        M1 -- Approve --> Q[User runs approve_task] --> N[Task is in DONE state];
-        M1 -- Request Changes --> M2[User runs request_changes] --> J;
+        M1 -- Approve --> Q["User runs approve_task"] --> N[Task is in DONE state];
+        M1 -- Request Changes --> M2["User runs request_changes"] --> J;
     end
     
     N --> N2["Changelog snippet is returned"];

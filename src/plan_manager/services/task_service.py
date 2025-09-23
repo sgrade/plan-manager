@@ -213,6 +213,12 @@ def update_task(
                 raise ValueError(
                     "An implementation plan must be approved before starting work.")
             apply_status_change(task_obj, status)
+        elif status == Status.PENDING_REVIEW and prev_status == Status.IN_PROGRESS:
+            # Submitting for review requires an execution summary to have been set
+            if not task_obj.execution_summary:
+                raise ValueError(
+                    "An execution summary must be provided before submitting for review.")
+            apply_status_change(task_obj, status)
         elif status == Status.DONE and prev_status == Status.PENDING_REVIEW:
             if not task_obj.execution_summary:
                 raise ValueError(
@@ -493,6 +499,9 @@ def submit_for_code_review(story_id: str, task_id: str, summary_text: str) -> di
             f"Can only submit for review a task that is IN_PROGRESS. Current status is {task_obj.status}.")
 
     task_obj.execution_summary = summary_text
+    # Persist the execution_summary so the subsequent update_task (which reloads the plan)
+    # can see it when validating the transition to PENDING_REVIEW.
+    plan_repository.save(plan, plan_id=plan.id)
 
     # Delegate to update_task to handle status transition and rollups
     return update_task(

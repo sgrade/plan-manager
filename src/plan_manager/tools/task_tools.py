@@ -373,14 +373,14 @@ def request_changes(task_id: str, feedback: str) -> TaskWorkflowResult:
         return tmp
 
 
-def submit_for_review(task_id: str, summary: str) -> TaskWorkflowResult:
+def submit_for_review(task_id: str, execution_summary: str) -> TaskWorkflowResult:
     """Submits a task for code review, moving it to PENDING_REVIEW status."""
     story_id, local_task_id = resolve_task_id(task_id)
     with timer("submit_for_review.duration_ms", task_id=local_task_id):
         data = svc_submit_for_code_review(
             story_id=story_id,
             task_id=local_task_id,
-            summary_text=summary
+            summary_text=execution_summary
         )
     incr("submit_for_review.count")
     task = _create_task_out(data)
