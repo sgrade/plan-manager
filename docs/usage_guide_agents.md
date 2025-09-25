@@ -1,6 +1,6 @@
 # Plan Manager — Usage Guide
 
-This guide is for agents using the Plan Manager MCP server. It summarizes the workflow, tools, and guardrails the server enforces. Keep it handy; the short Quickstart in InitializeResult shows the essentials, and this document provides the authoritative details.
+This guide is for agents using the Plan Manager MCP server. It summarizes the workflow, tools, and guardrails the server enforces.
 
 ## Overview
 
@@ -13,45 +13,45 @@ Plan Manager is a tool for a single developer or orchestrator to coordinate the 
 - Context IDs: current plan/story/task are read from server-side state and can be set via `set_current_plan`, `set_current_story`, `set_current_task`.
 
 ## Commands (tools)
-- list_*, create_*, update_*, delete_*, set_current_* — for plans, stories, tasks
-- approve_task — approve current task (state-based, deterministic)
-- submit_for_review(summary) — move IN_PROGRESS → PENDING_REVIEW
-- request_changes(feedback) — move PENDING_REVIEW → IN_PROGRESS
+- list_*, create_*, update_*, delete_*, set_current_* — manage items and selection
+- approve_task — approve the current task (contextual)
+- submit_for_review(execution_summary) — submit current work for code review
+- request_changes(feedback) — record feedback and reopen the task for rework
 - create_task_steps(steps) — replace task steps (full replacement)
 - report, get_current — status and context helpers
 
 All tools return structured results. On failure, responses include human-readable guidance.
 
-## Deterministic rules & guardrails
-- Selection (client‑driven):
-  - Always list tasks and then explicitly select one: `list_tasks` → `set_current_task <id>`.
-  - The server never auto‑selects a task; approvals operate on the current task only.
-  - If no current task is set, approval tools return a clear error.
-- Gate 1: Pre‑Execution approval (start work):
-  - Plan‑first path: draft steps via the `/create_steps` prompt, wait for user approval, then `create_task_steps`, then `approve_task`.
-  - Fast‑track path: call `approve_task` directly; the server will seed a minimal placeholder step.
-  - Steps JSON is validated server‑side; invalid or empty arrays are rejected with actionable messages.
-- Dependency gate:
-  - TODO → IN_PROGRESS only if unblocked; blocked approvals fail with a clear "BLOCKED" message.
-- Changelog:
-  - Generated from `execution_summary` on PENDING_REVIEW → DONE via `approve_task`.
-  - Steps are not required for a changelog; ignore the placeholder fast‑track step in summaries.
-- State transitions (enforced):
-  - TODO → IN_PROGRESS (via `approve_task`, dependency gate; steps optional)
-  - IN_PROGRESS → PENDING_REVIEW (via `submit_for_review(summary)`)
-  - PENDING_REVIEW → DONE (via `approve_task`)
-  - PENDING_REVIEW → IN_PROGRESS (via `request_changes(feedback)`)
-- Error handling:
-  - The server returns prescriptive, human‑readable guidance on failure. Do not infer or guess—follow the message.
+Result shape essentials (for agents):
+- Each workflow tool returns `next_actions` with an explicit `who` field (e.g., USER, AGENT) and a `recommended` flag to steer behavior.
+- Use `set_current_*` to manage context; operations act on the current selection when IDs are omitted.
+
+### Result schema at a glance
+
+```text
+NextAction {
+  kind: "tool" | "prompt" | "instruction",
+  name: string,            // e.g., "approve_task", "submit_for_review"
+  label: string,           // human-readable
+  who: "USER" | "AGENT" | "AGENT_AFTER_USER_APPROVAL" | "EITHER",
+  recommended: boolean,
+  blocked_reason?: string,
+  arguments?: object       // tool/prompt arguments when applicable
+}
+
+TaskWorkflowResult {
+  success: boolean,
+  message: string,
+  task?: TaskOut,
+  gate?: "READY_TO_START" | "EXECUTING" | "AWAITING_REVIEW" | "DONE" | "BLOCKED",
+  action: string,          // enum of the operation performed
+  next_actions: NextAction[],
+  changelog_snippet?: string
+}
+```
 
 ## Prompts (assisted planning)
 - `/create_plan`, `/create_stories`, `/create_tasks`, `/create_steps` propose content; tools create items. Always get explicit user approval before creation.
-
-## Tips for agents
-- Keep `execution_summary` short, user-visible, and patch-scoped (what changed, where).
-- When the user gives feedback in chat, call `request_changes(feedback)` to reopen the task for rework.
-- Use `set_current_*` to clarify context before approval or review actions.
-- If you call `approve_task` on a `TODO` task and the operation fails due to a dependency, use the `report` tool to inspect the blockers and inform the user.
 
 ## Examples: Tool parameter types
 

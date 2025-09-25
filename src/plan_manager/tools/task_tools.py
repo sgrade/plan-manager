@@ -210,7 +210,7 @@ def _compute_next_actions_for_task(task: TaskOut, gate: WorkflowGate) -> List[Ne
             label="Submit task for code review",
             who=WhoRuns.AGENT,
             recommended=True,
-            arguments={"task_id": task.id, "summary": ""}
+            arguments={"task_id": task.id, "execution_summary": ""}
         ))
         return actions
 

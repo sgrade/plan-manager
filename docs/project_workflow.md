@@ -18,13 +18,13 @@ The following diagram illustrates the single, consistent workflow used for the c
 
 ```mermaid
 graph TD
-    A([Start]) --> B["User runs list_<items>"];
-    B --> C{Desired <Item> exists?};
-    C -- No --> D["User runs create_<item>"];
-    D --> B;
-    C -- Yes --> E["User runs set_current_<item> [id]"];
-    E --> F["Current <Item> is set"];
-    F --> Z([End]);
+    N1([Start]) --> N2["User runs list_<items>"];
+    N2 --> N3{Desired <Item> exists?};
+    N3 -- No --> N4["User runs create_<item>"];
+    N4 --> N2;
+    N3 -- Yes --> N5["User runs set_current_<item> [id]"];
+    N5 --> N6["Current <Item> is set"];
+    N6 --> N7([End]);
 ```
 
 ---
@@ -43,17 +43,17 @@ Assisted prompts used in this workflow:
 
 ```mermaid
 graph TD
-    A([Start]) --> B{How?};
-    B -- Manual --> C[User guides the agent in the chat] --> E;
-    B -- Assisted --> D["User runs /create_<children> prompt"] --> E;
-    E["Agent follows the prompts to propose children"];
-    E --> F["User reviews the proposals"];
-    F --> G{"Changes required?"};
-    G -- Yes --> C;
-    G -- No --> H["User types approve"] --> I;
-    I["Agent runs create_<child> for each item in the approved proposal"];
-    I --> J[Children Created];
-    J --> L([End]);
+    N1([Start]) --> N2{How?};
+    N2 -- Manual --> N3[User guides the agent in the chat] --> N5;
+    N2 -- Assisted --> N4["User runs /create_<children> prompt"] --> N5;
+    N5["Agent follows the prompts to propose children"];
+    N5 --> N6["User reviews the proposals"];
+    N6 --> N7{"Changes required?"};
+    N7 -- Yes --> N3;
+    N7 -- No --> N8["User types approve"] --> N9;
+    N9["Agent runs create_<child> for each item in the approved proposal"];
+    N9 --> N10[Children Created];
+    N10 --> N11([End]);
 ```
 
 ---
@@ -69,53 +69,52 @@ The diagrams below illustrate this process.
 
 ```mermaid
 graph TD
-    A([Start]) --> B{Current task set?};
+    N1([Start]) --> N2{Current task set?};
     
     subgraph Select Current Task
-        B -- No --> C["Agent runs list_tasks"];
-        C --> D["Agent proposes next task"];
-        D --> E{User confirms?};
-        E -- Yes --> F["Agent runs set_current_task"];
-        E -- No --> G["User runs set_current_task [id]"];
-        F --> H[Current Task is set];
-        G --> H;
+        N2 -- No --> N3["Agent runs list_tasks"];
+        N3 --> N4["Agent proposes next task"];
+        N4 --> N5{User confirms?};
+        N5 -- Yes --> N6["Agent runs set_current_task"];
+        N5 -- No --> N7["User runs set_current_task [id]"];
+        N6 --> N8[Current Task is set];
+        N7 --> N8;
     end
 
-    B -- Yes --> H;
+    N2 -- Yes --> N8;
 
-    H --> C1[Agent asks the user: What would you like to do?];
-    C1 --> C2{What does the user do?};
+    N8 --> N9[Agent asks the user: What would you like to do?];
+    N9 --> N10{What does the user do?};
     
     subgraph Gate 1: Pre-Execution Approval
-        C2 -- Plan First --> D2["User runs /create_steps prompt"];
-        D2 --> E2["Agent saves proposed steps to todo/temp/steps.json"];
-        E2 --> F2["User reviews/edits the steps.json file"];
-        F2 --> G2["user says 'approve_task' in chat"];
-        G2 --> G3["Agent runs create_task_steps with final steps.json"];
-        
-        G3 --> G4["Agent runs approve_task"];
-        G4 --> J[Task is in **IN_PROGRESS** state];
+        N10 -- Plan First (Assisted) --> N11["User runs /create_steps prompt"];
+        N11 --> N12["Agent saves proposed steps to todo/temp/steps.json"];
+        N12 --> N13["User reviews/edits the steps.json file"];
+        N13 --> N14["user says 'approve_task' in chat"];
+        N14 --> N15["Agent runs create_task_steps with final steps.json"];
+        N15 --> N16["Agent runs approve_task"];
+        N16 --> N17[Task is in **IN_PROGRESS** state];
 
-        C2 -- Fast-Track --> C3["user says 'approve_task' in chat"];
-        C3 --> H2["Agent runs create_task_steps (no proposal UI)"];
-        H2 --> G4;
+        N10 -- Fast-Track --> N18["user says 'approve_task' in chat"];
+        N18 --> N19["Agent runs create_task_steps (no proposal UI)"];
+        N19 --> N16;
     end
         
-    J --> J2["User says 'execute' in chat"];
-    J2 --> J3["Agent executes the task"];
-    J3 --> K["Agent runs submit_for_review(execution_summary)"];
+    N17 --> N20["User says 'execute' in chat"];
+    N20 --> N21["Agent executes the task"];
+    N21 --> N22["Agent runs submit_for_review(non-empty execution_summary)"];
     
     subgraph Gate 2: Code Review Approval
-        K --> L["Agent displays execution_summary and asks user to approve or request changes"]
-        L --> M[Task is in PENDING_REVIEW state];
-        M --> M1{User reviews the code};
-        M1 -- Approve --> Q["User runs approve_task"] --> N[Task is in DONE state];
-        M1 -- Request Changes --> M2["User provides feedback in natural language"] --> M3;
-        M3["Agent runs request_changes"] --> J;
+        N22 --> N23["Agent displays execution_summary and asks user to approve or request changes"]
+        N23 --> N24[Task is in PENDING_REVIEW state];
+        N24 --> N25{User reviews the code};
+        N25 -- Approve --> N26["User runs approve_task"] --> N27[Task is in DONE state];
+        N25 -- Request Changes --> N28["User provides feedback in natural language"] --> N29;
+        N29["Agent runs request_changes"] --> N17;
     end
     
-    N --> N2["Changelog snippet is returned"];
-    N2 --> Z([End]);
+    N27 --> N30["Changelog snippet is returned"];
+    N30 --> N31([End]);
 
 ```
 
