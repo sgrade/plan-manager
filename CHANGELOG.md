@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Data persistence layer has been successfully migrated to a normalized file structure: plan.yaml simplified, responsibilities shared with other files.
 - Remove the quickstart guide for agents. The usage guide for agents is the single document - avoids duplications.
 - Separate select current task workflow from other parts of task execution workflow.
+- Fast-track path in gate 1 of task execution workflow requires agent to create steps instead of seeding placeholder steps.
 
 ### Fixed:
 - Missing plan status propagation logic.

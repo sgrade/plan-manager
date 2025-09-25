@@ -53,13 +53,14 @@ def test_task_execution_gate1_paths(monkeypatch, tmp_path):
     cur_T1 = task_service.get_task(story_id, T1_local)
     assert str(cur_T1["status"]) == "Status.IN_PROGRESS"
 
-    # Path 2: Fast-track (no steps, approve) for T3 -> IN_PROGRESS (+seeded step)
+    # Path 2: Fast-track (no proposal UI): create steps then approve -> IN_PROGRESS
     state.set_current_task_id(T3_id)
+    _ = task_service.create_steps(
+        story_id=story_id, task_id=T3_local, steps=[{"title": "FT step"}])
     res2 = task_service.approve_current_task()
     assert res2["success"] is True
     cur_T3 = task_service.get_task(story_id, T3_local)
     assert str(cur_T3["status"]) == "Status.IN_PROGRESS"
-    assert len(cur_T3.get("steps", []) or []) >= 1
 
     # Path 3: Blocked with steps (T2 depends on T1 not DONE) -> approval fails
     _ = task_service.create_steps(story_id=story_id, task_id=T2_local, steps=[

@@ -89,7 +89,7 @@ def _generate_story_report(plan: Plan) -> str:
     """Generates a detailed report for the currently active story."""
     story_id = get_current_story_id(plan.id)
     if not story_id:
-        return f"Plan '{plan.title}' is active, but no story is selected. Use `set_current_story`."
+        return f"Plan '{plan.title}' is active, but no story is selected. Use `set_current_story` if you have a specific story in mind, or `list_stories` to see all stories."
 
     story = next((s for s in plan.stories if s.id == story_id), None)
     if not story:

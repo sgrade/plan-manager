@@ -90,17 +90,18 @@ graph TD
         C2 -- Plan First --> D2["User runs /create_steps prompt"];
         D2 --> E2["Agent saves proposed steps to todo/temp/steps.json"];
         E2 --> F2["User reviews/edits the steps.json file"];
-        F2 --> G2["User says 'approve' in chat"];
+        F2 --> G2["user says 'approve_task' in chat"];
         G2 --> G3["Agent runs create_task_steps with final steps.json"];
+        
         G3 --> G4["Agent runs approve_task"];
         G4 --> J[Task is in **IN_PROGRESS** state];
 
-        C2 -- Fast-Track --> H2["User runs approve_task"];
-        H2 --> I[approve_task seeds: Fast-tracked by user.];
-        I --> J;
+        C2 -- Fast-Track --> C3["user says 'approve_task' in chat"];
+        C3 --> H2["Agent runs create_task_steps (no proposal UI)"];
+        H2 --> G4;
     end
         
-    J --> J2["User instructs agent to execute"];
+    J --> J2["User says 'execute' in chat"];
     J2 --> J3["Agent executes the task"];
     J3 --> K["Agent runs submit_for_review(execution_summary)"];
     
@@ -109,7 +110,8 @@ graph TD
         L --> M[Task is in PENDING_REVIEW state];
         M --> M1{User reviews the code};
         M1 -- Approve --> Q["User runs approve_task"] --> N[Task is in DONE state];
-        M1 -- Request Changes --> M2["User runs request_changes"] --> J;
+        M1 -- Request Changes --> M2["User provides feedback in natural language"] --> M3;
+        M3["Agent runs request_changes"] --> J;
     end
     
     N --> N2["Changelog snippet is returned"];

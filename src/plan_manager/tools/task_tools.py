@@ -172,17 +172,24 @@ def _compute_next_actions_for_task(task: TaskOut, gate: WorkflowGate) -> List[Ne
     if gate == WorkflowGate.READY_TO_START:
         if not (task.steps or []):
             actions.append(NextAction(
-                kind="prompt",
-                name="/create_steps",
-                label="Gate 1: Draft implementation steps",
+                kind="instruction",
+                name="user_approval_fast_track",
+                label="Fast-track: User says 'approve' in chat",
+                who=WhoRuns.USER,
+                recommended=True
+            ))
+            actions.append(NextAction(
+                kind="tool",
+                name="create_task_steps",
+                label="Gate 1 Fast-track: Create steps now (no proposal UI)",
                 who=WhoRuns.USER,
                 recommended=True,
-                arguments={"task_id": task.id}
+                arguments={"task_id": task.id, "steps": []}
             ))
             actions.append(NextAction(
                 kind="tool",
                 name="approve_task",
-                label="Gate 1: Fast-track to start without steps",
+                label="Then: Approve to start execution",
                 who=WhoRuns.USER,
                 recommended=False
             ))

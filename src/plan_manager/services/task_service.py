@@ -115,7 +115,7 @@ def get_task(story_id: str, task_id: str) -> dict:
     task_obj = next((t for t in story.tasks if t.id == fq_task_id), None)
     if task_obj:
         base = task_obj.model_dump(include={
-                                   'id', 'title', 'status', 'priority', 'creation_time', 'description', 'execution_summary', 'depends_on'}, exclude_none=True)
+            'id', 'title', 'status', 'priority', 'creation_time', 'description', 'execution_summary', 'depends_on'}, exclude_none=True)
         # Normalize datetime fields to ISO strings for transport schema expectations
         ct = base.get('creation_time')
         try:
@@ -178,13 +178,13 @@ def _update_dependent_task_statuses(plan: Plan):
 
 
 def update_task(
-    story_id: str,
-    task_id: str,
-    title: Optional[str] = None,
-    description: Optional[str] = None,
-    depends_on: Optional[List[str]] = None,
-    priority: Optional[int] = None,
-    status: Optional[Status] = None,
+        story_id: str,
+        task_id: str,
+        title: Optional[str] = None,
+        description: Optional[str] = None,
+        depends_on: Optional[List[str]] = None,
+        priority: Optional[int] = None,
+        status: Optional[Status] = None,
 ) -> dict:
     plan = plan_repository.load_current()
     story, task_obj, fq_task_id = _find_task(plan, story_id, task_id)
@@ -234,7 +234,7 @@ def update_task(
 
         if prev_status != task_obj.status:
             append_event(plan.id, 'task_status_changed', {'task_id': task_obj.id}, {
-                         'from': prev_status.value, 'to': task_obj.status.value})
+                'from': prev_status.value, 'to': task_obj.status.value})
 
     # 1. Roll up story status
     prev_story_status = story.status
@@ -386,7 +386,7 @@ def create_steps(story_id: str, task_id: str, steps: List[dict]) -> dict:
             raise ValueError(
                 f"'description' for step at index {idx} must be a string if provided.")
         new_steps.append(Task.Step(title=title.strip(),
-                         description=(description or None)))
+                                   description=(description or None)))
     task_obj.steps = new_steps
 
     # Re-assign the tasks list to ensure the parent model detects the change.
@@ -430,45 +430,29 @@ def approve_current_task() -> Dict[str, Any]:
 
     # Case 1: Approving a pre-execution review (Gate 1)
     if task.status == Status.TODO:
-        if not task.steps:
-            # Seed minimal steps to satisfy the pre-execution gate, then set task as active.
-            logger.info({'event': 'seed_steps', 'task_id': task.id,
-                        'corr_id': get_correlation_id()})
-            task_service.create_steps(story.id, task.id, steps=[
-                {"title": "Fast-tracked by user."}])
-        # Refresh plan/task after potential mutation above
-        try:
-            plan = plan_repository.load(plan_id)
-            story = next((s for s in plan.stories if s.id ==
-                         story_id), None) or story
-            task = next((t for t in (story.tasks or [])
-                        if t.id == task_id), None) or task
-        except Exception:
-            pass
-        # Idempotent dependency gating: if still no steps or blocked, error out clearly
+        # Require steps to exist. Fast-track does not seed steps server-side.
         if not task.steps:
             raise ValueError(
-                "No steps found. Run /create_steps to define steps, or run approve again to fast-track.")
-        # Enforce dependency gate reliably right before transition
+                "No steps found. Fast-track: create steps now via create_task_steps, then run approve_task.")
+        # Enforce dependency gate right before transition
         if not is_unblocked(task, plan):
             raise ValueError(
                 f"Task '{task.title}' is BLOCKED by unmet dependencies. Resolve blockers before starting.")
-        if task.steps:
-            logger.info({'event': 'approve_plan', 'task_id': task.id,
-                        'corr_id': get_correlation_id()})
-            with timer("approve_task.duration_ms", kind="plan", task_id=task.id):
-                updated_task_data = task_service.update_task(
-                    story_id=story.id,
-                    task_id=task.id,
-                    status=Status.IN_PROGRESS
-                )
-            incr("approve_task.count", kind="plan")
-            return {"success": True, "message": f"Task '{task.title}' approved and moved to IN_PROGRESS.", "changelog_snippet": None, **updated_task_data}
+        logger.info({'event': 'approve_plan', 'task_id': task.id,
+                     'corr_id': get_correlation_id()})
+        with timer("approve_task.duration_ms", kind="plan", task_id=task.id):
+            updated_task_data = task_service.update_task(
+                story_id=story.id,
+                task_id=task.id,
+                status=Status.IN_PROGRESS
+            )
+        incr("approve_task.count", kind="plan")
+        return {"success": True, "message": f"Task '{task.title}' approved and moved to IN_PROGRESS.", "changelog_snippet": None, **updated_task_data}
 
     # Case 2: Approving a code review
     elif task.status == Status.PENDING_REVIEW:
         logger.info({'event': 'approve_review', 'task_id': task.id,
-                    'corr_id': get_correlation_id()})
+                     'corr_id': get_correlation_id()})
         with timer("approve_task.duration_ms", kind="review", task_id=task.id):
             updated_task_data = task_service.update_task(
                 story_id=story.id,
