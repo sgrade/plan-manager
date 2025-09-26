@@ -90,25 +90,25 @@ graph TD
         N10 -- Plan First (Assisted) --> N11["User runs /create_steps prompt"];
         N11 --> N12["Agent saves proposed steps to todo/temp/steps.json"];
         N12 --> N13["User reviews/edits the steps.json file"];
-        N13 --> N14["user says 'approve_task' in chat"];
+        N13 --> N14["User says 'approve steps' in chat"];
         N14 --> N15["Agent runs create_task_steps with final steps.json"];
         N15 --> N16["Agent runs approve_task"];
         N16 --> N17[Task is in **IN_PROGRESS** state];
 
-        N10 -- Fast-Track --> N18["user says 'approve_task' in chat"];
+        N10 -- Fast-Track --> N18["User says 'approve steps' in chat"];
         N18 --> N19["Agent runs create_task_steps (no proposal UI)"];
         N19 --> N16;
     end
         
     N17 --> N20["User says 'execute' in chat"];
     N20 --> N21["Agent executes the task"];
-    N21 --> N22["Agent runs submit_for_review(non-empty execution_summary)"];
+    N21 --> N22["Agent runs submit_for_review (non-empty execution_summary)"];
     
     subgraph Gate 2: Code Review Approval
         N22 --> N23["Agent displays execution_summary and asks user to approve or request changes"]
         N23 --> N24[Task is in PENDING_REVIEW state];
         N24 --> N25{User reviews the code};
-        N25 -- Approve --> N26["User runs approve_task"] --> N27[Task is in DONE state];
+        N25 -- Approve --> N26["User says 'approve review' in chat"] --> N26a["Agent runs approve_task"] --> N27[Task is in DONE state];
         N25 -- Request Changes --> N28["User provides feedback in natural language"] --> N29;
         N29["Agent runs request_changes"] --> N17;
     end
