@@ -38,18 +38,20 @@ Currently, the most convenient way is to run Plan Manager in devcontainer on the
 
 Note: change `localhost` to `host.docker.internal` if accessing from another container on the same host.
 
-### Docs
-
-The workflow diagrams are in [docs/project_workflow.md](docs/project_workflow.md)
-
-There is a document primarily for agents using Plan Manager, which can also be useful for humans to understand how the agents learn about Plan Manager:
-- [usage_guide_agents.md](docs/usage_guide_agents.md) - exposed as an MCP [resource](https://modelcontextprotocol.io/specification/2025-06-18/server/resources).
-
 ### Hints
+
+Instruct the AI agent to use Plan Manager, when you start a new chat. 
 
 Use `/` in the client (Cursor) chat window to list Plan Manager prompts (instructions, templates to interact with the server).
 
 Use MCP inspector to explore Plan Manager capabilities - [doc](dev/mcp-inspector/README.md).
+
+Use the commands as explained on the workflow diagrams [docs/project_workflow.md](docs/project_workflow.md). In this way the agents/LLMs need to think less to understand what you mean, so they respond much faster, the request is cheaper, and the result is more predictable.
+
+There is a document primarily for agents using Plan Manager, which can also be useful for humans to understand how the agents learn about Plan Manager: [usage_guide_agents.md](docs/usage_guide_agents.md). 
+
+Both documents are exposed as an MCP [resources](https://modelcontextprotocol.io/specification/2025-06-18/server/resources) to the agents.
+
 
 ## Development
 

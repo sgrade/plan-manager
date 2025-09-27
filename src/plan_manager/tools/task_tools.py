@@ -215,18 +215,43 @@ def _compute_next_actions_for_task(task: TaskOut, gate: WorkflowGate) -> List[Ne
         return actions
 
     if gate == WorkflowGate.AWAITING_REVIEW:
+        # Gate 2 sequence per workflow:
+        # 1) Agent displays execution_summary and asks the user to approve or request changes
+        actions.append(NextAction(
+            kind="instruction",
+            name="display_review_and_prompt",
+            label="Show execution summary and ask: Say 'approve review' or provide feedback to request changes.",
+            who=WhoRuns.AGENT,
+            recommended=True
+        ))
+        # 2a) User approves review in chat, then agent runs approve_task
+        actions.append(NextAction(
+            kind="instruction",
+            name="user_approves_review",
+            label="User says 'approve review' in chat",
+            who=WhoRuns.USER,
+            recommended=False
+        ))
         actions.append(NextAction(
             kind="tool",
             name="approve_task",
-            label="Approve review to mark task DONE",
+            label="Agent runs approve_task to mark task DONE",
+            who=WhoRuns.AGENT,
+            recommended=False
+        ))
+        # 2b) Or the user provides feedback, then agent runs request_changes
+        actions.append(NextAction(
+            kind="instruction",
+            name="user_provides_feedback",
+            label="User provides feedback in chat",
             who=WhoRuns.USER,
-            recommended=True
+            recommended=False
         ))
         actions.append(NextAction(
             kind="tool",
             name="request_changes",
-            label="Request changes and return task to IN_PROGRESS",
-            who=WhoRuns.USER,
+            label="Agent runs request_changes to return task to IN_PROGRESS",
+            who=WhoRuns.AGENT,
             recommended=False,
             arguments={"feedback": "", "task_id": task.id}
         ))
