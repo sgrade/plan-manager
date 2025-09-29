@@ -173,43 +173,73 @@ def _compute_next_actions_for_task(task: TaskOut, gate: WorkflowGate) -> List[Ne
         if not (task.steps or []):
             actions.append(NextAction(
                 kind="instruction",
-                name="user_approval_fast_track",
-                label="Fast-track: User says 'approve' in chat",
-                who=WhoRuns.USER,
-                recommended=True
-            ))
-            actions.append(NextAction(
-                kind="tool",
-                name="create_task_steps",
-                label="Gate 1 Fast-track: Create steps now (no proposal UI)",
-                who=WhoRuns.USER,
+                name="ask_user_next_step",
+                label="Ask: Would you like assisted steps or fast-track?",
+                who=WhoRuns.AGENT,
                 recommended=True,
-                arguments={"task_id": task.id, "steps": []}
+                arguments={
+                    "then": [
+                        {"prompt": "/create_steps",
+                            "arguments": {"task_id": task.id}},
+                        {"instruction": "user_approval_fast_track"}
+                    ]
+                }
+            ))
+            # Only user instructions at this point; the agent must wait for the user's choice
+            actions.append(NextAction(
+                kind="prompt",
+                name="/create_steps",
+                label="Assisted: User runs /create_steps prompt",
+                who=WhoRuns.USER,
+                recommended=False,
+                arguments={"task_id": task.id}
             ))
             actions.append(NextAction(
-                kind="tool",
-                name="approve_task",
-                label="Then: Approve to start execution",
+                kind="instruction",
+                name="user_approval_fast_track",
+                label="Fast-track: User says 'approve steps' in chat",
                 who=WhoRuns.USER,
-                recommended=False
+                recommended=False,
+                arguments={
+                    "then": [
+                        {"tool": "create_task_steps", "arguments": {
+                            "task_id": task.id, "steps": []}},
+                        {"tool": "approve_task"}
+                    ]
+                }
             ))
         else:
             actions.append(NextAction(
                 kind="tool",
                 name="approve_task",
-                label="Gate 1: Approve plan to start execution",
-                who=WhoRuns.USER,
+                label="Gate 1: Agent runs approve_task to start execution",
+                who=WhoRuns.AGENT,
                 recommended=True
             ))
         return actions
 
     if gate == WorkflowGate.EXECUTING:
+        # Follow the diagram: user instructs to execute, agent executes, then submits for review
+        actions.append(NextAction(
+            kind="instruction",
+            name="user_execute_instruction",
+            label="User says 'execute' in chat",
+            who=WhoRuns.USER,
+            recommended=True
+        ))
+        actions.append(NextAction(
+            kind="instruction",
+            name="agent_execute_work",
+            label="Agent executes the task",
+            who=WhoRuns.AGENT,
+            recommended=False
+        ))
         actions.append(NextAction(
             kind="tool",
             name="submit_for_review",
-            label="Submit task for code review",
+            label="Agent runs submit_for_review (non-empty execution_summary)",
             who=WhoRuns.AGENT,
-            recommended=True,
+            recommended=False,
             arguments={"task_id": task.id, "execution_summary": ""}
         ))
         return actions
@@ -230,7 +260,12 @@ def _compute_next_actions_for_task(task: TaskOut, gate: WorkflowGate) -> List[Ne
             name="user_approves_review",
             label="User says 'approve review' in chat",
             who=WhoRuns.USER,
-            recommended=False
+            recommended=False,
+            arguments={
+                "then": [
+                    {"tool": "approve_task"}
+                ]
+            }
         ))
         actions.append(NextAction(
             kind="tool",
@@ -245,7 +280,12 @@ def _compute_next_actions_for_task(task: TaskOut, gate: WorkflowGate) -> List[Ne
             name="user_provides_feedback",
             label="User provides feedback in chat",
             who=WhoRuns.USER,
-            recommended=False
+            recommended=False,
+            arguments={
+                "then": [
+                    {"tool": "request_changes"}
+                ]
+            }
         ))
         actions.append(NextAction(
             kind="tool",
@@ -255,6 +295,48 @@ def _compute_next_actions_for_task(task: TaskOut, gate: WorkflowGate) -> List[Ne
             recommended=False,
             arguments={"feedback": "", "task_id": task.id}
         ))
+        return actions
+
+    if gate == WorkflowGate.DONE:
+        # After a task is DONE:
+        # 1) If there are remaining (non-DONE) tasks in the current story, suggest listing tasks for that story.
+        # 2) Otherwise, suggest verifying story acceptance criteria.
+        try:
+            story_id = task.id.split(":", 1)[0]
+        except Exception:
+            story_id = None
+
+        has_remaining_in_story = False
+        if story_id:
+            try:
+                remaining = [t for t in svc_list_tasks(
+                    None, story_id) if t.status != Status.DONE]
+                has_remaining_in_story = len(remaining) > 0
+            except Exception:
+                has_remaining_in_story = False
+
+        if has_remaining_in_story:
+            actions.append(NextAction(
+                kind="tool",
+                name="list_tasks",
+                label="List remaining tasks in the current story",
+                who=WhoRuns.AGENT,
+                recommended=True,
+                arguments={"story_id": story_id} if story_id else None
+            ))
+        else:
+            actions.append(NextAction(
+                kind="instruction",
+                name="verify_story_acceptance",
+                label="Review story acceptance criteria",
+                who=WhoRuns.USER,
+                recommended=True,
+                arguments={
+                    "then": [
+                        {"tool": "report", "arguments": {"scope": "story"}}
+                    ]
+                }
+            ))
         return actions
 
     return actions

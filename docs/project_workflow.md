@@ -83,7 +83,14 @@ graph TD
 
     N2 -- Yes --> N8;
 
-    N8 --> N9[Agent asks the user: What would you like to do?];
+    %% Status routing after selection: setting current task does not change status
+    N8 --> N8a{Task status?};
+    N8a -- TODO (unblocked) --> N9[Agent asks the user: What would you like to do?];
+    N8a -- IN_PROGRESS --> N20;
+    N8a -- BLOCKED --> NB[Task is BLOCKED: resolve dependencies first] --> N31;
+    N8a -- PENDING_REVIEW --> N23;
+    N8a -- DONE --> N31;
+
     N9 --> N10{What does the user do?};
     
     subgraph Gate 1: Pre-Execution Approval

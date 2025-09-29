@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed:
-- Align task workflow gate 2 actions with the diagram.
+- Polished task workflows.
 
 ## [0.6.2]
 
