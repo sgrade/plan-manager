@@ -1,0 +1,7 @@
+---
+alwaysApply: true
+---
+
+- Adhere to YAGNI and KISS principles
+- Use efficient algorithms and data structures
+- Avoid optional work
