@@ -28,6 +28,7 @@ from plan_manager.services.shared import (
 )
 from plan_manager.logging_context import get_correlation_id
 from plan_manager.telemetry import incr, timer
+from plan_manager.validation import validate_title, validate_description, validate_task_steps, validate_execution_summary, validate_feedback
 from plan_manager.services import task_service
 from plan_manager.services.changelog_service import generate_changelog_for_task
 from typing import Dict, Any
@@ -44,6 +45,26 @@ def _generate_task_id_from_title(title: str) -> str:
 
 
 def create_task(story_id: str, title: str, priority: Optional[int], depends_on: List[str], description: Optional[str]) -> dict:
+    """Create a new task in the specified story.
+
+    Args:
+        story_id: The ID of the story to add the task to
+        title: The title of the task (will be validated and sanitized)
+        priority: Optional priority level (0-5, where 5 is highest)
+        depends_on: List of task IDs this task depends on
+        description: Optional description of the task
+
+    Returns:
+        dict: Task data including the generated task ID
+
+    Raises:
+        ValueError: If input validation fails or story doesn't exist
+        KeyError: If the specified story doesn't exist
+    """
+    # Validate inputs
+    title = validate_title(title)
+    description = validate_description(description)
+
     logger.info({
         'event': 'create_task',
         'story_id': story_id,
@@ -355,9 +376,19 @@ def list_tasks(statuses: Optional[List[Status]], story_id: Optional[str] = None)
 
 
 def create_steps(story_id: str, task_id: str, steps: List[dict]) -> dict:
-    """Sets the implementation steps for a task, making it ready for pre-execution review.
+    """Set the implementation steps for a task, making it ready for pre-execution review.
 
-    Expects a list of step dicts with 'title' and optional 'description'.
+    Args:
+        story_id: The ID of the story containing the task
+        task_id: The local ID of the task within the story
+        steps: List of step dictionaries, each with 'title' and optional 'description'
+
+    Returns:
+        dict: Updated task data
+
+    Raises:
+        ValueError: If steps validation fails or task is in wrong status
+        KeyError: If story or task doesn't exist
     """
     plan = plan_repository.load_current()
     story, task_obj, _fq_task_id = _find_task(plan, story_id, task_id)
@@ -366,27 +397,16 @@ def create_steps(story_id: str, task_id: str, steps: List[dict]) -> dict:
         raise ValueError(
             f"Can only propose a plan for a task in TODO or IN_PROGRESS status. Current status is {task_obj.status}.")
 
-    # Validate and coerce into Step models (assisted JSON validation)
-    if steps is None:
-        raise ValueError("Steps must be a non-empty array of step objects.")
+    # Validate steps using centralized validation
+    validated_steps = validate_task_steps(steps)
 
-    if not isinstance(steps, list) or len(steps) == 0:
-        raise ValueError("Steps must be a non-empty array of step objects.")
-
+    # Convert validated steps to domain models
     new_steps: List[Task.Step] = []
-    for idx, s in enumerate(steps):
-        if not isinstance(s, dict):
-            raise ValueError(f"Step at index {idx} must be an object.")
-        title = s.get('title')
-        if not isinstance(title, str) or not title.strip():
-            raise ValueError(
-                f"Step at index {idx} must include a non-empty 'title' string.")
-        description = s.get('description')
-        if description is not None and not isinstance(description, str):
-            raise ValueError(
-                f"'description' for step at index {idx} must be a string if provided.")
-        new_steps.append(Task.Step(title=title.strip(),
-                                   description=(description or None)))
+    for step in validated_steps:
+        new_steps.append(Task.Step(
+            title=step['title'],
+            description=step['description']
+        ))
     task_obj.steps = new_steps
 
     # Re-assign the tasks list to ensure the parent model detects the change.
@@ -400,9 +420,19 @@ def create_steps(story_id: str, task_id: str, steps: List[dict]) -> dict:
 
 
 def approve_current_task() -> Dict[str, Any]:
-    """
-    Approves the currently active task, moving it to its next state.
-    This is the core engine for moving a task through its lifecycle.
+    """Approve the currently active task, moving it to its next state in the workflow.
+
+    This is the core engine for moving a task through its lifecycle. The transition
+    depends on the current task state:
+    - TODO with steps → IN_PROGRESS
+    - TODO without steps → requires steps first (fast-track)
+    - IN_PROGRESS → PENDING_REVIEW (after execution)
+
+    Returns:
+        Dict[str, Any]: Result containing success status and any error messages
+
+    Raises:
+        ValueError: If no active plan/task or invalid state transitions
     """
     plan_id = plan_repository.get_current_plan_id()
     if not plan_id:
@@ -474,7 +504,23 @@ def approve_current_task() -> Dict[str, Any]:
 
 
 def submit_for_code_review(story_id: str, task_id: str, summary_text: str) -> dict:
-    """Sets the execution summary and moves the task to PENDING_REVIEW."""
+    """Submit a task for code review by setting execution summary and moving to PENDING_REVIEW.
+
+    Args:
+        story_id: The ID of the story containing the task
+        task_id: The local ID of the task within the story
+        summary_text: Summary of work completed (will be validated)
+
+    Returns:
+        dict: Updated task data
+
+    Raises:
+        ValueError: If task is not in IN_PROGRESS or summary validation fails
+        KeyError: If story or task doesn't exist
+    """
+    # Validate execution summary
+    summary_text = validate_execution_summary(summary_text)
+
     plan = plan_repository.load_current()
     _, task_obj, _ = _find_task(plan, story_id, task_id)
 
@@ -496,14 +542,22 @@ def submit_for_code_review(story_id: str, task_id: str, summary_text: str) -> di
 
 
 def request_changes(story_id: str, task_id: str, feedback: str) -> Dict[str, Any]:
-    """Request changes for the CURRENT task: PENDING_REVIEW -> IN_PROGRESS.
+    """Request changes for a task, moving it from PENDING_REVIEW back to IN_PROGRESS.
 
-    - Requires a current plan/story/task and task.status == PENDING_REVIEW
-    - Persists feedback via activity log
-    - Transitions status to IN_PROGRESS and saves the plan
+    Args:
+        story_id: The ID of the story containing the task
+        task_id: The local ID of the task within the story
+        feedback: Feedback explaining what changes are needed (will be validated)
+
+    Returns:
+        Dict[str, Any]: Result containing success status and task data
+
+    Raises:
+        ValueError: If task is not in PENDING_REVIEW or feedback validation fails
+        KeyError: If story or task doesn't exist
     """
-    if not feedback or not feedback.strip():
-        raise ValueError("Feedback is required to request changes.")
+    # Validate feedback input
+    feedback = validate_feedback(feedback)
 
     plan = plan_repository.load_current()
     _, task, _ = _find_task(plan, story_id, task_id)

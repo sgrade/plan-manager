@@ -53,7 +53,18 @@ def register_task_tools(mcp_instance) -> None:
 
 
 def create_task(story_id: str, title: str, priority: Optional[float] = None, depends_on: Optional[list[str]] = None, description: Optional[str] = None) -> TaskOut:
-    """Create a task under a story."""
+    """Create a new task under the specified story.
+
+    Args:
+        story_id: The ID of the story to create the task under
+        title: The title of the task (will be validated and sanitized)
+        priority: Optional priority level (0-5, where 5 is highest)
+        depends_on: Optional list of task IDs this task depends on
+        description: Optional description of the task
+
+    Returns:
+        TaskOut: The created task with its generated ID and metadata
+    """
     coerced_priority = coerce_optional_int(priority, 'priority')
     data = svc_create_task(story_id, title,
                            coerced_priority, depends_on or [], description)
@@ -61,7 +72,18 @@ def create_task(story_id: str, title: str, priority: Optional[float] = None, dep
 
 
 def get_task(task_id: Optional[str] = None) -> TaskOut:
-    """Fetch a task by ID (local or FQ). Defaults to current task of current story."""
+    """Get a task by its ID, defaulting to the current task if no ID provided.
+
+    Args:
+        task_id: Optional task ID (local or fully qualified). If not provided,
+                returns the current task of the current story.
+
+    Returns:
+        TaskOut: The requested task with its metadata and current state
+
+    Raises:
+        ValueError: If no task ID provided and no current task is set
+    """
     effective_task_id = task_id or get_current_task_id()
     if not effective_task_id:
         raise ValueError(
@@ -95,7 +117,7 @@ def update_task(
         elif isinstance(status, str):
             try:
                 coerced_status = Status(status.upper())
-            except Exception as e:
+            except ValueError as e:
                 raise ValueError(
                     f"Invalid value for parameter 'status': {status!r}. Allowed: {', '.join([s.value for s in Status])}"
                 ) from e
@@ -120,7 +142,17 @@ def delete_task(task_id: str) -> OperationResult:
 
 
 def list_tasks(statuses: List[Status] = [], story_id: Optional[str] = None, offset: Optional[int] = 0, limit: Optional[int] = None) -> List[TaskListItem]:
-    """List tasks, optionally filtering by statuses and story with pagination."""
+    """List tasks with optional filtering by status and story, with pagination support.
+
+    Args:
+        statuses: Optional list of task statuses to filter by. Empty list means no status filter.
+        story_id: Optional story ID to filter tasks by. Defaults to current story if not provided.
+        offset: Number of tasks to skip (for pagination). Defaults to 0.
+        limit: Maximum number of tasks to return. None means no limit.
+
+    Returns:
+        List[TaskListItem]: List of task summaries matching the filter criteria
+    """
     story_id = story_id or get_current_story_id()
     tasks = svc_list_tasks(statuses, story_id)
     items: List[TaskListItem] = []
@@ -303,7 +335,7 @@ def _compute_next_actions_for_task(task: TaskOut, gate: WorkflowGate) -> List[Ne
         # 2) Otherwise, suggest verifying story acceptance criteria.
         try:
             story_id = task.id.split(":", 1)[0]
-        except Exception:
+        except (AttributeError, ValueError, IndexError):
             story_id = None
 
         has_remaining_in_story = False
@@ -312,7 +344,8 @@ def _compute_next_actions_for_task(task: TaskOut, gate: WorkflowGate) -> List[Ne
                 remaining = [t for t in svc_list_tasks(
                     None, story_id) if t.status != Status.DONE]
                 has_remaining_in_story = len(remaining) > 0
-            except Exception:
+            except (ValueError, KeyError, OSError):
+                # Handle service call failures gracefully
                 has_remaining_in_story = False
 
         if has_remaining_in_story:
@@ -343,9 +376,14 @@ def _compute_next_actions_for_task(task: TaskOut, gate: WorkflowGate) -> List[Ne
 
 
 def create_task_steps(task_id: str, steps: List[dict]) -> TaskWorkflowResult:
-    """Proposes implementation steps for a task, moving it to a reviewable state.
+    """Create implementation steps for a task, enabling pre-execution review.
 
-    Expects a list of step objects with 'title' and optional 'description'.
+    Args:
+        task_id: The ID of the task to add steps to (local or fully qualified)
+        steps: List of step objects, each with 'title' and optional 'description'
+
+    Returns:
+        TaskWorkflowResult: Result containing the updated task and next actions
     """
     story_id, local_task_id = resolve_task_id(task_id)
     data = svc_create_steps(
@@ -441,11 +479,17 @@ def approve_task() -> TaskWorkflowResult:
             success=False, message=f"Error: {e}", action=ActionType.APPROVE)
         return tmp
 
-    except Exception as e:
-        # Log the full exception for debugging
-        logger.exception("An unexpected error occurred during approval.")
+    except (ValueError, KeyError, OSError, RuntimeError) as e:
+        # Handle expected business logic errors
+        logger.warning(f"Approval failed due to business logic error: {e}")
         tmp = TaskWorkflowResult(
-            success=False, message=f"An unexpected error occurred: {e}", action=ActionType.APPROVE)
+            success=False, message=str(e), action=ActionType.APPROVE)
+        return tmp
+    except Exception as e:
+        # Log unexpected errors for debugging
+        logger.exception(f"An unexpected error occurred during approval: {e}")
+        tmp = TaskWorkflowResult(
+            success=False, message="An unexpected error occurred during approval", action=ActionType.APPROVE)
         return tmp
 
 
@@ -468,7 +512,8 @@ def request_changes(task_id: str, feedback: str) -> TaskWorkflowResult:
                 task = _create_task_out(data)
                 gate = _status_to_gate(task.status, task.steps)
                 next_actions = _compute_next_actions_for_task(task, gate)
-            except Exception:
+            except (ValueError, KeyError, OSError):
+                # Handle service call failures gracefully
                 pass
         tmp = TaskWorkflowResult(
             success=result.get('success', False),
@@ -479,16 +524,32 @@ def request_changes(task_id: str, feedback: str) -> TaskWorkflowResult:
             next_actions=next_actions,
         )
         return tmp
-    except Exception as e:
-        logger.exception(
-            "An unexpected error occurred during request_changes.")
+    except (ValueError, KeyError, OSError, RuntimeError) as e:
+        # Handle expected business logic errors
+        logger.warning(
+            f"Request changes failed due to business logic error: {e}")
         tmp = TaskWorkflowResult(success=False, message=str(
             e), action=ActionType.REQUEST_CHANGES)
+        return tmp
+    except Exception as e:
+        # Log unexpected errors for debugging
+        logger.exception(
+            f"An unexpected error occurred during request_changes: {e}")
+        tmp = TaskWorkflowResult(
+            success=False, message=f"An unexpected error occurred during request changes: {e}", action=ActionType.REQUEST_CHANGES)
         return tmp
 
 
 def submit_for_review(task_id: str, execution_summary: str) -> TaskWorkflowResult:
-    """Submits a task for code review, moving it to PENDING_REVIEW status."""
+    """Submit a completed task for code review and move it to PENDING_REVIEW status.
+
+    Args:
+        task_id: The ID of the task to submit for review (local or fully qualified)
+        execution_summary: Summary of the work completed and implementation details
+
+    Returns:
+        TaskWorkflowResult: Result containing the updated task and next actions for review
+    """
     story_id, local_task_id = resolve_task_id(task_id)
     with timer("submit_for_review.duration_ms", task_id=local_task_id):
         data = svc_submit_for_code_review(

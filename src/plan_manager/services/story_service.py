@@ -18,6 +18,7 @@ from plan_manager.services.shared import (
 from plan_manager.services.shared import find_dependents
 from plan_manager.config import WORKSPACE_ROOT
 from plan_manager.logging_context import get_correlation_id
+from plan_manager.validation import validate_title, validate_description, validate_acceptance_criteria
 from plan_manager.services.state_repository import (
     get_current_story_id,
     set_current_story_id,
@@ -35,6 +36,11 @@ def create_story(
     priority: Optional[int],
     depends_on: List[str]
 ) -> dict:
+    # Validate inputs
+    title = validate_title(title)
+    description = validate_description(description)
+    acceptance_criteria = validate_acceptance_criteria(acceptance_criteria)
+
     generated_id = generate_slug(title)
     logger.info({
         'event': 'create_story',

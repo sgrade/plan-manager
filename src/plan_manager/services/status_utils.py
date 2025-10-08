@@ -11,7 +11,12 @@ class HasStatus(Protocol):
 
 
 def apply_status_change(item: HasStatus, new_status: Status) -> None:
-    """Apply a status change and update completion_time accordingly."""
+    """Apply a status change and update completion_time accordingly.
+
+    Args:
+        item: The item whose status is being changed
+        new_status: The new status to apply
+    """
     old = item.status.value if isinstance(item.status, Status) else item.status
     item.status = new_status
     if new_status == Status.DONE and old != Status.DONE.value:
@@ -23,9 +28,16 @@ def apply_status_change(item: HasStatus, new_status: Status) -> None:
 def rollup_story_status(task_statuses: list[Status | str]) -> Status:
     """Derive a story status from its task statuses.
 
-    DONE if all tasks DONE;
-    IN_PROGRESS if any task IN_PROGRESS;
-    otherwise TODO (BLOCKED/DEFERRED are not rolled-up here).
+    Logic:
+    - DONE if all tasks are DONE
+    - IN_PROGRESS if any task is IN_PROGRESS
+    - TODO otherwise (BLOCKED/DEFERRED are not rolled up here)
+
+    Args:
+        task_statuses: List of task statuses to roll up
+
+    Returns:
+        Status: The derived story status
     """
     values = [s.value if isinstance(s, Status) else s for s in task_statuses]
     if not values:
@@ -38,7 +50,19 @@ def rollup_story_status(task_statuses: list[Status | str]) -> Status:
 
 
 def rollup_plan_status(story_statuses: list[Status | str]) -> Status:
-    """Derive a plan status from its story statuses."""
+    """Derive a plan status from its story statuses.
+
+    Uses the same logic as rollup_story_status:
+    - DONE if all stories are DONE
+    - IN_PROGRESS if any story is IN_PROGRESS
+    - TODO otherwise
+
+    Args:
+        story_statuses: List of story statuses to roll up
+
+    Returns:
+        Status: The derived plan status
+    """
     values = [s.value if isinstance(s, Status) else s for s in story_statuses]
     if not values:
         return Status.TODO

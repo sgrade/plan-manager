@@ -8,10 +8,26 @@ from plan_manager.config import TODO_DIR
 
 
 def _activity_file_path(plan_id: str) -> str:
+    """Get the file path for storing activity events for a plan.
+
+    Args:
+        plan_id: The plan identifier
+
+    Returns:
+        str: The file path for the activity file
+    """
     return os.path.join(TODO_DIR, plan_id, 'activity.yaml')
 
 
 def _read_events(plan_id: str) -> List[Dict[str, Any]]:
+    """Read activity events from the plan's activity file.
+
+    Args:
+        plan_id: The plan identifier
+
+    Returns:
+        List[Dict[str, Any]]: List of activity events
+    """
     path = _activity_file_path(plan_id)
     if not os.path.exists(path):
         return []
@@ -23,6 +39,12 @@ def _read_events(plan_id: str) -> List[Dict[str, Any]]:
 
 
 def _write_events(plan_id: str, events: List[Dict[str, Any]]) -> None:
+    """Write activity events to the plan's activity file.
+
+    Args:
+        plan_id: The plan identifier
+        events: List of activity events to write
+    """
     path = _activity_file_path(plan_id)
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, 'w', encoding='utf-8') as f:
@@ -35,6 +57,17 @@ def append_event(
     scope: Dict[str, Any],
     data: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
+    """Append a new activity event to the plan's activity log.
+
+    Args:
+        plan_id: The plan identifier
+        event_type: The type of event (e.g., 'task_created', 'status_changed')
+        scope: Context information about what the event relates to
+        data: Optional additional event data
+
+    Returns:
+        Dict[str, Any]: The created event record
+    """
     events = _read_events(plan_id)
     eid = str(len(events) + 1)
     event = {
@@ -51,4 +84,12 @@ def append_event(
 
 
 def list_events(plan_id: str) -> List[Dict[str, Any]]:
+    """List all activity events for a plan.
+
+    Args:
+        plan_id: The plan identifier
+
+    Returns:
+        List[Dict[str, Any]]: List of all activity events for the plan
+    """
     return _read_events(plan_id)

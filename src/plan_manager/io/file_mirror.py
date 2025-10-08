@@ -11,6 +11,16 @@ logger = logging.getLogger(__name__)
 
 
 def split_front_matter(raw_text: str) -> Tuple[Dict[str, Any], str]:
+    """Split markdown text containing YAML front matter into metadata and body.
+
+    Args:
+        raw_text: The raw markdown text that may contain YAML front matter
+
+    Returns:
+        Tuple[Dict[str, Any], str]: A tuple of (front_matter_dict, body_text)
+                                   where front_matter_dict contains parsed YAML metadata
+                                   and body_text is the remaining markdown content
+    """
     if raw_text.startswith('---'):
         parts = raw_text.split('\n')
         if len(parts) > 1:
@@ -33,11 +43,26 @@ def split_front_matter(raw_text: str) -> Tuple[Dict[str, Any], str]:
 
 
 def render_with_front_matter(front: Dict[str, Any], body: str) -> str:
+    """Render a dictionary and body text into markdown with YAML front matter.
+
+    Args:
+        front: The metadata dictionary to serialize as YAML front matter
+        body: The main content body
+
+    Returns:
+        str: The complete markdown text with front matter
+    """
     fm = yaml.safe_dump(front, sort_keys=False).rstrip() + '\n'
     return f"---\n{fm}---\n\n{body or ''}"
 
 
 def atomic_write(abs_path: str, content: str) -> None:
+    """Write content to a file atomically to prevent corruption on failure.
+
+    Args:
+        abs_path: The absolute path to write to
+        content: The content to write
+    """
     directory = os.path.dirname(abs_path)
     if directory:
         os.makedirs(directory, exist_ok=True)
@@ -48,6 +73,14 @@ def atomic_write(abs_path: str, content: str) -> None:
 
 
 def read_item_file(details_path: str) -> Tuple[Dict[str, Any], str]:
+    """Read a markdown file with YAML front matter and split into metadata and content.
+
+    Args:
+        details_path: Workspace-relative path to the markdown file
+
+    Returns:
+        Tuple[Dict[str, Any], str]: A tuple of (metadata_dict, content_body)
+    """
     abs_path = os.path.join(WORKSPACE_ROOT, details_path)
     if not os.path.exists(abs_path):
         return {}, ''
@@ -57,6 +90,7 @@ def read_item_file(details_path: str) -> Tuple[Dict[str, Any], str]:
 
 
 def _to_iso_z(val: Any) -> Any:  # type: ignore[name-defined]
+    """Convert datetime objects to ISO format strings with Z suffix for YAML serialization."""
     if isinstance(val, datetime):
         dt = val if val.tzinfo else val.replace(tzinfo=timezone.utc)
         return dt.astimezone(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
@@ -65,6 +99,17 @@ def _to_iso_z(val: Any) -> Any:  # type: ignore[name-defined]
 
 # type: ignore[name-defined]
 def save_item_to_file(details_path: str, front_source: Any, content: Optional[str] = None, overwrite: bool = False) -> None:
+    """Save data to a markdown file with YAML front matter.
+
+    Args:
+        details_path: Workspace-relative path where the file should be saved
+        front_source: The data object to serialize as YAML front matter
+        content: Optional body content to append after front matter
+        overwrite: If True, overwrite existing file; if False, merge with existing front matter
+
+    Raises:
+        FileExistsError: If overwrite=False and file already exists with different data
+    """
     abs_path = os.path.join(WORKSPACE_ROOT, details_path)
     try:
         existing_front, existing_body = ({}, '')
@@ -99,6 +144,11 @@ def save_item_to_file(details_path: str, front_source: Any, content: Optional[st
 
 
 def delete_item_file(details_path: str) -> None:
+    """Delete a markdown file containing item data.
+
+    Args:
+        details_path: Workspace-relative path to the file to delete
+    """
     try:
         abs_path = os.path.join(WORKSPACE_ROOT, details_path)
         if os.path.exists(abs_path):

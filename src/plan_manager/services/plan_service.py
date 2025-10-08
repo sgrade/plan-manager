@@ -7,12 +7,17 @@ from plan_manager.domain.models import Plan, Status
 from plan_manager.services import plan_repository as repo
 from plan_manager.services.shared import generate_slug, ensure_unique_id_from_set
 from plan_manager.logging_context import get_correlation_id
+from plan_manager.validation import validate_title, validate_description
 
 
 logger = logging.getLogger(__name__)
 
 
 def create_plan(title: str, description: Optional[str], priority: Optional[int]) -> Dict[str, Any]:
+    # Validate inputs
+    title = validate_title(title)
+    description = validate_description(description)
+
     plan_id = generate_slug(title)
     logger.info({
         'event': 'create_plan',

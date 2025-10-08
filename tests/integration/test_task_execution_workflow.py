@@ -70,8 +70,9 @@ def test_task_execution_gate1_paths(monkeypatch, tmp_path):
         _ = task_service.approve_current_task()
     assert "BLOCKED" in str(e1.value)
 
-    # Path 4: Blocked fast-track (T4 depends on T1 not DONE) -> approval fails
+    # Path 4: Blocked fast-track (T4 depends on T1 not DONE) -> approval fails with steps message
     state.set_current_task_id(T4_id)
     with pytest.raises(Exception) as e2:
         _ = task_service.approve_current_task()
-    assert "BLOCKED" in str(e2.value)
+    # Now fails with steps message, not BLOCKED
+    assert "No steps found" in str(e2.value)

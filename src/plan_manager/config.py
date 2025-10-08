@@ -4,6 +4,18 @@ import os
 
 
 def _env_bool(name: str, default: bool = False) -> bool:
+    """Parse a boolean environment variable.
+
+    Accepts common boolean string representations: '1', 'true', 'yes', 'on'
+    (case-insensitive).
+
+    Args:
+        name: Environment variable name
+        default: Default value if variable is not set
+
+    Returns:
+        bool: The parsed boolean value
+    """
     val = os.getenv(name)
     if val is None:
         return default
@@ -11,6 +23,15 @@ def _env_bool(name: str, default: bool = False) -> bool:
 
 
 def _env_float(name: str, default: float = 1.0) -> float:
+    """Parse a float environment variable.
+
+    Args:
+        name: Environment variable name
+        default: Default value if variable is not set or parsing fails
+
+    Returns:
+        float: The parsed float value, or default if parsing fails
+    """
     val = os.getenv(name)
     if val is None:
         return default

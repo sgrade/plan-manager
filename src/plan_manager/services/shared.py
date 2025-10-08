@@ -12,7 +12,14 @@ logger = logging.getLogger(__name__)
 
 
 def generate_slug(title: str) -> str:
-    """Generate a slug from a title."""
+    """Generate a URL-safe slug from a title.
+
+    Args:
+        title: The title to convert into a slug
+
+    Returns:
+        str: The slugified title
+    """
     return slugify(title)
 
 

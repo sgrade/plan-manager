@@ -14,9 +14,13 @@ def register_context_tools(mcp_instance) -> None:
 
 
 def get_current() -> CurrentContextOut:
-    """Get the current context of the current plan: plan_id, current_story_id, current_task_id.
+    """Get the current context including plan, story, and task IDs.
 
-    Answers the question "Where am I?"
+    Returns the current plan ID, current story ID (if any), and current task ID (if any).
+    This helps answer "Where am I?" in the plan hierarchy.
+
+    Returns:
+        CurrentContextOut: The current context with plan_id, current_story_id, and current_task_id
     """
     pid = get_current_plan_id()
     return CurrentContextOut(

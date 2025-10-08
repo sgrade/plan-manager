@@ -25,7 +25,16 @@ def register_plan_tools(mcp_instance) -> None:
 
 
 def create_plan(title: str, description: Optional[str] = None, priority: Optional[float] = None) -> PlanOut:
-    """Create a plan."""
+    """Create a new plan with the specified details.
+
+    Args:
+        title: The title of the plan (will be validated and sanitized)
+        description: Optional description of the plan
+        priority: Optional priority level (0-5, where 5 is highest)
+
+    Returns:
+        PlanOut: The created plan with its generated ID and metadata
+    """
     # Coerce priority robustly to provide better error messages at the tool boundary
     coerced_priority = coerce_optional_int(priority, 'priority')
     data = svc_create_plan(

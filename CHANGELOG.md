@@ -7,10 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2025-10-08
+
+### Added:
+- Comprehensive input validation and sanitization for all user inputs
+- Unit test suite with 63 tests covering validation, telemetry, and domain models
+- Centralized validation module with consistent error handling
+- Improved telemetry logging (removed debug print statements)
+
 ### Changed:
+- Consistent, AI-friendly docstrings.
 - Polished task workflows.
 - MCP Python SDK bumped to 1.16.0
 - Default value for status parameter for list tools is empty list instead of None.
+- Replaced broad `Exception` catches with specific exception types
+- Enhanced error messages for better user experience
+- Improved exception handling in tool layers with proper categorization
+- Updated telemetry to use structured logging instead of print statements
+
+### Security:
+- Added input validation to prevent injection attacks
+- Sanitized user inputs with length limits and character restrictions
+- Enhanced validation for task steps, execution summaries, and feedback
 
 ## [0.6.2]
 

@@ -13,9 +13,16 @@ def register_report_tools(mcp_instance) -> None:
 
 
 def report(scope: str | None = None) -> ReportOut:
-    """
-    Provides a dynamic, contextual overview of the current state.
-    The output changes based on the report of the current task.
+    """Generate a contextual report of the current plan state.
+
+    Provides an overview of plans, stories, and tasks based on the specified scope.
+    Defaults to story scope if no scope is provided.
+
+    Args:
+        scope: The scope for the report ("plan", "story", or None for default story scope)
+
+    Returns:
+        ReportOut: A structured report containing the current state overview
     """
     scope = scope or "story"
     logger.debug(f"report tool called with scope: {scope!r}")

@@ -9,7 +9,15 @@ def register_changelog_tools(mcp_instance) -> None:
 
 
 def generate_changelog(version: str | None = None, date: str | None = None) -> ChangelogPreviewOut:
-    """Generate a changelog snippet for all completed tasks in the current plan."""
+    """Generate a changelog for all completed tasks in the current plan.
+
+    Args:
+        version: Optional version string to include in changelog headers
+        date: Optional date string to include in changelog headers
+
+    Returns:
+        ChangelogPreviewOut: The generated changelog in markdown format
+    """
     plan = load_current()
     completed_tasks = []
     for story in plan.stories:

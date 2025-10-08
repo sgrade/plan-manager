@@ -30,14 +30,17 @@ def register_story_tools(mcp_instance) -> None:
 
 
 def create_story(title: str, description: Optional[str] = None, acceptance_criteria: Optional[list[str]] = None, priority: Optional[float] = None, depends_on: Optional[list[str]] = None) -> StoryOut:
-    """Create a story.
+    """Create a new story with the specified details.
 
     Args:
-        title: The title of the story.
-        description: The description of the story.
-        acceptance_criteria: The acceptance criteria of the story.
-        priority: The priority of the story.
-        depends_on: The dependencies of the story.
+        title: The title of the story (will be validated and sanitized)
+        description: Optional description of the story
+        acceptance_criteria: Optional list of acceptance criteria for the story
+        priority: Optional priority level (0-5, where 5 is highest)
+        depends_on: Optional list of story IDs this story depends on
+
+    Returns:
+        StoryOut: The created story with its generated ID and metadata
     """
     coerced_priority = coerce_optional_int(priority, 'priority')
     data = svc_create_story(title, description, acceptance_criteria, coerced_priority,
