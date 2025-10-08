@@ -69,7 +69,7 @@ def delete_story(story_id: str) -> OperationResult:
     return OperationResult(**data)
 
 
-def list_stories(statuses: Optional[List[Status]] = None, unblocked: bool = False, offset: Optional[int] = 0, limit: Optional[int] = None) -> List[StoryListItem]:
+def list_stories(statuses: List[Status] = [], unblocked: bool = False, offset: Optional[int] = 0, limit: Optional[int] = None) -> List[StoryListItem]:
     """List stories with optional status filter, unblocked flag and pagination."""
     logger.info(
         f"Handling list_stories: statuses={statuses}, unblocked={unblocked}")

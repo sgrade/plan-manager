@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed:
 - Polished task workflows.
+- MCP Python SDK bumped to 1.16.0
+- Default value for status parameter for list tools is empty list instead of None.
 
 ## [0.6.2]
 

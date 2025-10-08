@@ -54,7 +54,7 @@ def delete_plan(plan_id: str) -> OperationResult:
     return OperationResult(**data)
 
 
-def list_plans(statuses: Optional[List[Status]] = None, offset: Optional[int] = 0, limit: Optional[int] = None) -> List[PlanListItem]:
+def list_plans(statuses: List[Status] = [], offset: Optional[int] = 0, limit: Optional[int] = None) -> List[PlanListItem]:
     """List plans with optional status filter and pagination."""
     data = svc_list_plans(statuses)
     items = [PlanListItem(**d) for d in data]

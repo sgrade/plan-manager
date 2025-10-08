@@ -119,7 +119,7 @@ def delete_task(task_id: str) -> OperationResult:
         return OperationResult(success=False, message=str(e))
 
 
-def list_tasks(statuses: Optional[List[Status]] = None, story_id: Optional[str] = None, offset: Optional[int] = 0, limit: Optional[int] = None) -> List[TaskListItem]:
+def list_tasks(statuses: List[Status] = [], story_id: Optional[str] = None, offset: Optional[int] = 0, limit: Optional[int] = None) -> List[TaskListItem]:
     """List tasks, optionally filtering by statuses and story with pagination."""
     story_id = story_id or get_current_story_id()
     tasks = svc_list_tasks(statuses, story_id)
