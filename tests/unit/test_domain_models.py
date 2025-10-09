@@ -1,7 +1,5 @@
 """Unit tests for domain models."""
 
-import pytest
-from datetime import datetime
 from plan_manager.domain.models import Plan, Story, Task, Status
 
 

@@ -57,6 +57,9 @@ def starlette_app() -> Starlette:
 
     # Add routes for the file browser if enabled
     if ENABLE_BROWSER:
+        # Add this to starlette_app() function before returning app
+        app.add_route(
+            "/", lambda r: RedirectResponse(url="/browse/"), name="browse_redirect")
         app.add_route("/browse", lambda r: RedirectResponse(
             url="/browse/"), name="browse_redirect")
         app.add_route("/browse/", browse_endpoint, name="browse_root")
