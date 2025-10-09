@@ -8,7 +8,7 @@ from pydantic import ValidationError
 from plan_manager.domain.models import Story, Status
 from plan_manager.services import plan_repository as plan_repo
 from plan_manager.io.paths import story_file_path
-from plan_manager.io.file_mirror import save_item_to_file, delete_item_file
+from plan_manager.io.file_mirror import delete_item_file
 from plan_manager.services.shared import (
     generate_slug,
     ensure_unique_id_from_set,
@@ -127,8 +127,7 @@ def update_story(
 
     if story_obj.file_path:
         try:
-            save_item_to_file(story_obj.file_path, story_obj,
-                              content=None, overwrite=False)
+            write_story_details(story_obj)
         except Exception:
             logger.info(
                 f"Best-effort update of story file failed for '{story_id}'.")

@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added:
 - Automatic redirect from localhost:3000 to localhost:3000/browse/ for user convenience.
 
+### Fixed:
+- Update story was corrupting the list of task IDs in story.md.
+
 ## [0.7.0] - 2025-10-08
 
 ### Added:
