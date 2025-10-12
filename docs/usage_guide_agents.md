@@ -55,7 +55,7 @@ TaskWorkflowResult {
 
 ## Examples: Tool parameter types
 
-- Priority (integer 0–5)
+- Priority (integer 0–5, 0 is highest).
   - `priority: 2` → accepted
   - `priority: 2.0` → accepted (coerced to 2)
   - `priority: 2.5` → rejected with a clear message, e.g.:

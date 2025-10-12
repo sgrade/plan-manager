@@ -35,8 +35,8 @@ Note: The server prints structured logs to stdout by default; file log is option
 - PORT (default: `3000`)
 - PLAN_MANAGER_RELOAD (default: `false`) — enable dev reload
 - RELOAD_DIRS (default: `src`) — comma-separated list
-- RELOAD_INCLUDE (default: `*.py`) — comma-separated patterns
-- RELOAD_EXCLUDE (default: `logs/*`) — comma-separated patterns
+- RELOAD_INCLUDE (default: `*.py`) — comma-separated patterns (sets RELOAD_INCLUDES)
+- RELOAD_EXCLUDE (default: `logs/*`) — comma-separated patterns (sets RELOAD_EXCLUDES)
 - TIMEOUT_GRACEFUL_SHUTDOWN (default: `3`) — seconds
 - TIMEOUT_KEEP_ALIVE (default: `5`) — seconds
 

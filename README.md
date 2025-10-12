@@ -32,11 +32,45 @@ Currently, the most convenient way is to run Plan Manager in devcontainer on the
 
 ### Connecting to the Server
 
+#### Connect in the devcontainer
+
 - **Start the server:** `uv run pm`
 - **Endpoint:** `http://localhost:3000/mcp`
 - **Browse files:** `http://localhost:3000/browse`
 
-Note: change `localhost` to `host.docker.internal` if accessing from another container on the same host.
+#### Connect from another container on the same host.
+
+Change `localhost` to `host.docker.internal` in the MCP configuration. For example:
+
+```json
+{
+  "mcpServers": {
+    "plan-manager": {
+      "url": "http://host.docker.internal:3000/mcp"
+    }
+  }
+}
+```
+
+#### Connect from another host
+
+Set environment variable `HOST=0.0.0.0` when starting the server, then connect using the host's IP address instead of `localhost`.
+
+If starting Plan Manager in the devcontainer, you can add the environment variable to existing ones in the devcontainer.json by modifying `containerEnv`.
+
+```json
+{
+  "containerEnv": {
+    "HOST": "0.0.0.0"
+  }
+}
+```
+
+See [docs/config_reference.md](docs/config_reference.md) for details.
+
+Security Considerations.
+
+Important: When binding to 0.0.0.0, the server will accept connections from any computer on your network. As authentication is not yet implemented, other people will have access to Plan Manager.
 
 ### Hints
 
