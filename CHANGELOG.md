@@ -9,9 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added:
 - Automatic redirect from localhost:3000 to localhost:3000/browse/ for user convenience.
+- Test story_tools
 
 ### Changed:
 - Docs: how to connect to Plan Manager from another computer and related security considerations.
+- MCP Python SDK bumped to 1.17.0
 
 ### Fixed:
 - Update story was corrupting the list of task IDs in story.md.
