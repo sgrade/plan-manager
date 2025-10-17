@@ -26,11 +26,12 @@ def generate_changelog(
         ChangelogPreviewOut: The generated changelog in markdown format
     """
     plan = load_current()
-    completed_tasks = []
-    for story in plan.stories:
-        for task in story.tasks:
-            if task.status == "DONE":
-                completed_tasks.append(task)
+    completed_tasks = [
+        task
+        for story in plan.stories
+        for task in story.tasks
+        if task.status == "DONE"
+    ]
 
     snippets = []
     for task in completed_tasks:

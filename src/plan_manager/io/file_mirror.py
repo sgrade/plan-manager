@@ -32,7 +32,7 @@ def split_front_matter(raw_text: str) -> tuple[dict[str, Any], str]:
                         break
                 if end_index is not None:
                     yaml_block = "\n".join(parts[1:end_index])
-                    body = "\n".join(parts[end_index + 1 :])
+                    body = "\n".join(parts[end_index + 1:])
                     front = yaml.safe_load(yaml_block) or {}
                     if not isinstance(front, dict):
                         front = {}
@@ -126,7 +126,8 @@ def save_item_to_file(
         elif isinstance(front_source, dict):
             front = {k: v for k, v in front_source.items() if v is not None}
         else:
-            front = {k: v for k, v in vars(front_source).items() if v is not None}
+            front = {k: v for k, v in vars(
+                front_source).items() if v is not None}
 
         # Normalize datetimes
         for key in ("creation_time", "completion_time"):
@@ -134,7 +135,8 @@ def save_item_to_file(
                 front[key] = _to_iso_z(front[key])
 
         merged: dict[str, Any] = (
-            dict(existing_front) if (abs_path.exists() and not overwrite) else {}
+            dict(existing_front) if (
+                abs_path.exists() and not overwrite) else {}
         )
         merged.update(front)
         merged.setdefault("schema_version", 1)

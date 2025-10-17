@@ -105,22 +105,17 @@ def list_stories(
     logger.info("Handling list_stories: statuses=%s, unblocked=%s", statuses, unblocked)
     try:
         stories: list[Story] = svc_list_stories(statuses, unblocked)
-        items: list[StoryListItem] = []
-        for s in stories:
-            items.append(
-                StoryListItem(
-                    id=s.id,
-                    title=s.title,
-                    status=s.status,
-                    priority=s.priority,
-                    creation_time=s.creation_time.isoformat()
-                    if s.creation_time
-                    else None,
-                    completion_time=s.completion_time.isoformat()
-                    if s.completion_time
-                    else None,
-                )
+        items = [
+            StoryListItem(
+                id=s.id,
+                title=s.title,
+                status=s.status,
+                priority=s.priority,
+                creation_time=s.creation_time.isoformat() if s.creation_time else None,
+                completion_time=s.completion_time.isoformat() if s.completion_time else None,
             )
+            for s in stories
+        ]
         logger.info(
             "list_stories returning %d stories after sorting and filtering.", len(items)
         )

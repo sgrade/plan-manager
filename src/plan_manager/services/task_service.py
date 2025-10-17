@@ -431,9 +431,7 @@ def list_tasks(
     for s in plan.stories:
         if story_id and s.id != story_id:
             continue
-        for t in s.tasks or []:
-            if isinstance(t, Task):
-                tasks.append(t)
+        tasks.extend(t for t in (s.tasks or []) if isinstance(t, Task))
 
     allowed_statuses = set(statuses) if statuses else None
 
@@ -483,11 +481,10 @@ def create_steps(
     validated_steps = validate_task_steps(steps)
 
     # Convert validated steps to domain models
-    new_steps: list[Task.Step] = []
-    for step in validated_steps:
-        new_steps.append(
-            Task.Step(title=step["title"], description=step["description"])
-        )
+    new_steps = [
+        Task.Step(title=step["title"], description=step["description"])
+        for step in validated_steps
+    ]
     task_obj.steps = new_steps
 
     # Re-assign the tasks list to ensure the parent model detects the change.

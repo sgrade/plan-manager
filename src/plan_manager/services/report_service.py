@@ -140,8 +140,7 @@ def _generate_story_report(plan: Plan) -> str:
         )
         report.append(f"ATTENTION: Current task '{active_task.title}' is BLOCKED.")
         report.append("It cannot be started because of the following dependencies:")
-        for blocker in blockers:
-            report.append(f"- {blocker}")
+        report.extend(f"- {blocker}" for blocker in blockers)
         report.append("\nNext Action: Complete the dependencies to unblock this task.")
         return "\n".join(report)
 

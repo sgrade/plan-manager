@@ -185,18 +185,17 @@ def list_tasks(
         statuses = []
     story_id = story_id or get_current_story_id()
     tasks = svc_list_tasks(statuses, story_id)
-    items: list[TaskListItem] = []
-    for t in tasks:
-        items.append(
-            TaskListItem(
-                id=t.id,
-                title=t.title,
-                status=t.status,
-                priority=t.priority,
-                creation_time=t.creation_time.isoformat() if t.creation_time else None,
-                local_id=t.id.split(":", 1)[1] if ":" in t.id else t.id,
-            )
+    items = [
+        TaskListItem(
+            id=t.id,
+            title=t.title,
+            status=t.status,
+            priority=t.priority,
+            creation_time=t.creation_time.isoformat() if t.creation_time else None,
+            local_id=t.id.split(":", 1)[1] if ":" in t.id else t.id,
         )
+        for t in tasks
+    ]
     start = max(0, offset or 0)
     end = None if limit is None else start + max(0, limit)
     return items[start:end]
@@ -549,9 +548,9 @@ def approve_task() -> TaskWorkflowResult:
             success=False, message=f"Error: {e}", action=ActionType.APPROVE
         )
 
-    except (ValueError, KeyError, OSError, RuntimeError) as e:
-        # Handle expected business logic errors
-        logger.warning(f"Approval failed due to business logic error: {e}")
+    except OSError as e:
+        # Handle file system errors
+        logger.warning("Approval failed due to OS error: %s", e)
         return TaskWorkflowResult(
             success=False, message=str(e), action=ActionType.APPROVE
         )

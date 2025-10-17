@@ -58,7 +58,8 @@ ENABLE_FILE_LOG = _env_bool("PLAN_MANAGER_ENABLE_FILE_LOG")
 
 # --- Workflow Guardrails ---
 # Require approval before moving a Story/Task off TODO (to IN_PROGRESS/DONE)
-REQUIRE_APPROVAL_BEFORE_PROGRESS = _env_bool("REQUIRE_APPROVAL_BEFORE_PROGRESS", True)
+REQUIRE_APPROVAL_BEFORE_PROGRESS = _env_bool(
+    "REQUIRE_APPROVAL_BEFORE_PROGRESS", True)
 
 # Require an execution_intent before moving a Task to IN_PROGRESS
 REQUIRE_EXECUTION_INTENT_BEFORE_IN_PROGRESS = _env_bool(

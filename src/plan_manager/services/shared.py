@@ -207,9 +207,7 @@ def find_dependents(plan: Plan, target_id: str) -> list[str]:
     # Story dependents: other stories that depend on the story
     if not is_task:
         for s in plan.stories:
-            for dep in s.depends_on or []:
-                if dep == target_id:
-                    dependents.append(s.id)
+            dependents.extend(s.id for dep in (s.depends_on or []) if dep == target_id)
 
     # Task dependents: tasks depending on the target
     for s in plan.stories:
