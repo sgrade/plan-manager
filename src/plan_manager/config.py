@@ -37,7 +37,7 @@ def _env_float(name: str, default: float = 1.0) -> float:
         return default
     try:
         return float(val)
-    except Exception:
+    except (ValueError, TypeError):
         return default
 
 
