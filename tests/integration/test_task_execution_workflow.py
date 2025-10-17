@@ -3,9 +3,8 @@ import pytest
 
 
 @pytest.mark.integration
-def test_task_execution_gate1_paths(monkeypatch, tmp_path):
-    # Isolate filesystem storage for the test run
-    monkeypatch.setenv("TODO_DIR", str(tmp_path / "todo"))
+def test_task_execution_gate1_paths():
+    # Test isolation handled by autouse fixture in conftest.py
 
     from plan_manager.services import plan_service
     from plan_manager.services import story_service

@@ -78,7 +78,7 @@ curl -i http://localhost:3000/
 
 This is expected because the root path has no route.
 
-A JSON response is expected on the below request. 
+A JSON response is expected on the below request.
 
 Note: jq is required for the below to work.
 
@@ -96,7 +96,7 @@ curl -sN \
       "clientInfo":{"name":"curl","version":"0"}
     }
   }' \
-  http://localhost:3000/mcp \ 
+  http://localhost:3000/mcp \
 | sed -n 's/^data: //p' \
 | jq
 ```
@@ -105,25 +105,27 @@ To test with MCP-Inspector, check [../dev/mcp-inspector/README.md](../dev/mcp-in
 
 ### Running Tests
 
-- All tests:
+**Test Isolation**: All tests run in isolated temp directories (via `tests/conftest.py` autouse fixture). Your real `todo/` directory is never touched.
 
-  ```bash
-  uv run pytest
-  ```
+```bash
+# All tests
+uv run pytest
 
-- Integration tests only:
+# Unit tests only (fastest, ~3s)
+uv run pytest tests/unit/
 
-  ```bash
-  uv run pytest -m integration
-  ```
+# Integration tests only
+uv run pytest -m integration
 
-  The `integration` marker is defined in `pytest.ini`. Integration tests may touch the filesystem and run end-to-end flows.
+# With coverage
+uv run pytest --cov=src/plan_manager --cov-report=html
+open htmlcov/index.html
+```
 
-- Manual smoke (Task Execution workflow up to IN_PROGRESS):
-
-  ```bash
-  PYTHONPATH=src uv run python dev/scripts/smoke_exec_workflow.py
-  ```
+**Test Structure**:
+- `tests/unit/` - Fast isolated tests (domain models, validation, utilities)
+- `tests/integration/` - Tests with filesystem (story/task workflows)
+- `tests/conftest.py` - Auto-isolation fixture (redirects TODO_DIR to temp)
 
 ### Logging
 

@@ -172,13 +172,12 @@ def delete_story(story_id: str) -> dict:
             story_dir_candidate = os.path.dirname(abs_details_path)
         else:
             # Fall back to the conventional story directory under workspace
-            story_dir_candidate = os.path.join(
-                WORKSPACE_ROOT, 'todo', plan.id, story_id)
+            story_dir_candidate = os.path.join(TODO_DIR, plan.id, story_id)
 
         norm_story_dir = os.path.normpath(story_dir_candidate)
-        norm_ws_root = os.path.normpath(WORKSPACE_ROOT)
-        # Guardrails: ensure deletion stays within <WORKSPACE_ROOT>/todo and the directory name matches the story_id
-        if norm_story_dir.startswith(os.path.join(norm_ws_root, 'todo') + os.sep) and os.path.basename(norm_story_dir) == story_id:
+        norm_todo_dir = os.path.normpath(TODO_DIR)
+        # Guardrails: ensure deletion stays within TODO_DIR and the directory name matches the story_id
+        if norm_story_dir.startswith(norm_todo_dir + os.sep) and os.path.basename(norm_story_dir) == story_id:
             if os.path.exists(norm_story_dir):
                 shutil.rmtree(norm_story_dir, ignore_errors=True)
                 logger.info(f"Deleted story directory: {norm_story_dir}")
@@ -191,8 +190,8 @@ def delete_story(story_id: str) -> dict:
         if current_sid == story_id:
             set_current_task_id(None, plan.id)
             set_current_story_id(None, plan.id)
-    except Exception:
-        pass
+    except Exception:  # noqa: S110
+        pass  # Ignore errors when clearing state
     return {"success": True, "message": f"Successfully deleted story '{story_id}'."}
 
 

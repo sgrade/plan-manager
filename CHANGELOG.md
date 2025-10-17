@@ -7,16 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added:
-- Automatic redirect from localhost:3000 to localhost:3000/browse/ for user convenience.
-- Test story_tools
+### Added
+- GitHub Actions CI/CD pipeline with automated testing, linting, type checking, and security scanning
+- Test isolation infrastructure: all tests run in temporary directories (`/tmp/pytest_plan_manager_*`)
+- Pre-commit hooks for automated code quality checks (ruff, mypy, bandit, pytest)
+- Comprehensive unit tests for validation, config, and shared utilities
+- Type checking with mypy in strict mode
+- Security scanning with bandit
+- Dependabot configuration for automated dependency updates
+- Dependency review workflow for pull requests
+- `tests/conftest.py` with autouse fixture for complete test isolation
+- `py.typed` marker for PEP 561 compliance
+- Automatic redirect from localhost:3000 to localhost:3000/browse/ for user convenience
+- Test story_tools integration tests
 
-### Changed:
-- Docs: how to connect to Plan Manager from another computer and related security considerations.
+### Changed
+- Documentation restructured: `docs/contributing.md` is now the single source of truth for development info
+- `README.md` simplified to user-focused content only
+- `AGENTS.md` updated to guide AI agents developing Plan Manager (vs. using it)
+- Expanded ruff linting rules to 30+ categories with per-file ignores
+- Test suite optimized for pre-1.0 project (removed performance benchmarks)
+- CI pipeline configured for branch-specific checks (full checks on main/PRs, fast unit tests on develop)
+- Fixed hardcoded `'todo'` paths to use `TODO_DIR` from config for proper test isolation
+- Docs: how to connect to Plan Manager from another computer and related security considerations
 - MCP Python SDK bumped to 1.17.0
 
-### Fixed:
-- Update story was corrupting the list of task IDs in story.md.
+### Fixed
+- Test isolation: tests no longer create files in real `todo/` directory
+- Hardcoded paths in `paths.py` and `story_service.py` now respect `TODO_DIR` environment variable
+- Update story was corrupting the list of task IDs in story.md
+
+### Removed
+- Performance benchmark tests (overkill for pre-1.0 project)
+- Duplicate documentation across multiple files
 
 ## [0.7.0] - 2025-10-08
 
@@ -64,8 +87,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added:
 - Triage:
-  - Create triage dashboard and backlog views: Defined dashboard views (P0/P1, needs‑info, by area) and documented how to access them in triage_guide.md. 
-  - Establish triage labels and P0/P1/P2 criteria: Added performance labeling guidance (use area:performance with type:enhancement unless functional defect) and concrete P1 vs P2 examples. 
+  - Create triage dashboard and backlog views: Defined dashboard views (P0/P1, needs‑info, by area) and documented how to access them in triage_guide.md.
+  - Establish triage labels and P0/P1/P2 criteria: Added performance labeling guidance (use area:performance with type:enhancement unless functional defect) and concrete P1 vs P2 examples.
   - Verified triage_guide.md covers monitoring P0/P1, needs‑info, and area views.
   - Set up weekly triage routine: Added weekly triage cadence and ownership details to triage_guide.md (schedule, participants, reminders, outcomes, ≤15‑min agenda).
 - AGENTS.md - this file guides agents that use the Plan Manager MCP server.
@@ -82,8 +105,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Unified output for task workflow functions.
 
 ### Fixed:
-- Priority type mismatch at transport vs domain; implemented boundary coercion with clear error messages and updated tool signatures to accept numeric types. 
-- Task status string vs enum mismatch; updated tool to coerce to Status enum. 
+- Priority type mismatch at transport vs domain; implemented boundary coercion with clear error messages and updated tool signatures to accept numeric types.
+- Task status string vs enum mismatch; updated tool to coerce to Status enum.
 - Minor prompt typo fixed ("Create aplan" -> "Create a plan"). Error handling improved in task tools: now raise exceptions instead of returning invalid TaskOuts.
 
 ## [v0.6.0] - 2025-09-16

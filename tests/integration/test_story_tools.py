@@ -14,10 +14,9 @@ import pytest
 
 
 @pytest.mark.integration
-def test_get_story_with_explicit_id(monkeypatch, tmp_path):
+def test_get_story_with_explicit_id():
     """Test that get_story tool correctly accepts and uses an explicit story_id parameter."""
-    # Isolate filesystem storage for the test run
-    monkeypatch.setenv("TODO_DIR", str(tmp_path / "todo"))
+    # Test isolation handled by autouse fixture in conftest.py
 
     from plan_manager.services import plan_service, story_service
     from plan_manager.tools.story_tools import get_story
@@ -79,10 +78,9 @@ def test_get_story_with_explicit_id(monkeypatch, tmp_path):
 
 
 @pytest.mark.integration
-def test_get_story_with_null_id_requires_current(monkeypatch, tmp_path):
+def test_get_story_with_null_id_requires_current():
     """Test that get_story raises ValueError when no ID is provided and no current story is set."""
-    # Isolate filesystem storage for the test run
-    monkeypatch.setenv("TODO_DIR", str(tmp_path / "todo"))
+    # Test isolation handled by autouse fixture in conftest.py
 
     from plan_manager.tools.story_tools import get_story
     from plan_manager.services.state_repository import set_current_story_id
@@ -96,10 +94,9 @@ def test_get_story_with_null_id_requires_current(monkeypatch, tmp_path):
 
 
 @pytest.mark.integration
-def test_get_story_parameter_types(monkeypatch, tmp_path):
+def test_get_story_parameter_types():
     """Test that get_story accepts the correct parameter types per MCP schema."""
-    # Isolate filesystem storage for the test run
-    monkeypatch.setenv("TODO_DIR", str(tmp_path / "todo"))
+    # Test isolation handled by autouse fixture in conftest.py
 
     from plan_manager.services import plan_service, story_service
     from plan_manager.tools.story_tools import get_story

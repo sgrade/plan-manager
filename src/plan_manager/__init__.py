@@ -8,5 +8,3 @@ Key components:
 - plan_utils: Core utilities for plan management
 - CLI scripts: Direct command-line story management
 """
-
-__version__ = "0.7.0"

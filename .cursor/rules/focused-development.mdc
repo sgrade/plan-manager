@@ -2,6 +2,22 @@
 alwaysApply: true
 ---
 
-- Adhere to YAGNI and KISS principles
-- Use efficient algorithms and data structures
-- Avoid optional work
+# Efficiency (Critical)
+- Minimize developer time and AI costs WITHOUT sacrificing must-haves
+- Apply YAGNI, KISS, DRY - avoid gold-plating and premature optimization
+- Choose efficient algorithms from the start (avoiding waste ≠ premature optimization)
+
+# Quality Tiers
+- DO (Required): correctness, security, maintainability, critical path tests, API contracts, getting started docs
+- DO IF EASY (Pragmatic tradeoff): reasonable efficiency, edge case tests, architectural docs, workflow diagrams
+- SKIP: micro-optimizations, exhaustive tests, comprehensive docs, duplication in the docs
+
+# Documentation
+- WRITE: why decisions (when non-obvious), getting started, key workflows, complex logic
+- SKIP: documentation that merely repeats obvious code
+
+# AI Behavior
+- DEFAULT: follow user instructions exactly
+- CHALLENGE: if violates must-haves, critically inefficient, or unclear
+- MINOR fixes (typos, obvious bugs): fix and notify
+- MAJOR deviations: wait for explicit approval
