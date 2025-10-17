@@ -7,7 +7,7 @@ from core domain entities and rules.
 """
 
 from enum import Enum
-from typing import Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
@@ -69,11 +69,11 @@ class PlanListItem(BaseModel):
 class WorkflowStatusOut(BaseModel):
     """Workflow status output showing current state and next actions."""
 
-    current_task: Optional[dict] = None
-    workflow_state: dict
-    compliance: dict
+    current_task: Optional[dict[str, Any]] = None
+    workflow_state: dict[str, Any]
+    compliance: dict[str, Any]
     next_actions: list[str]
-    actions: Optional[list[dict]] = None
+    actions: Optional[list[dict[str, Any]]] = None
 
 
 class ChangelogPreviewOut(BaseModel):
@@ -135,9 +135,9 @@ class TaskOut(BaseModel):
     creation_time: Optional[str] = None
     completion_time: Optional[str] = None
     depends_on: list[str] = []
-    steps: Optional[list[dict]] = None
+    steps: Optional[list[dict[str, Any]]] = None
     execution_summary: Optional[str] = None
-    review_feedback: Optional[list[dict]] = None
+    review_feedback: Optional[list[dict[str, Any]]] = None
     rework_count: Optional[int] = None
 
 
@@ -199,7 +199,7 @@ class NextAction(BaseModel):
     who: WhoRuns
     recommended: bool = False
     blocked_reason: Optional[str] = None
-    arguments: Optional[dict] = None
+    arguments: Optional[dict[str, Any]] = None
 
 
 # Intentionally no separate agent policy type: agents derive behavior from next_actions.who
