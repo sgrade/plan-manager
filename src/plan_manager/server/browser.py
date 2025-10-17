@@ -1,9 +1,8 @@
 from pathlib import Path
-from typing import Union
 
 from starlette.exceptions import HTTPException
 from starlette.requests import Request
-from starlette.responses import FileResponse, HTMLResponse
+from starlette.responses import FileResponse, HTMLResponse, Response
 
 from plan_manager.config import TODO_DIR
 
@@ -49,9 +48,7 @@ CSS_STYLE = """
 """
 
 
-async def browse_endpoint(
-    request: Request,
-) -> Union[HTMLResponse, FileResponse, None]:
+async def browse_endpoint(request: Request) -> Response:
     """Serves files and directory listings for the /browse path."""
     relative_path = request.path_params.get("path", "")
 
@@ -109,4 +106,5 @@ async def browse_endpoint(
 
     if file_path.is_file():
         return FileResponse(file_path)
-    return None
+    
+    raise HTTPException(status_code=404, detail="Not Found")

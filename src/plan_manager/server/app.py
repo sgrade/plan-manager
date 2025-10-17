@@ -6,11 +6,16 @@ Streamable HTTP. Supports server-initiated streaming via SSE per spec.
 
 import logging
 import uuid
+from typing import TYPE_CHECKING
 
 from mcp.server.fastmcp import FastMCP
 from starlette.applications import Starlette
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import RedirectResponse
+from starlette.requests import Request
+from starlette.responses import RedirectResponse, Response
+
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
 
 from plan_manager.config import ENABLE_BROWSER
 from plan_manager.logging_context import set_correlation_id
@@ -57,7 +62,9 @@ def starlette_app() -> Starlette:
     if ENABLE_BROWSER:
         # Add this to starlette_app() function before returning app
         app.add_route(
-            "/", lambda r: RedirectResponse(url="/browse/"), name="browse_redirect"
+            "/",
+            lambda r: RedirectResponse(url="/browse/"),
+            name="browse_redirect",
         )
         app.add_route(
             "/browse",
@@ -68,7 +75,9 @@ def starlette_app() -> Starlette:
         app.add_route("/browse/{path:path}", browse_endpoint, name="browse")
 
     class CorrelationIdMiddleware(BaseHTTPMiddleware):
-        async def dispatch(self, request, call_next):
+        async def dispatch(
+            self, request: Request, call_next: "Callable[[Request], Awaitable[Response]]"
+        ) -> Response:
             try:
                 incoming = request.headers.get("x-correlation-id")
                 corr_id = incoming or str(uuid.uuid4())
