@@ -93,7 +93,8 @@ def create_task(
         }
     )
     plan = plan_repository.load_current()
-    story: Optional[Story] = next((s for s in plan.stories if s.id == story_id), None)
+    story: Optional[Story] = next(
+        (s for s in plan.stories if s.id == story_id), None)
     if not story:
         raise KeyError(f"story with ID '{story_id}' not found.")
 
@@ -116,7 +117,8 @@ def create_task(
             local_id=task_local_id,
         )
     except ValidationError as e:
-        logger.exception(f"Validation error creating new task '{fq_task_id}': {e}")
+        logger.exception(
+            f"Validation error creating new task '{fq_task_id}': {e}")
         raise ValueError(
             f"Validation error creating new task '{fq_task_id}': {e}"
         ) from e
@@ -126,12 +128,15 @@ def create_task(
 
     try:
         write_task_details(task)
-    except Exception:
-        logger.info(f"Best-effort creation of task file failed for '{fq_task_id}'.")
+    except (ValueError, AttributeError, OSError):
+        # Best-effort: log but don't fail on write errors
+        logger.info(
+            f"Best-effort creation of task file failed for '{fq_task_id}'.")
 
     try:
         write_story_details(story)
-    except Exception:
+    except (KeyError, ValueError, AttributeError, OSError):
+        # Best-effort: log but don't fail on write errors
         logger.info(
             f"Best-effort update of story file tasks list failed for '{story_id}'."
         )
@@ -155,13 +160,15 @@ def get_task(story_id: str, task_id: str) -> dict[str, Any]:
     plan = plan_repository.load_current()
     s_id, local_task_id = resolve_task_id(task_id, story_id)
 
-    story: Optional[Story] = next((s for s in plan.stories if s.id == s_id), None)
+    story: Optional[Story] = next(
+        (s for s in plan.stories if s.id == s_id), None)
     if not story:
         raise KeyError(f"story with ID '{s_id}' not found.")
 
     fq_task_id = f"{s_id}:{local_task_id}"
     if not story.tasks or not any(t.id == fq_task_id for t in story.tasks):
-        raise KeyError(f"task with ID '{fq_task_id}' not found under story '{s_id}'.")
+        raise KeyError(
+            f"task with ID '{fq_task_id}' not found under story '{s_id}'.")
     task_obj = next((t for t in story.tasks if t.id == fq_task_id), None)
     if task_obj:
         base = task_obj.model_dump(
@@ -183,7 +190,8 @@ def get_task(story_id: str, task_id: str) -> dict[str, Any]:
             # Pydantic BaseModel dumps datetime by default; ensure str
             if ct is not None and hasattr(ct, "isoformat"):
                 base["creation_time"] = ct.isoformat()
-        except Exception:
+        except (AttributeError, TypeError):
+            # Fallback if datetime conversion fails
             base["creation_time"] = None
         task_details_path = task_file_path(s_id, local_task_id)
         return merge_frontmatter_defaults(task_details_path, base)
@@ -212,7 +220,8 @@ def _find_task(
     """Helper to find a task and its story, returning (story, task, fq_id) or raising KeyError."""
     s_id, local_task_id = resolve_task_id(task_id, story_id)
 
-    story: Optional[Story] = next((s for s in plan.stories if s.id == s_id), None)
+    story: Optional[Story] = next(
+        (s for s in plan.stories if s.id == s_id), None)
     if not story:
         raise KeyError(f"Story with ID '{s_id}' not found.")
 
@@ -221,7 +230,8 @@ def _find_task(
         (t for t in (story.tasks or []) if t.id == fq_task_id), None
     )
     if not task_obj:
-        raise KeyError(f"Task with ID '{fq_task_id}' not found under story '{s_id}'.")
+        raise KeyError(
+            f"Task with ID '{fq_task_id}' not found under story '{s_id}'.")
     return story, task_obj, fq_task_id
 
 
@@ -243,7 +253,8 @@ def _update_dependent_task_statuses(plan: Plan) -> None:
                     )
                 elif task.status == Status.BLOCKED and currently_unblocked:
                     task.status = Status.TODO
-                    logger.info(f"Task '{task.id}' is now UNBLOCKED and set to TODO.")
+                    logger.info(
+                        f"Task '{task.id}' is now UNBLOCKED and set to TODO.")
 
 
 def update_task(
@@ -316,13 +327,16 @@ def update_task(
 
     # 1. Roll up story status
     prev_story_status = story.status
-    next_story_status = rollup_story_status([t.status for t in (story.tasks or [])])
+    next_story_status = rollup_story_status(
+        [t.status for t in (story.tasks or [])])
     if prev_story_status != next_story_status:
         apply_status_change(story, next_story_status)
         if story.file_path:
             try:
-                save_item_to_file(story.file_path, story, content=None, overwrite=False)
-            except Exception:
+                save_item_to_file(story.file_path, story,
+                                  content=None, overwrite=False)
+            except (OSError, yaml.YAMLError):
+                # Best-effort: log but don't fail on write errors
                 logger.info(
                     f"Best-effort rollup update of story file failed for '{story_id}'."
                 )
@@ -347,7 +361,8 @@ def update_task(
             current_sid = get_current_story_id(plan.id)
             if current_sid == story.id:
                 set_current_story_id(None, plan.id)
-    except Exception:
+    except (KeyError, ValueError):
+        # Best-effort: state management is not critical
         logger.warning("Failed to update current selection state.")
 
     return task_obj.model_dump(mode="json", exclude_none=True)
@@ -355,7 +370,8 @@ def update_task(
 
 def delete_task(story_id: str, task_id: str) -> dict[str, Any]:
     plan = plan_repository.load_current()
-    story: Optional[Story] = next((s for s in plan.stories if s.id == story_id), None)
+    story: Optional[Story] = next(
+        (s for s in plan.stories if s.id == story_id), None)
     if not story:
         raise KeyError(f"story with ID '{story_id}' not found.")
     fq_task_id = f"{story_id}:{task_id}" if ":" not in task_id else task_id
@@ -376,12 +392,16 @@ def delete_task(story_id: str, task_id: str) -> dict[str, Any]:
         local_task_id = fq_task_id.split(":", 1)[1]
         task_details_path = task_file_path(story_id, local_task_id)
         delete_item_file(task_details_path)
-    except Exception:
-        logger.info(f"Best-effort delete of task file failed for '{fq_task_id}'.")
+    except (IndexError, OSError):
+        # Best-effort: log but don't fail on delete errors
+        logger.info(
+            f"Best-effort delete of task file failed for '{fq_task_id}'.")
     try:
         if story.file_path:
-            save_item_to_file(story.file_path, story, content=None, overwrite=False)
-    except Exception:
+            save_item_to_file(story.file_path, story,
+                              content=None, overwrite=False)
+    except (OSError, yaml.YAMLError):
+        # Best-effort: log but don't fail on write errors
         logger.info(
             f"Best-effort update of story file tasks list failed for '{story_id}'."
         )
@@ -396,7 +416,8 @@ def delete_task(story_id: str, task_id: str) -> dict[str, Any]:
                     break
             else:
                 set_current_task_id(None, plan.id)
-    except Exception:
+    except (KeyError, ValueError):
+        # Best-effort: state management is not critical, silently continue
         pass
 
     return {"success": True, "message": f"Successfully deleted task '{fq_task_id}'."}
@@ -667,7 +688,8 @@ def _log_review_feedback(plan_id: str, task: Task, feedback: str) -> None:
             {"task_id": task.id},
             {"feedback": feedback.strip()},
         )
-    except Exception:
+    except (OSError, KeyError, ValueError):
+        # Best-effort: event logging is not critical
         logger.warning(
             f"Failed to log review_changes_requested event for task {task.id}"
         )
@@ -677,7 +699,8 @@ def _log_review_feedback(plan_id: str, task: Task, feedback: str) -> None:
             Task.ReviewFeedback(message=feedback.strip())
         ]
         task.rework_count = (getattr(task, "rework_count", 0) or 0) + 1
-    except Exception:
+    except (ValidationError, ValueError, AttributeError):
+        # Best-effort: feedback persistence is not critical
         logger.warning(f"Failed to persist review feedback for task {task.id}")
 
 
