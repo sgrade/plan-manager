@@ -1,9 +1,14 @@
+from typing import TYPE_CHECKING
+
 from plan_manager.schemas.outputs import ChangelogPreviewOut
 from plan_manager.services.changelog_service import generate_changelog_for_task
 from plan_manager.services.plan_repository import load_current
 
+if TYPE_CHECKING:
+    from mcp.server.fastmcp import FastMCP
 
-def register_changelog_tools(mcp_instance) -> None:
+
+def register_changelog_tools(mcp_instance: "FastMCP") -> None:
     """Register changelog tools with the MCP instance."""
     mcp_instance.tool()(generate_changelog)
 

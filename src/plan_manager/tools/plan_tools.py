@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from plan_manager.domain.models import Status
 from plan_manager.schemas.outputs import OperationResult, PlanListItem, PlanOut
@@ -8,23 +8,18 @@ from plan_manager.services.plan_repository import (
 )
 from plan_manager.services.plan_service import (
     create_plan as svc_create_plan,
-)
-from plan_manager.services.plan_service import (
     delete_plan as svc_delete_plan,
-)
-from plan_manager.services.plan_service import (
     get_plan as svc_get_plan,
-)
-from plan_manager.services.plan_service import (
     list_plans as svc_list_plans,
-)
-from plan_manager.services.plan_service import (
     update_plan as svc_update_plan,
 )
 from plan_manager.tools.util import coerce_optional_int
 
+if TYPE_CHECKING:
+    from mcp.server.fastmcp import FastMCP
 
-def register_plan_tools(mcp_instance) -> None:
+
+def register_plan_tools(mcp_instance: "FastMCP") -> None:
     """Register plan tools with the MCP instance."""
     mcp_instance.tool()(list_plans)
     mcp_instance.tool()(create_plan)

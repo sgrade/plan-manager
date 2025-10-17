@@ -1,3 +1,5 @@
+from typing import TYPE_CHECKING
+
 from plan_manager.schemas.outputs import (
     CurrentContextOut,
 )
@@ -7,8 +9,11 @@ from plan_manager.services.state_repository import (
     get_current_task_id,
 )
 
+if TYPE_CHECKING:
+    from mcp.server.fastmcp import FastMCP
 
-def register_context_tools(mcp_instance) -> None:
+
+def register_context_tools(mcp_instance: "FastMCP") -> None:
     """Register context tools with the MCP instance."""
     mcp_instance.tool()(get_current)
 

@@ -1,12 +1,16 @@
 import logging
+from typing import TYPE_CHECKING
 
 from plan_manager.schemas.outputs import ReportOut
 from plan_manager.services import report_service
 
+if TYPE_CHECKING:
+    from mcp.server.fastmcp import FastMCP
+
 logger = logging.getLogger(__name__)
 
 
-def register_report_tools(mcp_instance) -> None:
+def register_report_tools(mcp_instance: "FastMCP") -> None:
     """Register report tools with the MCP instance."""
     mcp_instance.tool()(report)
 
