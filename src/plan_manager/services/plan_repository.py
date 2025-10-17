@@ -70,9 +70,10 @@ def _save_story(story: Story) -> None:
 
     # Save each task to its own file
     for task in story.tasks:
-        task_path = task_file_path(story.id, task.local_id)
-        task.file_path = task_path
-        save_item_to_file(task_path, task, overwrite=True)
+        if task.local_id:
+            task_path = task_file_path(story.id, task.local_id)
+            task.file_path = task_path
+            save_item_to_file(task_path, task, overwrite=True)
 
 
 def _update_plan_in_index(plan: Plan) -> None:
@@ -218,7 +219,7 @@ def get_current_plan_id() -> str:
     with open(PLANS_INDEX_FILE_PATH, 'r', encoding='utf-8') as f:
         idx = yaml.safe_load(f) or {}
     cur = idx.get('current')
-    if not cur:
+    if not cur or not isinstance(cur, str):
         raise ValueError(
             f"'current' plan is not set in index {PLANS_INDEX_FILE_PATH}")
     plans_list = idx.get('plans') or []

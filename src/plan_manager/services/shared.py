@@ -138,8 +138,9 @@ def write_story_details(story: Story) -> None:
             ]
             front['tasks'] = [tid for tid in front['tasks']
                               if isinstance(tid, str) and tid]
-            save_item_to_file(story.file_path, front,
-                              content=None, overwrite=False)
+            if story.file_path:
+                save_item_to_file(story.file_path, front,
+                                  content=None, overwrite=False)
         except Exception:
             logger.info(
                 f"Best-effort write of story file_path failed for '{story.id}'.")

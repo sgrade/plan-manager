@@ -89,7 +89,7 @@ def read_item_file(details_path: str) -> Tuple[Dict[str, Any], str]:
     return split_front_matter(raw)
 
 
-def _to_iso_z(val: Any) -> Any:  # type: ignore[name-defined]
+def _to_iso_z(val: Any) -> Any:
     """Convert datetime objects to ISO format strings with Z suffix for YAML serialization."""
     if isinstance(val, datetime):
         dt = val if val.tzinfo else val.replace(tzinfo=timezone.utc)
@@ -97,7 +97,6 @@ def _to_iso_z(val: Any) -> Any:  # type: ignore[name-defined]
     return val
 
 
-# type: ignore[name-defined]
 def save_item_to_file(details_path: str, front_source: Any, content: Optional[str] = None, overwrite: bool = False) -> None:
     """Save data to a markdown file with YAML front matter.
 
@@ -112,6 +111,8 @@ def save_item_to_file(details_path: str, front_source: Any, content: Optional[st
     """
     abs_path = os.path.join(WORKSPACE_ROOT, details_path)
     try:
+        existing_front: dict[str, Any]
+        existing_body: str
         existing_front, existing_body = ({}, '')
         if os.path.exists(abs_path):
             existing_front, existing_body = read_item_file(details_path)

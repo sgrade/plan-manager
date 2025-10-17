@@ -1,9 +1,11 @@
 import os
 import yaml
-from typing import Optional
+from typing import Optional, Any
 
 from plan_manager.services.plan_repository import get_current_plan_id
 from plan_manager.config import TODO_DIR
+
+__all__ = ['get_current_plan_id', 'get_current_story_id', 'set_current_story_id', 'get_current_task_id', 'set_current_task_id']
 
 
 def _state_file_path(plan_id: str) -> str:
@@ -11,7 +13,7 @@ def _state_file_path(plan_id: str) -> str:
     return os.path.join(TODO_DIR, plan_id, 'state.yaml')
 
 
-def _read_state(plan_id: str) -> dict:
+def _read_state(plan_id: str) -> dict[str, Any]:
     """Read the state file for a given plan ID."""
     path = _state_file_path(plan_id)
     if not os.path.exists(path):
@@ -20,7 +22,7 @@ def _read_state(plan_id: str) -> dict:
         return yaml.safe_load(f) or {}
 
 
-def _write_state(plan_id: str, data: dict) -> None:
+def _write_state(plan_id: str, data: dict[str, Any]) -> None:
     """Write the state file for a given plan ID."""
     path = _state_file_path(plan_id)
     os.makedirs(os.path.dirname(path), exist_ok=True)

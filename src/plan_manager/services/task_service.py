@@ -1,6 +1,6 @@
 import logging
 
-from typing import Optional, List
+from typing import Optional, List, Dict, Any, Tuple
 from pydantic import ValidationError
 
 from plan_manager.domain.models import Task, Story, Status, Plan
@@ -31,7 +31,6 @@ from plan_manager.telemetry import incr, timer
 from plan_manager.validation import validate_title, validate_description, validate_task_steps, validate_execution_summary, validate_feedback
 from plan_manager.services import task_service
 from plan_manager.services.changelog_service import generate_changelog_for_task
-from typing import Dict, Any
 
 
 logger = logging.getLogger(__name__)
@@ -44,7 +43,7 @@ def _generate_task_id_from_title(title: str) -> str:
     return generate_slug(title)
 
 
-def create_task(story_id: str, title: str, priority: Optional[int], depends_on: List[str], description: Optional[str]) -> dict:
+def create_task(story_id: str, title: str, priority: Optional[int], depends_on: List[str], description: Optional[str]) -> dict[str, Any]:
     """Create a new task in the specified story.
 
     Args:
@@ -120,7 +119,7 @@ def create_task(story_id: str, title: str, priority: Optional[int], depends_on: 
     return task.model_dump(mode='json', include={'id', 'title', 'status', 'priority', 'creation_time', 'description', 'depends_on'}, exclude_none=True)
 
 
-def get_task(story_id: str, task_id: str) -> dict:
+def get_task(story_id: str, task_id: str) -> dict[str, Any]:
     plan = plan_repository.load_current()
     s_id, local_task_id = resolve_task_id(task_id, story_id)
 
@@ -159,8 +158,8 @@ def get_task(story_id: str, task_id: str) -> dict:
     return {"id": fq_task_id, "title": local_task_id.replace('_', ' '), "status": "TODO"}
 
 
-def _find_task(plan, story_id, task_id):
-    """Helper to find a task and its story, returning (story, task) or raising KeyError."""
+def _find_task(plan: Plan, story_id: Optional[str], task_id: str) -> Tuple[Story, Task, str]:
+    """Helper to find a task and its story, returning (story, task, fq_id) or raising KeyError."""
     s_id, local_task_id = resolve_task_id(task_id, story_id)
 
     story: Optional[Story] = next(
@@ -177,7 +176,7 @@ def _find_task(plan, story_id, task_id):
     return story, task_obj, fq_task_id
 
 
-def _update_dependent_task_statuses(plan: Plan):
+def _update_dependent_task_statuses(plan: Plan) -> None:
     """
     Iterates through all tasks and updates their status to BLOCKED or TODO
     based on the current state of their dependencies.
@@ -206,7 +205,7 @@ def update_task(
         depends_on: Optional[List[str]] = None,
         priority: Optional[int] = None,
         status: Optional[Status] = None,
-) -> dict:
+) -> dict[str, Any]:
     plan = plan_repository.load_current()
     story, task_obj, fq_task_id = _find_task(plan, story_id, task_id)
 
@@ -297,7 +296,7 @@ def update_task(
     return task_obj.model_dump(mode='json', exclude_none=True)
 
 
-def delete_task(story_id: str, task_id: str) -> dict:
+def delete_task(story_id: str, task_id: str) -> dict[str, Any]:
     plan = plan_repository.load_current()
     story: Optional[Story] = next(
         (s for s in plan.stories if s.id == story_id), None)
@@ -365,17 +364,17 @@ def list_tasks(statuses: Optional[List[Status]], story_id: Optional[str] = None)
             continue
         filtered.append(t)
 
-    def _prio_key(task: Task):
+    def _prio_key(task: Task) -> int:
         return task.priority if task.priority is not None else 6
 
-    def _ctime_key(task: Task):
+    def _ctime_key(task: Task) -> Tuple[bool, str]:
         return (task.creation_time is None, task.creation_time or '9999')
 
     filtered.sort(key=lambda t: (_prio_key(t), _ctime_key(t), t.id))
     return filtered
 
 
-def create_steps(story_id: str, task_id: str, steps: List[dict]) -> dict:
+def create_steps(story_id: str, task_id: str, steps: List[dict[str, Any]]) -> dict[str, Any]:
     """Set the implementation steps for a task, making it ready for pre-execution review.
 
     Args:
@@ -503,7 +502,7 @@ def approve_current_task() -> Dict[str, Any]:
             f"The active task '{task.title}' is not in a reviewable state (current status: {task.status}).")
 
 
-def submit_for_code_review(story_id: str, task_id: str, summary_text: str) -> dict:
+def submit_for_code_review(story_id: str, task_id: str, summary_text: str) -> dict[str, Any]:
     """Submit a task for code review by setting execution summary and moving to PENDING_REVIEW.
 
     Args:
@@ -579,7 +578,7 @@ def request_changes(story_id: str, task_id: str, feedback: str) -> Dict[str, Any
     return {"success": True, "message": f"Changes requested for task '{task.title}'. Moved to IN_PROGRESS."}
 
 
-def _log_review_feedback(plan_id: str, task: Task, feedback: str):
+def _log_review_feedback(plan_id: str, task: Task, feedback: str) -> None:
     """Helper to log review feedback and update task state."""
     try:
         append_event(plan_id, 'review_changes_requested', {'task_id': task.id}, {

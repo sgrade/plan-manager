@@ -2,7 +2,7 @@ import logging
 import os
 import shutil
 
-from typing import Optional, List
+from typing import Optional, List, Any
 from pydantic import ValidationError
 
 from plan_manager.domain.models import Story, Status
@@ -16,7 +16,7 @@ from plan_manager.services.shared import (
     write_story_details,
 )
 from plan_manager.services.shared import find_dependents
-from plan_manager.config import WORKSPACE_ROOT
+from plan_manager.config import TODO_DIR
 from plan_manager.logging_context import get_correlation_id
 from plan_manager.validation import validate_title, validate_description, validate_acceptance_criteria
 from plan_manager.services.state_repository import (
@@ -35,7 +35,7 @@ def create_story(
     acceptance_criteria: Optional[List[str]],
     priority: Optional[int],
     depends_on: List[str]
-) -> dict:
+) -> dict[str, Any]:
     # Validate inputs
     title = validate_title(title)
     description = validate_description(description)
@@ -80,7 +80,7 @@ def create_story(
     return new_story.model_dump(mode='json', include={'id', 'title', 'description', 'acceptance_criteria', 'priority', 'depends_on', 'status', 'file_path', 'creation_time'}, exclude_none=True)
 
 
-def get_story(story_id: str) -> dict:
+def get_story(story_id: str) -> dict[str, Any]:
     plan = plan_repo.load_current()
     story = next((s for s in plan.stories if s.id == story_id), None)
     if not story:
@@ -98,7 +98,7 @@ def update_story(
     acceptance_criteria: Optional[List[str]] = None,
     priority: Optional[int] = None,
     depends_on: Optional[List[str]] = None,
-) -> dict:
+) -> dict[str, Any]:
     plan = plan_repo.load_current()
     logger.info({
         'event': 'update_story',
@@ -135,7 +135,7 @@ def update_story(
     return story_obj.model_dump(mode='json', exclude_none=True)
 
 
-def delete_story(story_id: str) -> dict:
+def delete_story(story_id: str) -> dict[str, Any]:
     plan = plan_repo.load_current()
     logger.info({
         'event': 'delete_story',
@@ -223,7 +223,7 @@ def list_stories(statuses: Optional[List[Status]], unblocked: bool = False) -> L
                           for sid in by_id if in_deg.get(sid, 0) == 0]
     sorted_list: List[Story] = []
 
-    def sort_key(s: Story):
+    def sort_key(s: Story) -> tuple[int, str]:
         prio = s.priority if s.priority is not None else 6
         ctime_key = (s.creation_time is None, s.creation_time or '9999')
         return (prio, ctime_key, s.id)
