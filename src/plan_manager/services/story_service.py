@@ -1,30 +1,33 @@
 import logging
-import os
 import shutil
+from pathlib import Path
+from typing import Any, Optional
 
-from typing import Optional, List, Any
 from pydantic import ValidationError
 
-from plan_manager.domain.models import Story, Status
-from plan_manager.services import plan_repository as plan_repo
-from plan_manager.io.paths import story_file_path
+from plan_manager.config import TODO_DIR, WORKSPACE_ROOT
+from plan_manager.domain.models import Status, Story
 from plan_manager.io.file_mirror import delete_item_file
+from plan_manager.io.paths import story_file_path
+from plan_manager.logging_context import get_correlation_id
+from plan_manager.services import plan_repository as plan_repo
 from plan_manager.services.shared import (
-    generate_slug,
     ensure_unique_id_from_set,
+    find_dependents,
+    generate_slug,
     validate_and_save,
     write_story_details,
 )
-from plan_manager.services.shared import find_dependents
-from plan_manager.config import TODO_DIR, WORKSPACE_ROOT
-from plan_manager.logging_context import get_correlation_id
-from plan_manager.validation import validate_title, validate_description, validate_acceptance_criteria
 from plan_manager.services.state_repository import (
     get_current_story_id,
     set_current_story_id,
     set_current_task_id,
 )
-
+from plan_manager.validation import (
+    validate_acceptance_criteria,
+    validate_description,
+    validate_title,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -32,9 +35,9 @@ logger = logging.getLogger(__name__)
 def create_story(
     title: str,
     description: Optional[str],
-    acceptance_criteria: Optional[List[str]],
+    acceptance_criteria: Optional[list[str]],
     priority: Optional[int],
-    depends_on: List[str]
+    depends_on: list[str],
 ) -> dict[str, Any]:
     # Validate inputs
     title = validate_title(title)
@@ -42,11 +45,13 @@ def create_story(
     acceptance_criteria = validate_acceptance_criteria(acceptance_criteria)
 
     generated_id = generate_slug(title)
-    logger.info({
-        'event': 'create_story',
-        'title': title,
-        'corr_id': get_correlation_id(),
-    })
+    logger.info(
+        {
+            "event": "create_story",
+            "title": title,
+            "corr_id": get_correlation_id(),
+        }
+    )
     plan = plan_repo.load_current()
     existing_ids = [s.id for s in plan.stories]
     generated_id = ensure_unique_id_from_set(generated_id, existing_ids)
@@ -63,21 +68,34 @@ def create_story(
             priority=priority,
         )
     except ValidationError as e:
-        logger.exception(
-            f"Validation error creating new story '{generated_id}': {e}")
+        logger.exception("Validation error creating new story '%s'", generated_id)
         raise ValueError(
-            f"Validation error creating new story '{generated_id}': {e}") from e
+            f"Validation error creating new story '{generated_id}': {e}"
+        ) from e
 
     plan.stories.append(new_story)
     validate_and_save(plan)
 
     try:
         write_story_details(new_story)
-    except Exception:
-        logger.info(
-            f"Best-effort creation of story file failed for '{generated_id}'.")
+    except (OSError, ValueError):
+        logger.info("Best-effort creation of story file failed for '%s'.", generated_id)
 
-    return new_story.model_dump(mode='json', include={'id', 'title', 'description', 'acceptance_criteria', 'priority', 'depends_on', 'status', 'file_path', 'creation_time'}, exclude_none=True)
+    return new_story.model_dump(
+        mode="json",
+        include={
+            "id",
+            "title",
+            "description",
+            "acceptance_criteria",
+            "priority",
+            "depends_on",
+            "status",
+            "file_path",
+            "creation_time",
+        },
+        exclude_none=True,
+    )
 
 
 def get_story(story_id: str) -> dict[str, Any]:
@@ -85,28 +103,29 @@ def get_story(story_id: str) -> dict[str, Any]:
     story = next((s for s in plan.stories if s.id == story_id), None)
     if not story:
         raise KeyError(f"story with ID '{story_id}' not found.")
-    return story.model_dump(mode='json', exclude_none=True)
+    return story.model_dump(mode="json", exclude_none=True)
 
 
-# Note: The status of a Story is a calculated property based on the statuses of its Tasks.
-# It is not set directly and is therefore not a parameter in this function.
-# The status rollup is handled by the task_service.
+# Note: The status of a Story is a calculated property based on the
+# statuses of its Tasks. It is not set directly and is therefore not a
+# parameter in this function. The status rollup is handled by the task_service.
 def update_story(
     story_id: str,
     title: Optional[str] = None,
     description: Optional[str] = None,
-    acceptance_criteria: Optional[List[str]] = None,
+    acceptance_criteria: Optional[list[str]] = None,
     priority: Optional[int] = None,
-    depends_on: Optional[List[str]] = None,
+    depends_on: Optional[list[str]] = None,
 ) -> dict[str, Any]:
     plan = plan_repo.load_current()
-    logger.info({
-        'event': 'update_story',
-        'id': story_id,
-        'corr_id': get_correlation_id(),
-    })
-    idx = next((i for i, s in enumerate(
-        plan.stories) if s.id == story_id), None)
+    logger.info(
+        {
+            "event": "update_story",
+            "id": story_id,
+            "corr_id": get_correlation_id(),
+        }
+    )
+    idx = next((i for i, s in enumerate(plan.stories) if s.id == story_id), None)
     if idx is None:
         raise KeyError(f"story with ID '{story_id}' not found.")
     story_obj = plan.stories[idx]
@@ -128,83 +147,93 @@ def update_story(
     if story_obj.file_path:
         try:
             write_story_details(story_obj)
-        except Exception:
-            logger.info(
-                f"Best-effort update of story file failed for '{story_id}'.")
+        except (OSError, ValueError):
+            logger.info("Best-effort update of story file failed for '%s'.", story_id)
 
-    return story_obj.model_dump(mode='json', exclude_none=True)
+    return story_obj.model_dump(mode="json", exclude_none=True)
 
 
 def delete_story(story_id: str) -> dict[str, Any]:
     plan = plan_repo.load_current()
-    logger.info({
-        'event': 'delete_story',
-        'id': story_id,
-        'corr_id': get_correlation_id(),
-    })
-    idx = next((i for i, s in enumerate(
-        plan.stories) if s.id == story_id), None)
+    logger.info(
+        {
+            "event": "delete_story",
+            "id": story_id,
+            "corr_id": get_correlation_id(),
+        }
+    )
+    idx = next((i for i, s in enumerate(plan.stories) if s.id == story_id), None)
     if idx is None:
         raise KeyError(f"story with ID '{story_id}' not found.")
     # Block if there are dependents
     deps = find_dependents(plan, story_id)
     if deps:
-        raise ValueError(
-            f"Cannot delete story '{story_id}' because it is a dependency of: {', '.join(deps)}"
+        dep_list = ", ".join(deps)
+        msg = (
+            f"Cannot delete story '{story_id}' because it is a "
+            f"dependency of: {dep_list}"
         )
+        raise ValueError(msg)
     story_to_remove = plan.stories[idx]
     file_path = story_to_remove.file_path
     del plan.stories[idx]
     plan_repo.save(plan, plan_id=plan.id)
     # Best-effort removal of story file_path file and directory tree
-    abs_details_path: Optional[str] = None
+    abs_details_path: Optional[Path] = None
     if file_path:
         try:
             delete_item_file(file_path)
-            abs_details_path = os.path.join(WORKSPACE_ROOT, file_path)
-        except Exception:
-            logger.info(
-                f"Best-effort delete of story file failed for '{story_id}'.")
+            abs_details_path = Path(WORKSPACE_ROOT) / file_path
+        except (OSError, KeyError):
+            logger.info("Best-effort delete of story file failed for '%s'.", story_id)
     # Attempt to remove the entire story directory (e.g., todo/<story_id>/) safely
     try:
-        story_dir_candidate: Optional[str] = None
-        if abs_details_path and os.path.isabs(abs_details_path):
-            story_dir_candidate = os.path.dirname(abs_details_path)
+        story_dir_candidate: Optional[Path] = None
+        if abs_details_path and abs_details_path.is_absolute():
+            story_dir_candidate = abs_details_path.parent
         else:
             # Fall back to the conventional story directory under workspace
-            story_dir_candidate = os.path.join(TODO_DIR, plan.id, story_id)
+            story_dir_candidate = Path(TODO_DIR) / plan.id / story_id
 
-        norm_story_dir = os.path.normpath(story_dir_candidate)
-        norm_todo_dir = os.path.normpath(TODO_DIR)
-        # Guardrails: ensure deletion stays within TODO_DIR and the directory name matches the story_id
-        if norm_story_dir.startswith(norm_todo_dir + os.sep) and os.path.basename(norm_story_dir) == story_id:
-            if os.path.exists(norm_story_dir):
-                shutil.rmtree(norm_story_dir, ignore_errors=True)
-                logger.info(f"Deleted story directory: {norm_story_dir}")
-    except Exception as e:
+        norm_story_dir = story_dir_candidate.resolve()
+        norm_todo_dir = Path(TODO_DIR).resolve()
+        # Guardrails: ensure deletion stays within TODO_DIR and the
+        # directory name matches the story_id
+        if (
+            norm_story_dir.is_relative_to(norm_todo_dir)
+            and norm_story_dir.name == story_id
+            and norm_story_dir.exists()
+        ):
+            shutil.rmtree(norm_story_dir, ignore_errors=True)
+            logger.info("Deleted story directory: %s", norm_story_dir)
+    except (OSError, ValueError, KeyError) as e:
         logger.warning(
-            f"Best-effort directory delete failed for story '{story_id}': {e}")
+            "Best-effort directory delete failed for story '%s': %s", story_id, e
+        )
     # Selection invariants: if deleted story was current, clear selections
     try:
         current_sid = get_current_story_id(plan.id)
         if current_sid == story_id:
             set_current_task_id(None, plan.id)
             set_current_story_id(None, plan.id)
-    except Exception:  # noqa: S110
+    except (KeyError, OSError):
         pass  # Ignore errors when clearing state
     return {"success": True, "message": f"Successfully deleted story '{story_id}'."}
 
 
-def list_stories(statuses: Optional[List[Status]], unblocked: bool = False) -> List[Story]:
+def list_stories(
+    statuses: Optional[list[Status]], unblocked: bool = False
+) -> list[Story]:
     """Return domain stories after topological sort and filtering.
 
     - Topo sorts by dependencies (Kahn's algorithm).
-    - Within each ready set, sorts by priority asc (None last), creation_time asc (None last), id asc.
+    - Within each ready set, sorts by priority asc (None last),
+      creation_time asc (None last), id asc.
     - Filters by allowed statuses if provided.
     - If unblocked=True, includes only TODO stories whose dependencies are all DONE.
     """
     plan = plan_repo.load_current()
-    stories: List[Story] = plan.stories or []
+    stories: list[Story] = plan.stories or []
     if not stories:
         return []
 
@@ -214,18 +243,18 @@ def list_stories(statuses: Optional[List[Status]], unblocked: bool = False) -> L
     by_id: dict[str, Story] = {s.id: s for s in stories}
     for s in stories:
         in_deg.setdefault(s.id, 0)
-        for dep in (s.depends_on or []):
+        for dep in s.depends_on or []:
             adj.setdefault(dep, []).append(s.id)
             in_deg[s.id] = in_deg.get(s.id, 0) + 1
 
     # Initialize queue with zero in-degree
-    ready: List[Story] = [by_id[sid]
-                          for sid in by_id if in_deg.get(sid, 0) == 0]
-    sorted_list: List[Story] = []
+    ready: list[Story] = [by_id[sid] for sid in by_id if in_deg.get(sid, 0) == 0]
+    sorted_list: list[Story] = []
 
-    def sort_key(s: Story) -> tuple[int, str]:
+    def sort_key(s: Story) -> tuple[int, tuple[bool, str], str]:
         prio = s.priority if s.priority is not None else 6
-        ctime_key = (s.creation_time is None, s.creation_time or '9999')
+        ctime_str = s.creation_time.isoformat() if s.creation_time else "9999"
+        ctime_key = (s.creation_time is None, ctime_str)
         return (prio, ctime_key, s.id)
 
     while ready:
@@ -238,12 +267,17 @@ def list_stories(statuses: Optional[List[Status]], unblocked: bool = False) -> L
                 ready.append(by_id[nxt])
 
     if len(sorted_list) != len(stories):
-        missing = set(by_id) - set(s.id for s in sorted_list)
+        missing = set(by_id) - {s.id for s in sorted_list}
         logger.error(
-            f"Cycle detected or inconsistency in story dependencies. total={len(stories)} sorted={len(sorted_list)} missing={missing}")
+            "Cycle detected or inconsistency in story dependencies. "
+            "total=%d sorted=%d missing=%s",
+            len(stories),
+            len(sorted_list),
+            missing,
+        )
 
     allowed = set(statuses) if statuses else None
-    out: List[Story] = []
+    out: list[Story] = []
     for s in sorted_list:
         if allowed is not None and s.status not in allowed:
             continue
@@ -251,7 +285,7 @@ def list_stories(statuses: Optional[List[Status]], unblocked: bool = False) -> L
             if s.status != Status.TODO:
                 continue
             deps_ok = True
-            for dep_id in (s.depends_on or []):
+            for dep_id in s.depends_on or []:
                 dep_s = by_id.get(dep_id)
                 if not dep_s or dep_s.status != Status.DONE:
                     deps_ok = False
