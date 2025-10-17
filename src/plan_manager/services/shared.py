@@ -142,7 +142,8 @@ def write_story_details(story: Story) -> None:
             ]
             if story.file_path:
                 save_item_to_file(story.file_path, front, content=None, overwrite=False)
-        except Exception:
+        except (KeyError, ValueError, AttributeError, OSError):
+            # Best-effort: log but don't fail on write errors
             logger.info(
                 f"Best-effort write of story file_path failed for '{story.id}'."
             )
@@ -166,7 +167,8 @@ def write_task_details(task: Task) -> None:
             )
         path = task_file_path(story_id, local_task_id)
         save_item_to_file(path, task, content=None, overwrite=False)
-    except Exception:
+    except (ValueError, AttributeError, OSError):
+        # Best-effort: log but don't fail on write errors
         logger.info(
             f"Best-effort write of task file_path failed for '{getattr(task, 'id', 'unknown')}'."
         )
@@ -181,7 +183,8 @@ def merge_frontmatter_defaults(path: str, base: dict[str, Any]) -> dict[str, Any
             for k, v in front.items():
                 result.setdefault(k, v)
         return result
-    except Exception:
+    except (OSError, KeyError):
+        # Fallback to base if frontmatter cannot be read
         return base
 
 
