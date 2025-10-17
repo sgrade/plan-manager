@@ -29,7 +29,7 @@ def create_plan(
         }
     )
     # Ensure not already exists in index (append -2, -3 on collision)
-    existing_ids = {p.get("id") for p in repo.list_plans()}
+    existing_ids: set[str] = {str(p["id"]) for p in repo.list_plans() if p.get("id")}
     plan_id = ensure_unique_id_from_set(plan_id, existing_ids)
 
     try:
@@ -79,12 +79,13 @@ def list_plans(statuses: Optional[list[Status]] = None) -> list[dict[str, Any]]:
         items = [p for p in items if p.get("status") in allowed]
     # Sort by priority asc (None last), creation_time asc (string ISO ok), id asc
 
-    def prio_key(v):
+    def prio_key(v: dict[str, Any]) -> int:
         p = v.get("priority")
-        return p if p is not None else 6
+        return p if isinstance(p, int) else 6
 
-    def ctime_key(v):
-        return (v.get("creation_time") is None, v.get("creation_time") or "9999")
+    def ctime_key(v: dict[str, Any]) -> tuple[bool, str]:
+        ct = v.get("creation_time")
+        return (ct is None, ct if isinstance(ct, str) else "9999")
 
-    items.sort(key=lambda v: (prio_key(v), ctime_key(v), v.get("id")))
+    items.sort(key=lambda v: (prio_key(v), ctime_key(v), v.get("id", "")))
     return items
