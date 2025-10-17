@@ -4,6 +4,7 @@ import shutil
 from typing import Any
 
 import yaml
+from pydantic import ValidationError
 
 from plan_manager.config import PLANS_INDEX_FILE_PATH, TODO_DIR
 from plan_manager.domain.models import Plan, Story, Task
