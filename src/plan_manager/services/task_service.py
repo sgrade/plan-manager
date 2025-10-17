@@ -181,7 +181,7 @@ def get_task(story_id: str, task_id: str) -> dict[str, Any]:
         ct = base.get("creation_time")
         try:
             # Pydantic BaseModel dumps datetime by default; ensure str
-            if hasattr(ct, "isoformat"):
+            if ct is not None and hasattr(ct, "isoformat"):
                 base["creation_time"] = ct.isoformat()
         except Exception:
             base["creation_time"] = None
@@ -426,7 +426,8 @@ def list_tasks(
         return task.priority if task.priority is not None else 6
 
     def _ctime_key(task: Task) -> tuple[bool, str]:
-        return (task.creation_time is None, task.creation_time or "9999")
+        ctime_str = task.creation_time.isoformat() if task.creation_time else "9999"
+        return (task.creation_time is None, ctime_str)
 
     filtered.sort(key=lambda t: (_prio_key(t), _ctime_key(t), t.id))
     return filtered
