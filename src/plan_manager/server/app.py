@@ -74,7 +74,7 @@ def starlette_app() -> Starlette:
         app.add_route("/browse/", browse_endpoint, name="browse_root")
         app.add_route("/browse/{path:path}", browse_endpoint, name="browse")
 
-    class CorrelationIdMiddleware(BaseHTTPMiddleware):  # type: ignore[misc]
+    class CorrelationIdMiddleware(BaseHTTPMiddleware):
         async def dispatch(
             self,
             request: Request,
