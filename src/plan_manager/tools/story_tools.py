@@ -1,7 +1,10 @@
 import logging
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from pydantic import ValidationError
+
+if TYPE_CHECKING:
+    from mcp.server.fastmcp import FastMCP
 
 from plan_manager.domain.models import Status, Story
 from plan_manager.schemas.outputs import OperationResult, StoryListItem, StoryOut
@@ -11,17 +14,9 @@ from plan_manager.services.state_repository import (
 )
 from plan_manager.services.story_service import (
     create_story as svc_create_story,
-)
-from plan_manager.services.story_service import (
     delete_story as svc_delete_story,
-)
-from plan_manager.services.story_service import (
     get_story as svc_get_story,
-)
-from plan_manager.services.story_service import (
     list_stories as svc_list_stories,
-)
-from plan_manager.services.story_service import (
     update_story as svc_update_story,
 )
 from plan_manager.tools.util import coerce_optional_int
@@ -29,7 +24,7 @@ from plan_manager.tools.util import coerce_optional_int
 logger = logging.getLogger(__name__)
 
 
-def register_story_tools(mcp_instance) -> None:
+def register_story_tools(mcp_instance: "FastMCP") -> None:
     """Register story tools with the MCP instance."""
     mcp_instance.tool()(list_stories)
     mcp_instance.tool()(create_story)
@@ -122,7 +117,7 @@ def list_stories(
                     if s.creation_time
                     else None,
                     completion_time=s.completion_time.isoformat()
-                    if getattr(s, "completion_time", None)
+                    if s.completion_time
                     else None,
                 )
             )
