@@ -205,7 +205,7 @@ def list_tasks(
 # ---------- Task workflow operations ----------
 
 
-def _status_to_gate(status: Status, steps: Optional[list[dict[str, Any]]]) -> WorkflowGate:
+def _status_to_gate(status: Status, _steps: Optional[list[dict[str, Any]]]) -> WorkflowGate:
     if status == Status.DONE:
         return WorkflowGate.DONE
     if status == Status.PENDING_REVIEW:

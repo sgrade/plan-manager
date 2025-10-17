@@ -231,7 +231,7 @@ def get_current_plan_id() -> str:
         idx = yaml.safe_load(f) or {}
     cur = idx.get("current")
     if not isinstance(cur, str):
-        raise ValueError(f"'current' plan is not set in index {PLANS_INDEX_FILE_PATH}")
+        raise TypeError(f"'current' plan is not set in index {PLANS_INDEX_FILE_PATH}")
     plans_list = idx.get("plans") or []
     if cur not in [p.get("id") for p in plans_list]:
         raise ValueError(

@@ -97,7 +97,7 @@ def validate_acceptance_criteria(criteria: Optional[list[str]]) -> Optional[list
         return None
 
     if not isinstance(criteria, list):
-        raise ValueError("Acceptance criteria must be a list")
+        raise TypeError("Acceptance criteria must be a list")
 
     if len(criteria) == 0:
         raise ValueError("Acceptance criteria cannot be empty")
@@ -107,7 +107,7 @@ def validate_acceptance_criteria(criteria: Optional[list[str]]) -> Optional[list
 
     for i, criterion in enumerate(criteria):
         if not isinstance(criterion, str):
-            raise ValueError(f"Acceptance criterion {i + 1} must be a string")
+            raise TypeError(f"Acceptance criterion {i + 1} must be a string")
 
         if not criterion.strip():
             raise ValueError(f"Acceptance criterion {i + 1} cannot be empty")
@@ -201,7 +201,7 @@ def validate_task_steps(steps: list[dict[str, Any]]) -> list[dict[str, Any]]:
         raise ValueError("Steps cannot be empty")
 
     if not isinstance(steps, list):
-        raise ValueError("Steps must be a list")
+        raise TypeError("Steps must be a list")
 
     if len(steps) > 50:  # Reasonable limit for number of steps
         raise ValueError("Too many steps (max 50)")
@@ -210,7 +210,7 @@ def validate_task_steps(steps: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
     for i, step in enumerate(steps):
         if not isinstance(step, dict):
-            raise ValueError(f"Step {i + 1} must be a dictionary")
+            raise TypeError(f"Step {i + 1} must be a dictionary")
 
         if "title" not in step:
             raise ValueError(f"Step {i + 1} missing required 'title' field")
