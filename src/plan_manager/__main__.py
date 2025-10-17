@@ -26,7 +26,7 @@ import_module("plan_manager.logging")
 logger = logging.getLogger(__name__)
 
 
-def main():
+def main() -> None:
     log_destination = config.LOG_FILE_PATH if config.ENABLE_FILE_LOG else "stdout only"
     logger.info(
         "Starting MCP Plan Manager Server on %s:%s (reload=%s). App logs to: %s",
