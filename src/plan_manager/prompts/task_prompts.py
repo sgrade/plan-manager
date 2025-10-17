@@ -23,9 +23,11 @@ def create_tasks_messages(story_id: Optional[str] = None) -> list[base.Message]:
         # == Turn 1: The Example ==
         # This is the "few-shot" example we provide to the model.
         base.UserMessage(
-            "You are an AI assistant for agile project management. Break a single user story into clear, developer-ready tasks. "
+            "You are an AI assistant for agile project management. "
+            "Break a single user story into clear, developer-ready tasks. "
             "Each task should correspond to a PATCH-level change in semantic versioning. "
-            "Respond with a valid JSON array of objects. Each object must contain exactly two keys: 'title' (string) and 'description' (string). "
+            "Respond with a valid JSON array of objects. "
+            "Each object must contain exactly two keys: 'title' (string) and 'description' (string). "
             "Do not include any other text or formatting. "
             "\n\nHere is the example story: New User Registration"
         ),

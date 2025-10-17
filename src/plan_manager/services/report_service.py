@@ -29,13 +29,17 @@ def _get_blockers_for_task(task: Task, plan: Plan) -> list[str]:
             dep_task = task_index[fq_dep_id]
             if dep_task.status != Status.DONE:
                 blockers.append(
-                    f"Task '{dep_task.title}' is not DONE (status: {dep_task.status.value})"
+                    f"Task '{dep_task.title}' is not DONE (status: {
+                        dep_task.status.value
+                    })"
                 )
         elif dep_id in story_index:
             dep_story = story_index[dep_id]
             if dep_story.status != Status.DONE:
                 blockers.append(
-                    f"Story '{dep_story.title}' is not DONE (status: {dep_story.status.value})"
+                    f"Story '{dep_story.title}' is not DONE (status: {
+                        dep_story.status.value
+                    })"
                 )
         else:
             blockers.append(f"Dependency '{dep_id}' not found.")
@@ -96,12 +100,16 @@ def _generate_story_report(plan: Plan) -> str:
     """Generates a detailed report for the currently active story."""
     story_id = get_current_story_id(plan.id)
     if not story_id:
-        return f"Plan '{plan.title}' is active, but no story is selected. Use `set_current_story` if you have a specific story in mind, or `list_stories` to see all stories."
+        return f"Plan '{
+            plan.title
+        }' is active, but no story is selected. Use `set_current_story` if you have a specific story in mind, or `list_stories` to see all stories."
 
     story = next((s for s in plan.stories if s.id == story_id), None)
     if not story:
         # This case should ideally not be reachable if state is consistent
-        return f"Error: Active story with ID '{story_id}' not found in plan '{plan.title}'."
+        return f"Error: Active story with ID '{story_id}' not found in plan '{
+            plan.title
+        }'."
 
     report = [
         f"Current Story: {story.title} ({story.status.value})",
@@ -147,14 +155,18 @@ def _generate_story_report(plan: Plan) -> str:
     # Scenario 3: Active task is awaiting pre-execution review
     if active_task and active_task.status == Status.TODO and active_task.steps:
         report.append(
-            f"\nNext Action: The plan for '{active_task.title}' is ready for review. Run `approve_task` to start work."
+            f"\nNext Action: The plan for '{
+                active_task.title
+            }' is ready for review. Run `approve_task` to start work."
         )
         return "\n".join(report)
 
     # Scenario 4: Active task is awaiting code review
     if active_task and active_task.status == Status.PENDING_REVIEW:
         report.append(
-            f"\nNext Action: '{active_task.title}' is ready for code review. Run `approve_task` to mark it as DONE."
+            f"\nNext Action: '{
+                active_task.title
+            }' is ready for code review. Run `approve_task` to mark it as DONE."
         )
         execution_summary = getattr(active_task, "execution_summary", None)
         if execution_summary:
@@ -162,7 +174,8 @@ def _generate_story_report(plan: Plan) -> str:
             report.append(execution_summary)
         return "\n".join(report)
 
-    # Scenario 5: No active task, or active task is DONE/IN_PROGRESS. Suggest next unblocked task.
+    # Scenario 5: No active task, or active task is DONE/IN_PROGRESS. Suggest
+    # next unblocked task.
     next_task_to_do = next(
         (
             t
@@ -175,11 +188,19 @@ def _generate_story_report(plan: Plan) -> str:
     if next_task_to_do:
         if next_task_to_do.steps:
             report.append(
-                f"\nNext Action: The plan for '{next_task_to_do.title}' is ready for review. Set it as active (`set_current_task {next_task_to_do.local_id}`) and run `approve_task`."
+                f"\nNext Action: The plan for '{
+                    next_task_to_do.title
+                }' is ready for review. Set it as active (`set_current_task {
+                    next_task_to_do.local_id
+                }`) and run `approve_task`."
             )
         else:
             report.append(
-                f"\nNext Action: `create_task_steps` for Task '{next_task_to_do.local_id}', or `approve_task {story.id}:{next_task_to_do.local_id}` to fast-track."
+                f"\nNext Action: `create_task_steps` for Task '{
+                    next_task_to_do.local_id
+                }', or `approve_task {story.id}:{
+                    next_task_to_do.local_id
+                }` to fast-track."
             )
     # Check if all tasks are done
     elif all(t.status == Status.DONE for t in story.tasks):

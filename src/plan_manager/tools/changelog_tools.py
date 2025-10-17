@@ -27,10 +27,7 @@ def generate_changelog(
     """
     plan = load_current()
     completed_tasks = [
-        task
-        for story in plan.stories
-        for task in story.tasks
-        if task.status == "DONE"
+        task for story in plan.stories for task in story.tasks if task.status == "DONE"
     ]
 
     snippets = []

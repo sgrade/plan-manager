@@ -90,8 +90,7 @@ def parse_priority_input(priority: str) -> Optional[int]:
     if priority == "6":
         return None
     if priority == "":
-        raise ValueError(
-            "Priority string cannot be empty. Use '6' for no priority.")
+        raise ValueError("Priority string cannot be empty. Use '6' for no priority.")
     try:
         return int(priority)
     except ValueError as e:
@@ -110,7 +109,9 @@ def parse_csv_list(csv: str) -> list[str]:
 def validate_and_save(plan: Plan) -> None:
     """Validate and save the plan."""
     # Import here to avoid potential import cycles
-    from plan_manager.domain.validation import validate_plan_dependencies  # noqa: PLC0415
+    from plan_manager.domain.validation import (
+        validate_plan_dependencies,
+    )
 
     try:
         validate_plan_dependencies(plan.stories)
@@ -124,7 +125,8 @@ def write_story_details(story: Story) -> None:
     """Write story details to file."""
     if getattr(story, "file_path", None):
         try:
-            # Persist tasks as identifiers only to keep story frontmatter small and stable
+            # Persist tasks as identifiers only to keep story frontmatter small and
+            # stable
             front = story.model_dump(mode="json", exclude_none=True)
             front["tasks"] = [
                 (
@@ -142,8 +144,7 @@ def write_story_details(story: Story) -> None:
                 tid for tid in front["tasks"] if isinstance(tid, str) and tid
             ]
             if story.file_path:
-                save_item_to_file(story.file_path, front,
-                                  content=None, overwrite=False)
+                save_item_to_file(story.file_path, front, content=None, overwrite=False)
         except (KeyError, ValueError, AttributeError, OSError):
             # Best-effort: log but don't fail on write errors
             logger.info(
@@ -172,7 +173,8 @@ def write_task_details(task: Task) -> None:
     except (ValueError, AttributeError, OSError):
         # Best-effort: log but don't fail on write errors
         logger.info(
-            "Best-effort write of task file_path failed for '%s'.", getattr(task, 'id', 'unknown')
+            "Best-effort write of task file_path failed for '%s'.",
+            getattr(task, "id", "unknown"),
         )
 
 

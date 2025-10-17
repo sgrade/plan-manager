@@ -1,6 +1,7 @@
 import logging
 from typing import Any, Optional
 
+import yaml
 from pydantic import ValidationError
 
 from plan_manager.domain.models import Plan, Status, Story, Task
@@ -11,7 +12,7 @@ from plan_manager.io.file_mirror import (
 )
 from plan_manager.io.paths import task_file_path
 from plan_manager.logging_context import get_correlation_id
-from plan_manager.services import plan_repository, task_service
+from plan_manager.services import plan_repository
 from plan_manager.services.activity_repository import append_event
 from plan_manager.services.changelog_service import generate_changelog_for_task
 from plan_manager.services.shared import (
@@ -558,7 +559,7 @@ def approve_current_task() -> dict[str, Any]:
             }
         )
         with timer("approve_task.duration_ms", kind="plan", task_id=task.id):
-            updated_task_data = task_service.update_task(
+            updated_task_data = update_task(
                 story_id=story.id, task_id=task.id, status=Status.IN_PROGRESS
             )
         incr("approve_task.count", kind="plan")
@@ -579,7 +580,7 @@ def approve_current_task() -> dict[str, Any]:
             }
         )
         with timer("approve_task.duration_ms", kind="review", task_id=task.id):
-            updated_task_data = task_service.update_task(
+            updated_task_data = update_task(
                 story_id=story.id, task_id=task.id, status=Status.DONE
             )
         incr("approve_task.count", kind="review")

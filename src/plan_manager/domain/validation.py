@@ -34,7 +34,9 @@ def validate_plan_dependencies(stories: list[Any]) -> None:
             for dep in deps:
                 if not isinstance(dep, str) or not dep.strip():
                     raise ValueError(
-                        f"task '{task.id}' in story '{story.id}' has invalid dependency entry: {dep}"
+                        f"task '{task.id}' in story '{
+                            story.id
+                        }' has invalid dependency entry: {dep}"
                     )
                 dep_str = dep.strip()
                 if ":" in dep_str:
@@ -52,5 +54,7 @@ def validate_plan_dependencies(stories: list[Any]) -> None:
                         raise ValueError(f"task '{task.id}' cannot depend on itself.")
                     if fq not in task_ids:
                         raise ValueError(
-                            f"task '{task.id}' depends on unknown task '{dep_str}' in story '{story.id}'."
+                            f"task '{task.id}' depends on unknown task '{
+                                dep_str
+                            }' in story '{story.id}'."
                         )

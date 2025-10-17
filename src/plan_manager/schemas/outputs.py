@@ -202,7 +202,8 @@ class NextAction(BaseModel):
     arguments: Optional[dict[str, Any]] = None
 
 
-# Intentionally no separate agent policy type: agents derive behavior from next_actions.who
+# Intentionally no separate agent policy type: agents derive behavior from
+# next_actions.who
 
 
 class TaskWorkflowResult(BaseModel):

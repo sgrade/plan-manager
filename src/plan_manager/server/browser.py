@@ -53,7 +53,8 @@ async def browse_endpoint(request: Request) -> Response:
     relative_path = request.path_params.get("path", "")
 
     try:
-        # Ensure the base directory exists; if not, create it so /browse/ works from a clean repo
+        # Ensure the base directory exists; if not, create it so /browse/ works
+        # from a clean repo
         base_dir = Path(TODO_DIR)
         base_dir.mkdir(parents=True, exist_ok=True)
         base_root = base_dir.resolve()
@@ -88,12 +89,10 @@ async def browse_endpoint(request: Request) -> Response:
         """
         if relative_path:
             parent = Path(relative_path).parent
-            parent_link = f"/browse/{parent}" if str(
-                parent) != "." else "/browse/"
+            parent_link = f"/browse/{parent}" if str(parent) != "." else "/browse/"
             html += f'<li><a href="{parent_link}">.. (Parent Directory)</a></li>'
 
-        items = sorted(file_path.iterdir(), key=lambda p: (
-            p.is_file(), p.name.lower()))
+        items = sorted(file_path.iterdir(), key=lambda p: (p.is_file(), p.name.lower()))
 
         for item in items:
             item_name = item.name

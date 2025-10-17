@@ -43,9 +43,13 @@ def coerce_optional_int(value: Any, param_name: str) -> Optional[int]:
                 # Fallback to generic error if int conversion unexpectedly fails
                 pass
         raise ValueError(
-            f"Invalid type for parameter '{param_name}': expected integer, got string {value!r}."
+            f"Invalid type for parameter '{param_name}': expected integer, got string {
+                value!r
+            }."
         )
 
     raise ValueError(
-        f"Invalid type for parameter '{param_name}': expected integer or null, got {type(value).__name__} {value!r}."
+        f"Invalid type for parameter '{param_name}': expected integer or null, got {
+            type(value).__name__
+        } {value!r}."
     )

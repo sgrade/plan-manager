@@ -23,13 +23,29 @@ from plan_manager.services.state_repository import (
 )
 from plan_manager.services.task_service import (
     approve_current_task as svc_approve_current_task,
+)
+from plan_manager.services.task_service import (
     create_steps as svc_create_steps,
+)
+from plan_manager.services.task_service import (
     create_task as svc_create_task,
+)
+from plan_manager.services.task_service import (
     delete_task as svc_delete_task,
+)
+from plan_manager.services.task_service import (
     get_task as svc_get_task,
+)
+from plan_manager.services.task_service import (
     list_tasks as svc_list_tasks,
+)
+from plan_manager.services.task_service import (
     request_changes as svc_request_changes,
+)
+from plan_manager.services.task_service import (
     submit_for_code_review as svc_submit_for_code_review,
+)
+from plan_manager.services.task_service import (
     update_task as svc_update_task,
 )
 from plan_manager.telemetry import incr, timer
@@ -121,7 +137,8 @@ def update_task(
 ) -> TaskOut:
     """Update mutable fields of a task."""
     story_id, local_task_id = resolve_task_id(task_id)
-    # If steps are provided here, forward them via status/utils path by calling create_steps first
+    # If steps are provided here, forward them via status/utils path by
+    # calling create_steps first
     if steps is not None:
         svc_create_steps(story_id=story_id, task_id=local_task_id, steps=steps)
     coerced_priority = coerce_optional_int(priority, "priority")
@@ -135,11 +152,15 @@ def update_task(
                 coerced_status = Status(status.upper())
             except ValueError as e:
                 raise ValueError(
-                    f"Invalid value for parameter 'status': {status!r}. Allowed: {', '.join([s.value for s in Status])}"
+                    f"Invalid value for parameter 'status': {status!r}. Allowed: {
+                        ', '.join([s.value for s in Status])
+                    }"
                 ) from e
         else:
             raise ValueError(
-                f"Invalid type for parameter 'status': expected string or null, got {type(status).__name__}."
+                f"Invalid type for parameter 'status': expected string or null, got {
+                    type(status).__name__
+                }."
             )
 
     data = svc_update_task(
@@ -204,7 +225,9 @@ def list_tasks(
 # ---------- Task workflow operations ----------
 
 
-def _status_to_gate(status: Status, _steps: Optional[list[dict[str, Any]]]) -> WorkflowGate:
+def _status_to_gate(
+    status: Status, _steps: Optional[list[dict[str, Any]]]
+) -> WorkflowGate:
     if status == Status.DONE:
         return WorkflowGate.DONE
     if status == Status.PENDING_REVIEW:
@@ -254,7 +277,8 @@ def _compute_next_actions_for_task(
                     },
                 )
             )
-            # Only user instructions at this point; the agent must wait for the user's choice
+            # Only user instructions at this point; the agent must wait for the user's
+            # choice
             actions.append(
                 NextAction(
                     kind="prompt",
@@ -296,7 +320,8 @@ def _compute_next_actions_for_task(
         return actions
 
     if gate == WorkflowGate.EXECUTING:
-        # Follow the diagram: user instructs to execute, agent executes, then submits for review
+        # Follow the diagram: user instructs to execute, agent executes, then
+        # submits for review
         actions.append(
             NextAction(
                 kind="instruction",
@@ -329,7 +354,8 @@ def _compute_next_actions_for_task(
 
     if gate == WorkflowGate.AWAITING_REVIEW:
         # Gate 2 sequence per workflow:
-        # 1) Agent displays execution_summary and asks the user to approve or request changes
+        # 1) Agent displays execution_summary and asks the user to approve or
+        # request changes
         actions.append(
             NextAction(
                 kind="instruction",
@@ -441,8 +467,7 @@ def create_task_steps(task_id: str, steps: list[dict[str, Any]]) -> TaskWorkflow
         TaskWorkflowResult: Result containing the updated task and next actions
     """
     story_id, local_task_id = resolve_task_id(task_id)
-    data = svc_create_steps(
-        story_id=story_id, task_id=local_task_id, steps=steps)
+    data = svc_create_steps(story_id=story_id, task_id=local_task_id, steps=steps)
     task = _create_task_out(data)
     gate = _status_to_gate(task.status, task.steps)
     next_actions = _compute_next_actions_for_task(task, gate)
@@ -598,16 +623,14 @@ def request_changes(task_id: str, feedback: str) -> TaskWorkflowResult:
         )
     except (ValueError, KeyError, OSError, RuntimeError) as e:
         # Handle expected business logic errors
-        logger.warning(
-            f"Request changes failed due to business logic error: {e}")
+        logger.warning(f"Request changes failed due to business logic error: {e}")
         return TaskWorkflowResult(
             success=False, message=str(e), action=ActionType.REQUEST_CHANGES
         )
     except Exception as e:  # noqa: BLE001
         # Intentional catch-all to prevent workflow tool from crashing
         # Log unexpected errors for debugging
-        logger.exception(
-            f"An unexpected error occurred during request_changes: {e}")
+        logger.exception(f"An unexpected error occurred during request_changes: {e}")
         return TaskWorkflowResult(
             success=False,
             message=f"An unexpected error occurred during request changes: {e}",

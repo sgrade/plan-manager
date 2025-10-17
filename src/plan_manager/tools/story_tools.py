@@ -14,9 +14,17 @@ from plan_manager.services.state_repository import (
 )
 from plan_manager.services.story_service import (
     create_story as svc_create_story,
+)
+from plan_manager.services.story_service import (
     delete_story as svc_delete_story,
+)
+from plan_manager.services.story_service import (
     get_story as svc_get_story,
+)
+from plan_manager.services.story_service import (
     list_stories as svc_list_stories,
+)
+from plan_manager.services.story_service import (
     update_story as svc_update_story,
 )
 from plan_manager.tools.util import coerce_optional_int
@@ -112,7 +120,9 @@ def list_stories(
                 status=s.status,
                 priority=s.priority,
                 creation_time=s.creation_time.isoformat() if s.creation_time else None,
-                completion_time=s.completion_time.isoformat() if s.completion_time else None,
+                completion_time=(
+                    s.completion_time.isoformat() if s.completion_time else None
+                ),
             )
             for s in stories
         ]

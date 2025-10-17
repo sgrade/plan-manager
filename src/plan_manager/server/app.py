@@ -76,7 +76,9 @@ def starlette_app() -> Starlette:
 
     class CorrelationIdMiddleware(BaseHTTPMiddleware):
         async def dispatch(
-            self, request: Request, call_next: "Callable[[Request], Awaitable[Response]]"
+            self,
+            request: Request,
+            call_next: "Callable[[Request], Awaitable[Response]]",
         ) -> Response:
             try:
                 incoming = request.headers.get("x-correlation-id")

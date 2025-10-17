@@ -58,8 +58,7 @@ ENABLE_FILE_LOG = _env_bool("PLAN_MANAGER_ENABLE_FILE_LOG")
 
 # --- Workflow Guardrails ---
 # Require approval before moving a Story/Task off TODO (to IN_PROGRESS/DONE)
-REQUIRE_APPROVAL_BEFORE_PROGRESS = _env_bool(
-    "REQUIRE_APPROVAL_BEFORE_PROGRESS", True)
+REQUIRE_APPROVAL_BEFORE_PROGRESS = _env_bool("REQUIRE_APPROVAL_BEFORE_PROGRESS", True)
 
 # Require an execution_intent before moving a Task to IN_PROGRESS
 REQUIRE_EXECUTION_INTENT_BEFORE_IN_PROGRESS = _env_bool(
@@ -86,12 +85,12 @@ TIMEOUT_KEEP_ALIVE = int(os.getenv("TIMEOUT_KEEP_ALIVE", "5"))
 
 # --- Docs / Agent Guides ---
 # Workspace-relative paths to agent-facing docs so deployments can override.
-USAGE_GUIDE_REL_PATH = os.getenv(
-    "USAGE_GUIDE_REL_PATH"
-) or str(Path("docs") / "usage_guide_agents.md")
-PROJECT_WORKFLOW_REL_PATH = os.getenv(
-    "PROJECT_WORKFLOW_REL_PATH"
-) or str(Path("docs") / "project_workflow.md")
+USAGE_GUIDE_REL_PATH = os.getenv("USAGE_GUIDE_REL_PATH") or str(
+    Path("docs") / "usage_guide_agents.md"
+)
+PROJECT_WORKFLOW_REL_PATH = os.getenv("PROJECT_WORKFLOW_REL_PATH") or str(
+    Path("docs") / "project_workflow.md"
+)
 
 # --- Telemetry ---
 # Lightweight, opt-in counters/timers for key flows

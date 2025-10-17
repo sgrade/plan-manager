@@ -82,6 +82,7 @@ select = [
 ignore = [
     "COM812",  # Missing trailing comma (conflicts with formatter)
     "ISC001",  # Single-line implicit string concatenation (conflicts with formatter)
+    "E501",    # Line too long (86 remaining in prompts/docstrings; fix before 1.0)
     "S101",    # Use of assert (allowed in tests)
     "PLR0913", # Too many arguments
     "TRY003",  # Avoid specifying long messages outside exception class
