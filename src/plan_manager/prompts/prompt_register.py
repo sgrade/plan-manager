@@ -1,6 +1,9 @@
-from typing import Callable, Optional, TypedDict
+from typing import TYPE_CHECKING, Callable, Optional, TypedDict
 
 from mcp.server.fastmcp.prompts import base
+
+if TYPE_CHECKING:
+    from mcp.server.fastmcp import FastMCP
 
 from plan_manager.prompts.plan_prompts import build_create_plan_prompt_messages
 from plan_manager.prompts.story_prompts import build_create_stories_prompt_messages
@@ -14,7 +17,7 @@ class PromptSpec(TypedDict):
     name: str
     title: str
     description: str
-    handler: Callable[[Optional[str]], list[base.Message]]
+    handler: Callable[..., list[base.Message]]
 
 
 # Catalog of prompts defined in this module. Servers can import this and
@@ -48,7 +51,7 @@ PROMPT_SPECS: list[PromptSpec] = [
 
 
 def register_prompts(
-    mcp_instance, prompt_specs: Optional[list[PromptSpec]] = None
+    mcp_instance: "FastMCP", prompt_specs: Optional[list[PromptSpec]] = None
 ) -> None:
     """Register prompts with the MCP instance using provided specs.
 
