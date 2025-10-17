@@ -442,7 +442,8 @@ def create_task_steps(task_id: str, steps: list[dict[str, Any]]) -> TaskWorkflow
         TaskWorkflowResult: Result containing the updated task and next actions
     """
     story_id, local_task_id = resolve_task_id(task_id)
-    data = svc_create_steps(story_id=story_id, task_id=local_task_id, steps=steps)
+    data = svc_create_steps(
+        story_id=story_id, task_id=local_task_id, steps=steps)
     task = _create_task_out(data)
     gate = _status_to_gate(task.status, task.steps)
     next_actions = _compute_next_actions_for_task(task, gate)
@@ -554,7 +555,8 @@ def approve_task() -> TaskWorkflowResult:
         return TaskWorkflowResult(
             success=False, message=str(e), action=ActionType.APPROVE
         )
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
+        # Intentional catch-all to prevent workflow tool from crashing
         # Log unexpected errors for debugging
         logger.exception(f"An unexpected error occurred during approval: {e}")
         return TaskWorkflowResult(
@@ -597,13 +599,16 @@ def request_changes(task_id: str, feedback: str) -> TaskWorkflowResult:
         )
     except (ValueError, KeyError, OSError, RuntimeError) as e:
         # Handle expected business logic errors
-        logger.warning(f"Request changes failed due to business logic error: {e}")
+        logger.warning(
+            f"Request changes failed due to business logic error: {e}")
         return TaskWorkflowResult(
             success=False, message=str(e), action=ActionType.REQUEST_CHANGES
         )
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
+        # Intentional catch-all to prevent workflow tool from crashing
         # Log unexpected errors for debugging
-        logger.exception(f"An unexpected error occurred during request_changes: {e}")
+        logger.exception(
+            f"An unexpected error occurred during request_changes: {e}")
         return TaskWorkflowResult(
             success=False,
             message=f"An unexpected error occurred during request changes: {e}",
