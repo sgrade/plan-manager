@@ -41,10 +41,12 @@ def save(plan: Plan, plan_id: str = "default") -> None:
     # 1. Save the main plan file (manifest)
     plan_path = _plan_file_path(plan_id)
     os.makedirs(os.path.dirname(plan_path), exist_ok=True)
-    plan_manifest = plan.model_dump(mode="json", exclude={"stories"}, exclude_none=True)
+    plan_manifest = plan.model_dump(
+        mode="json", exclude={"stories"}, exclude_none=True)
     plan_manifest["stories"] = [s.id for s in plan.stories]
     with open(plan_path, "w", encoding="utf-8") as f:
-        yaml.safe_dump(plan_manifest, f, default_flow_style=False, sort_keys=False)
+        yaml.safe_dump(plan_manifest, f,
+                       default_flow_style=False, sort_keys=False)
 
     # 2. Save each story to its own file
     for story in plan.stories:
@@ -73,7 +75,8 @@ def _save_story(story: Story) -> None:
             for t in (story.tasks or [])
         ]
         # Remove any None entries from tasks list
-        front["tasks"] = [tid for tid in front["tasks"] if isinstance(tid, str) and tid]
+        front["tasks"] = [tid for tid in front["tasks"]
+                          if isinstance(tid, str) and tid]
         save_item_to_file(story_path, front, overwrite=True)
     except (KeyError, ValueError, AttributeError):
         # Fallback to prior behavior if shaping fails
@@ -133,7 +136,8 @@ def delete(plan_id: str) -> None:
         else:
             # No plans left, so create a default one
             idx["current"] = "default"
-            idx["plans"] = [{"id": "default", "title": "default", "status": "TODO"}]
+            idx["plans"] = [
+                {"id": "default", "title": "default", "status": "TODO"}]
 
     with open(PLANS_INDEX_FILE_PATH, "w", encoding="utf-8") as f:
         yaml.safe_dump(idx, f, default_flow_style=False, sort_keys=False)
@@ -215,7 +219,8 @@ def _load_task(story_id: str, task_id: str) -> Task | None:
             return None
         return Task.model_validate(frontmatter)
     except (OSError, KeyError, ValidationError) as e:
-        logger.warning("Failed to load task '%s' in story '%s': %s", task_id, story_id, e)
+        logger.warning(
+            "Failed to load task '%s' in story '%s': %s", task_id, story_id, e)
         return None
 
 
@@ -231,7 +236,8 @@ def get_current_plan_id() -> str:
         idx = yaml.safe_load(f) or {}
     cur = idx.get("current")
     if not isinstance(cur, str):
-        raise TypeError(f"'current' plan is not set in index {PLANS_INDEX_FILE_PATH}")
+        raise TypeError(
+            f"'current' plan is not set in index {PLANS_INDEX_FILE_PATH}")
     plans_list = idx.get("plans") or []
     if cur not in [p.get("id") for p in plans_list]:
         raise ValueError(

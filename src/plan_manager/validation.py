@@ -177,7 +177,8 @@ def validate_feedback(feedback: str) -> str:
         raise ValueError("Feedback cannot be empty")
 
     if len(feedback) > MAX_FEEDBACK_LENGTH:
-        raise ValueError(f"Feedback too long (max {MAX_FEEDBACK_LENGTH} characters)")
+        raise ValueError(
+            f"Feedback too long (max {MAX_FEEDBACK_LENGTH} characters)")
 
     if not SAFE_TEXT_PATTERN.match(feedback):
         raise ValueError("Feedback contains invalid characters")
@@ -220,7 +221,8 @@ def validate_task_steps(steps: list[dict[str, Any]]) -> list[dict[str, Any]]:
             raise ValueError(f"Step {i + 1} title must be a non-empty string")
 
         if len(title) > 200:
-            raise ValueError(f"Step {i + 1} title too long (max 200 characters)")
+            raise ValueError(
+                f"Step {i + 1} title too long (max 200 characters)")
 
         if not SAFE_TEXT_PATTERN.match(title):
             raise ValueError(f"Step {i + 1} title contains invalid characters")
@@ -276,6 +278,7 @@ def validate_identifier(identifier: str, field_name: str = "identifier") -> str:
         )
 
     if identifier.lower() in RESERVED_WORDS:
-        raise ValueError(f"{field_name} cannot use reserved word '{identifier}'")
+        raise ValueError(
+            f"{field_name} cannot use reserved word '{identifier}'")
 
     return identifier.strip()

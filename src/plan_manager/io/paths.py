@@ -1,5 +1,5 @@
-import os
 import re
+from pathlib import Path
 
 from plan_manager.config import TODO_DIR
 
@@ -41,7 +41,7 @@ def story_file_path(story_id: str, plan_id: str | None = None) -> str:
         str: The relative file path to the story markdown file
     """
     pid = plan_id or get_current_plan_id_lazy()
-    return os.path.join(TODO_DIR, pid, story_id, "story.md")
+    return str(Path(TODO_DIR) / pid / story_id / "story.md")
 
 
 def task_file_path(
@@ -58,4 +58,4 @@ def task_file_path(
         str: The relative file path to the task markdown file
     """
     pid = plan_id or get_current_plan_id_lazy()
-    return os.path.join(TODO_DIR, pid, story_id, "tasks", f"{task_local_id}.md")
+    return str(Path(TODO_DIR) / pid / story_id / "tasks" / f"{task_local_id}.md")

@@ -7,8 +7,8 @@ configuration settings.
 """
 
 import logging
-import os
 import sys
+from pathlib import Path
 
 from plan_manager import config
 
@@ -23,7 +23,7 @@ level = getattr(logging, config.LOG_LEVEL, logging.INFO)
 handlers: list[logging.Handler] = [logging.StreamHandler(sys.stdout)]
 if config.ENABLE_FILE_LOG:
     # Ensure the log directory exists before configuring the file handler
-    os.makedirs(os.path.dirname(config.LOG_FILE_PATH), exist_ok=True)
+    Path(config.LOG_FILE_PATH).parent.mkdir(parents=True, exist_ok=True)
     handlers.append(logging.FileHandler(config.LOG_FILE_PATH))
 
 logging.basicConfig(

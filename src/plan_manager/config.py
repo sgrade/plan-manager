@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 # --- Helper for parsing boolean env vars ---
 
@@ -43,15 +44,15 @@ def _env_float(name: str, default: float = 1.0) -> float:
 
 # --- Core Paths ---
 # Determine the workspace root, which serves as the default base for other paths.
-WORKSPACE_ROOT = os.getcwd()
+WORKSPACE_ROOT = str(Path.cwd())
 
 # Multi-plan support (plans are stored under todo/<plan_id>/plan.yaml)
-TODO_DIR = os.getenv("TODO_DIR", os.path.join(WORKSPACE_ROOT, "todo"))
-PLANS_INDEX_FILE_PATH = os.path.join(TODO_DIR, "plans", "index.yaml")
+TODO_DIR = os.getenv("TODO_DIR") or str(Path(WORKSPACE_ROOT) / "todo")
+PLANS_INDEX_FILE_PATH = str(Path(TODO_DIR) / "plans" / "index.yaml")
 
 # --- Logging Configuration ---
-LOG_DIR = os.getenv("LOG_DIR", os.path.join(WORKSPACE_ROOT, "logs"))
-LOG_FILE_PATH = os.path.join(LOG_DIR, "mcp_server_app.log")
+LOG_DIR = os.getenv("LOG_DIR") or str(Path(WORKSPACE_ROOT) / "logs")
+LOG_FILE_PATH = str(Path(LOG_DIR) / "mcp_server_app.log")
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 ENABLE_FILE_LOG = _env_bool("PLAN_MANAGER_ENABLE_FILE_LOG")
 
@@ -85,11 +86,11 @@ TIMEOUT_KEEP_ALIVE = int(os.getenv("TIMEOUT_KEEP_ALIVE", "5"))
 # --- Docs / Agent Guides ---
 # Workspace-relative paths to agent-facing docs so deployments can override.
 USAGE_GUIDE_REL_PATH = os.getenv(
-    "USAGE_GUIDE_REL_PATH", os.path.join("docs", "usage_guide_agents.md")
-)
+    "USAGE_GUIDE_REL_PATH"
+) or str(Path("docs") / "usage_guide_agents.md")
 PROJECT_WORKFLOW_REL_PATH = os.getenv(
-    "PROJECT_WORKFLOW_REL_PATH", os.path.join("docs", "project_workflow.md")
-)
+    "PROJECT_WORKFLOW_REL_PATH"
+) or str(Path("docs") / "project_workflow.md")
 
 # --- Telemetry ---
 # Lightweight, opt-in counters/timers for key flows
