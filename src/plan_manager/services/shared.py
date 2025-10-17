@@ -90,7 +90,8 @@ def parse_priority_input(priority: str) -> Optional[int]:
     if priority == "6":
         return None
     if priority == "":
-        raise ValueError("Priority string cannot be empty. Use '6' for no priority.")
+        raise ValueError(
+            "Priority string cannot be empty. Use '6' for no priority.")
     try:
         return int(priority)
     except ValueError as e:
@@ -141,11 +142,12 @@ def write_story_details(story: Story) -> None:
                 tid for tid in front["tasks"] if isinstance(tid, str) and tid
             ]
             if story.file_path:
-                save_item_to_file(story.file_path, front, content=None, overwrite=False)
+                save_item_to_file(story.file_path, front,
+                                  content=None, overwrite=False)
         except (KeyError, ValueError, AttributeError, OSError):
             # Best-effort: log but don't fail on write errors
             logger.info(
-                f"Best-effort write of story file_path failed for '{story.id}'."
+                "Best-effort write of story file_path failed for '%s'.", story.id
             )
 
 
@@ -170,7 +172,7 @@ def write_task_details(task: Task) -> None:
     except (ValueError, AttributeError, OSError):
         # Best-effort: log but don't fail on write errors
         logger.info(
-            f"Best-effort write of task file_path failed for '{getattr(task, 'id', 'unknown')}'."
+            "Best-effort write of task file_path failed for '%s'.", getattr(task, 'id', 'unknown')
         )
 
 

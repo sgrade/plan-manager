@@ -65,7 +65,7 @@ def _get_current_plan() -> Plan | None:
     try:
         return plan_repo.load(plan_id)
     except FileNotFoundError:
-        logger.warning(f"Active plan with ID '{plan_id}' not found on disk.")
+        logger.warning("Active plan with ID '%s' not found on disk.", plan_id)
         return None
 
 

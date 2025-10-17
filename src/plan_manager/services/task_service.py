@@ -118,7 +118,7 @@ def create_task(
         )
     except ValidationError as e:
         logger.exception(
-            f"Validation error creating new task '{fq_task_id}': {e}")
+            "Validation error creating new task '%s': %s", fq_task_id, e)
         raise ValueError(
             f"Validation error creating new task '{fq_task_id}': {e}"
         ) from e
@@ -131,14 +131,14 @@ def create_task(
     except (ValueError, AttributeError, OSError):
         # Best-effort: log but don't fail on write errors
         logger.info(
-            f"Best-effort creation of task file failed for '{fq_task_id}'.")
+            "Best-effort creation of task file failed for '%s'.", fq_task_id)
 
     try:
         write_story_details(story)
     except (KeyError, ValueError, AttributeError, OSError):
         # Best-effort: log but don't fail on write errors
         logger.info(
-            f"Best-effort update of story file tasks list failed for '{story_id}'."
+            "Best-effort update of story file tasks list failed for '%s'.", story_id
         )
 
     return task.model_dump(
@@ -240,7 +240,7 @@ def _update_dependent_task_statuses(plan: Plan) -> None:
     Iterates through all tasks and updates their status to BLOCKED or TODO
     based on the current state of their dependencies.
     """
-    logger.debug(f"Running blocker status update for plan '{plan.id}'.")
+    logger.debug("Running blocker status update for plan '%s'.", plan.id)
     for story in plan.stories:
         for task in story.tasks or []:
             if task.status in [Status.TODO, Status.BLOCKED]:
@@ -249,12 +249,12 @@ def _update_dependent_task_statuses(plan: Plan) -> None:
                 if task.status == Status.TODO and not currently_unblocked:
                     task.status = Status.BLOCKED
                     logger.info(
-                        f"Task '{task.id}' is now BLOCKED due to unmet dependencies."
+                        "Task '%s' is now BLOCKED due to unmet dependencies.", task.id
                     )
                 elif task.status == Status.BLOCKED and currently_unblocked:
                     task.status = Status.TODO
                     logger.info(
-                        f"Task '{task.id}' is now UNBLOCKED and set to TODO.")
+                        "Task '%s' is now UNBLOCKED and set to TODO.", task.id)
 
 
 def update_task(
@@ -338,7 +338,7 @@ def update_task(
             except (OSError, yaml.YAMLError):
                 # Best-effort: log but don't fail on write errors
                 logger.info(
-                    f"Best-effort rollup update of story file failed for '{story_id}'."
+                    "Best-effort rollup update of story file failed for '%s'.", story_id
                 )
 
     # 3. Roll up plan status
@@ -395,7 +395,7 @@ def delete_task(story_id: str, task_id: str) -> dict[str, Any]:
     except (IndexError, OSError):
         # Best-effort: log but don't fail on delete errors
         logger.info(
-            f"Best-effort delete of task file failed for '{fq_task_id}'.")
+            "Best-effort delete of task file failed for '%s'.", fq_task_id)
     try:
         if story.file_path:
             save_item_to_file(story.file_path, story,
@@ -403,7 +403,7 @@ def delete_task(story_id: str, task_id: str) -> dict[str, Any]:
     except (OSError, yaml.YAMLError):
         # Best-effort: log but don't fail on write errors
         logger.info(
-            f"Best-effort update of story file tasks list failed for '{story_id}'."
+            "Best-effort update of story file tasks list failed for '%s'.", story_id
         )
     # Selection invariants: if deleted task was current, auto-advance/reset
     try:
@@ -691,7 +691,7 @@ def _log_review_feedback(plan_id: str, task: Task, feedback: str) -> None:
     except (OSError, KeyError, ValueError):
         # Best-effort: event logging is not critical
         logger.warning(
-            f"Failed to log review_changes_requested event for task {task.id}"
+            "Failed to log review_changes_requested event for task %s", task.id
         )
 
     try:
@@ -701,7 +701,7 @@ def _log_review_feedback(plan_id: str, task: Task, feedback: str) -> None:
         task.rework_count = (getattr(task, "rework_count", 0) or 0) + 1
     except (ValidationError, ValueError, AttributeError):
         # Best-effort: feedback persistence is not critical
-        logger.warning(f"Failed to persist review feedback for task {task.id}")
+        logger.warning("Failed to persist review feedback for task %s", task.id)
 
 
 def find_reviewable_tasks() -> list[Task]:

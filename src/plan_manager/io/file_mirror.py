@@ -146,10 +146,10 @@ def save_item_to_file(
             merged, existing_body if content is None else content
         )
         atomic_write(abs_path, rendered)
-        logger.info(f"Wrote file_path file: {abs_path}")
+        logger.info("Wrote file_path file: %s", abs_path)
     except (OSError, yaml.YAMLError) as e:
         # Best-effort: log but don't fail on file write errors
-        logger.warning(f"Best-effort write failed for '{abs_path}': {e}")
+        logger.warning("Best-effort write failed for '%s': %s", abs_path, e)
 
 
 def delete_item_file(details_path: str) -> None:
@@ -162,7 +162,7 @@ def delete_item_file(details_path: str) -> None:
         abs_path = os.path.join(WORKSPACE_ROOT, details_path)
         if os.path.exists(abs_path):
             os.remove(abs_path)
-            logger.info(f"Deleted file_path file: {abs_path}")
+            logger.info("Deleted file_path file: %s", abs_path)
     except OSError as e:
-        # Best-effort: log but don't fail on file delete errors
-        logger.warning(f"Best-effort delete failed for '{details_path}': {e}")
+        # Best-effort: log but don't fail on delete errors
+        logger.warning("Best-effort delete failed for '%s': %s", abs_path, e)

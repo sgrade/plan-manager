@@ -143,9 +143,9 @@ def delete(plan_id: str) -> None:
     if os.path.isdir(plan_dir):
         try:
             shutil.rmtree(plan_dir)
-            logger.info(f"Deleted plan directory: {plan_dir}")
+            logger.info("Deleted plan directory: %s", plan_dir)
         except OSError as e:
-            logger.exception(f"Error deleting directory {plan_dir}: {e}")
+            logger.exception("Error deleting directory %s: %s", plan_dir, e)
             raise
 
 
@@ -200,7 +200,7 @@ def _load_story(story_id: str) -> Story | None:
         frontmatter["tasks"] = tasks
         return Story.model_validate(frontmatter)
     except (OSError, KeyError, ValidationError) as e:
-        logger.warning(f"Failed to load story '{story_id}': {e}")
+        logger.warning("Failed to load story '%s': %s", story_id, e)
         return None
 
 
@@ -215,7 +215,7 @@ def _load_task(story_id: str, task_id: str) -> Task | None:
             return None
         return Task.model_validate(frontmatter)
     except (OSError, KeyError, ValidationError) as e:
-        logger.warning(f"Failed to load task '{task_id}' in story '{story_id}': {e}")
+        logger.warning("Failed to load task '%s' in story '%s': %s", task_id, story_id, e)
         return None
 
 

@@ -43,7 +43,7 @@ def incr(metric: str, value: int = 1, **labels: Any) -> None:
         "value": value,
         **labels,
     }
-    logger.debug(f"Telemetry counter: {telemetry_data}")
+    logger.debug("Telemetry counter: %s", telemetry_data)
 
 
 @contextmanager
@@ -69,4 +69,4 @@ def timer(metric: str, **labels: Any) -> Generator[None, None, None]:
             "ms": round(dur_ms, 2),
             **labels,
         }
-        logger.debug(f"Telemetry timer: {telemetry_data}")
+        logger.debug("Telemetry timer: %s", telemetry_data)

@@ -102,7 +102,7 @@ def list_stories(
     """List stories with optional status filter, unblocked flag and pagination."""
     if statuses is None:
         statuses = []
-    logger.info(f"Handling list_stories: statuses={statuses}, unblocked={unblocked}")
+    logger.info("Handling list_stories: statuses=%s, unblocked=%s", statuses, unblocked)
     try:
         stories: list[Story] = svc_list_stories(statuses, unblocked)
         items: list[StoryListItem] = []
@@ -122,7 +122,7 @@ def list_stories(
                 )
             )
         logger.info(
-            f"list_stories returning {len(items)} stories after sorting and filtering."
+            "list_stories returning %d stories after sorting and filtering.", len(items)
         )
         start = max(0, offset or 0)
         end = None if limit is None else start + max(0, limit)

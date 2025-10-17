@@ -31,7 +31,7 @@ def report(scope: str | None = None) -> ReportOut:
         ReportOut: A structured report containing the current state overview
     """
     scope = scope or "story"
-    logger.debug(f"report tool called with scope: {scope!r}")
+    logger.debug("report tool called with scope: %r", scope)
     try:
         report_str = report_service.get_report(scope=scope)
         return ReportOut(report=report_str)
