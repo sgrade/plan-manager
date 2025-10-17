@@ -1,8 +1,13 @@
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from mcp.server.fastmcp import FastMCP
+
 from plan_manager.config import PROJECT_WORKFLOW_REL_PATH, USAGE_GUIDE_REL_PATH
 from plan_manager.io.files import read_markdown
 
 
-def register_usage_resources(mcp_instance) -> None:
+def register_usage_resources(mcp_instance: "FastMCP") -> None:
     """Register the extended usage guide as an MCP resource.
 
     The content is loaded from docs/usage_guide_agents.md so it can be edited easily.
