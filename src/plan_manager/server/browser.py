@@ -1,10 +1,9 @@
 from pathlib import Path
 
-from starlette.responses import HTMLResponse, FileResponse
 from starlette.exceptions import HTTPException
+from starlette.responses import FileResponse, HTMLResponse
 
 from plan_manager.config import TODO_DIR
-
 
 CSS_STYLE = """
     body {
@@ -85,12 +84,10 @@ async def browse_endpoint(request):
         """
         if relative_path:
             parent = Path(relative_path).parent
-            parent_link = f"/browse/{parent}" if str(
-                parent) != "." else "/browse/"
+            parent_link = f"/browse/{parent}" if str(parent) != "." else "/browse/"
             html += f'<li><a href="{parent_link}">.. (Parent Directory)</a></li>'
 
-        items = sorted(list(file_path.iterdir()),
-                       key=lambda p: (p.is_file(), p.name.lower()))
+        items = sorted(file_path.iterdir(), key=lambda p: (p.is_file(), p.name.lower()))
 
         for item in items:
             item_name = item.name
@@ -106,5 +103,6 @@ async def browse_endpoint(request):
         """
         return HTMLResponse(html)
 
-    elif file_path.is_file():
+    if file_path.is_file():
         return FileResponse(file_path)
+    return None

@@ -1,12 +1,11 @@
 import logging
-from typing import Optional, List, Dict, Any
+from typing import Any, Optional
 
+from plan_manager.domain.models import Plan, Status, Story, Task
+from plan_manager.io.file_mirror import read_item_file, save_item_to_file
 from plan_manager.io.paths import slugify, task_file_path
-from plan_manager.io.file_mirror import save_item_to_file, read_item_file
 from plan_manager.services import plan_repository as plan_repo
-from plan_manager.domain.models import Status, Story, Task, Plan
 from plan_manager.services.state_repository import get_current_story_id
-
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +22,7 @@ def generate_slug(title: str) -> str:
     return slugify(title)
 
 
-def ensure_unique_id_from_set(base_id: str, existing_ids: List[str] | set[str]) -> str:
+def ensure_unique_id_from_set(base_id: str, existing_ids: list[str] | set[str]) -> str:
     """Ensure a unique ID by appending -2, -3, ... if base_id is taken.
 
     The caller provides the set/list of existing IDs in the relevant scope
@@ -40,9 +39,7 @@ def ensure_unique_id_from_set(base_id: str, existing_ids: List[str] | set[str]) 
         counter += 1
 
 
-def resolve_task_id(
-    task_id: str, story_id: Optional[str] = None
-) -> tuple[str, str]:
+def resolve_task_id(task_id: str, story_id: Optional[str] = None) -> tuple[str, str]:
     """Resolve a task ID into a (story_id, local_task_id) tuple.
 
     - If task_id is fully-qualified ('story:task'), it is parsed.
@@ -93,8 +90,7 @@ def parse_priority_input(priority: str) -> Optional[int]:
     if priority == "6":
         return None
     if priority == "":
-        raise ValueError(
-            "Priority string cannot be empty. Use '6' for no priority.")
+        raise ValueError("Priority string cannot be empty. Use '6' for no priority.")
     try:
         return int(priority)
     except ValueError as e:
@@ -103,12 +99,11 @@ def parse_priority_input(priority: str) -> Optional[int]:
         ) from e
 
 
-def parse_csv_list(csv: str) -> List[str]:
+def parse_csv_list(csv: str) -> list[str]:
     """Parse a CSV list of strings."""
     if not csv:
         return []
-    tokens = [t.strip() for t in csv.split(',') if t.strip()]
-    return tokens
+    return [t.strip() for t in csv.split(",") if t.strip()]
 
 
 def validate_and_save(plan: Plan) -> None:
@@ -116,6 +111,7 @@ def validate_and_save(plan: Plan) -> None:
     try:
         # Import here to avoid potential import cycles
         from plan_manager.domain.validation import validate_plan_dependencies
+
         validate_plan_dependencies(plan.stories)
         plan_repo.save(plan, plan.id)
     except Exception:
@@ -125,50 +121,58 @@ def validate_and_save(plan: Plan) -> None:
 
 def write_story_details(story: Story) -> None:
     """Write story details to file."""
-    if getattr(story, 'file_path', None):
+    if getattr(story, "file_path", None):
         try:
             # Persist tasks as identifiers only to keep story frontmatter small and stable
-            front = story.model_dump(mode='json', exclude_none=True)
-            front['tasks'] = [
-                (t.local_id if getattr(t, 'local_id', None) else (
-                    t.id.split(':', 1)[1] if isinstance(
-                        getattr(t, 'id', None), str) and ':' in t.id else getattr(t, 'id', None)
-                ))
+            front = story.model_dump(mode="json", exclude_none=True)
+            front["tasks"] = [
+                (
+                    t.local_id
+                    if getattr(t, "local_id", None)
+                    else (
+                        t.id.split(":", 1)[1]
+                        if isinstance(getattr(t, "id", None), str) and ":" in t.id
+                        else getattr(t, "id", None)
+                    )
+                )
                 for t in (story.tasks or [])
             ]
-            front['tasks'] = [tid for tid in front['tasks']
-                              if isinstance(tid, str) and tid]
+            front["tasks"] = [
+                tid for tid in front["tasks"] if isinstance(tid, str) and tid
+            ]
             if story.file_path:
-                save_item_to_file(story.file_path, front,
-                                  content=None, overwrite=False)
+                save_item_to_file(story.file_path, front, content=None, overwrite=False)
         except Exception:
             logger.info(
-                f"Best-effort write of story file_path failed for '{story.id}'.")
+                f"Best-effort write of story file_path failed for '{story.id}'."
+            )
 
 
 def write_task_details(task: Task) -> None:
     """Write task details to file."""
     try:
-        story_id = getattr(task, 'story_id', None)
+        story_id = getattr(task, "story_id", None)
         local_task_id = None
-        task_id = getattr(task, 'id', '')
-        if ':' in task_id:
-            parts = task_id.split(':', 1)
+        task_id = getattr(task, "id", "")
+        if ":" in task_id:
+            parts = task_id.split(":", 1)
             story_id = story_id or parts[0]
             local_task_id = parts[1]
         else:
             local_task_id = slugify(task_id)
         if not story_id or not local_task_id:
             raise ValueError(
-                "Cannot determine story_id or local_task_id for task file_path path.")
+                "Cannot determine story_id or local_task_id for task file_path path."
+            )
         path = task_file_path(story_id, local_task_id)
         save_item_to_file(path, task, content=None, overwrite=False)
     except Exception:
         logger.info(
-            f"Best-effort write of task file_path failed for '{getattr(task, 'id', 'unknown')}'.")
+            f"Best-effort write of task file_path failed for '{getattr(task, 'id', 'unknown')}'."
+        )
 
 
-def merge_frontmatter_defaults(path: str, base: Dict[str, Any]) -> Dict[str, Any]:
+def merge_frontmatter_defaults(path: str, base: dict[str, Any]) -> dict[str, Any]:
     """Merge default values with frontmatter values."""
     try:
         front, _ = read_item_file(path)
@@ -181,31 +185,31 @@ def merge_frontmatter_defaults(path: str, base: Dict[str, Any]) -> Dict[str, Any
         return base
 
 
-def find_dependents(plan: Plan, target_id: str) -> List[str]:
+def find_dependents(plan: Plan, target_id: str) -> list[str]:
     """Return IDs that depend on the target story or task.
 
     - If target is a story ID (no ':'), returns stories and tasks that list it in depends_on.
     - If target is a task ID (story_id:local_id), returns tasks that list it; also considers
       local references (just local_id) within the same story.
     """
-    dependents: List[str] = []
-    is_task = ':' in target_id
+    dependents: list[str] = []
+    is_task = ":" in target_id
     target_story_id: Optional[str] = None
     target_local: Optional[str] = None
     if is_task:
-        target_story_id, target_local = target_id.split(':', 1)
+        target_story_id, target_local = target_id.split(":", 1)
 
     # Story dependents: other stories that depend on the story
     if not is_task:
         for s in plan.stories:
-            for dep in (s.depends_on or []):
+            for dep in s.depends_on or []:
                 if dep == target_id:
                     dependents.append(s.id)
 
     # Task dependents: tasks depending on the target
     for s in plan.stories:
-        for t in (s.tasks or []):
-            for dep in (t.depends_on or []):
+        for t in s.tasks or []:
+            for dep in t.depends_on or []:
                 if dep == target_id:
                     dependents.append(t.id)
                     continue
@@ -227,8 +231,11 @@ def is_unblocked(item: Story | Task, plan: Plan) -> bool:
 
     for dep_id in item.depends_on:
         # Normalize to fully-qualified ID for lookup if it's a task
-        fq_dep_id = f"{getattr(item, 'story_id', '')}:{dep_id}" if isinstance(
-            item, Task) and ':' not in dep_id else dep_id
+        fq_dep_id = (
+            f"{getattr(item, 'story_id', '')}:{dep_id}"
+            if isinstance(item, Task) and ":" not in dep_id
+            else dep_id
+        )
 
         if fq_dep_id in task_index:
             if task_index[fq_dep_id].status != Status.DONE:

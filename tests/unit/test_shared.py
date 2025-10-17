@@ -1,7 +1,8 @@
 """Unit tests for shared service utilities."""
 
 import pytest
-from plan_manager.services.shared import generate_slug, ensure_unique_id_from_set
+
+from plan_manager.services.shared import ensure_unique_id_from_set, generate_slug
 
 
 class TestGenerateSlug:

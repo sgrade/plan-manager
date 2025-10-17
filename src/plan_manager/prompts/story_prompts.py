@@ -1,4 +1,5 @@
 from typing import Optional
+
 from mcp.server.fastmcp.prompts import base
 
 from plan_manager.services.state_repository import (
@@ -6,7 +7,9 @@ from plan_manager.services.state_repository import (
 )
 
 
-def build_create_stories_prompt_messages(plan_id: Optional[str] = None) -> list[base.Message]:
+def build_create_stories_prompt_messages(
+    plan_id: Optional[str] = None,
+) -> list[base.Message]:
     """Construct the messages for 'create_stories' using the given plan_id."""
 
     if not plan_id:
@@ -14,7 +17,8 @@ def build_create_stories_prompt_messages(plan_id: Optional[str] = None) -> list[
             plan_id = get_current_plan_id()
         except ValueError as e:
             raise ValueError(
-                "Could not determine a plan_id to build the prompt.") from e
+                "Could not determine a plan_id to build the prompt."
+            ) from e
 
     return [
         # == Turn 1: The Example ==
@@ -53,7 +57,6 @@ def build_create_stories_prompt_messages(plan_id: Optional[str] = None) -> list[
   }
 ]"""
         ),
-
         # == Turn 2: The Real Request ==
         # Now that the model has seen the pattern, we ask our actual question.
         base.UserMessage(

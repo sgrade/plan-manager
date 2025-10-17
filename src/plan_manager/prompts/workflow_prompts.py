@@ -9,15 +9,13 @@ Design constraints:
 - Keep content small and skimmable; the client may prefill and edit.
 """
 
-from typing import List
-
 from mcp.server.fastmcp.prompts.base import AssistantMessage, UserMessage
 
 
 # TODO: Rewrite this prompt for a story review checklist. Then register it.
 async def prompt_review_checklist(
     task_title: str = "", execution_summary: str = ""
-) -> List:
+) -> list:
     return [
         UserMessage(
             f"""

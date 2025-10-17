@@ -8,23 +8,21 @@ import logging
 import uuid
 
 from mcp.server.fastmcp import FastMCP
-
-from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.applications import Starlette
+from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import RedirectResponse
 
 from plan_manager.config import ENABLE_BROWSER
-from plan_manager.tools.story_tools import register_story_tools
-from plan_manager.tools.task_tools import register_task_tools
-from plan_manager.tools.plan_tools import register_plan_tools
-from plan_manager.tools.context_tools import register_context_tools
-from plan_manager.tools.changelog_tools import register_changelog_tools
-from plan_manager.tools.report_tools import register_report_tools
+from plan_manager.logging_context import set_correlation_id
 from plan_manager.prompts.prompt_register import register_prompts
 from plan_manager.resources.usage_resources import register_usage_resources
-from plan_manager.logging_context import set_correlation_id
 from plan_manager.server.browser import browse_endpoint
-
+from plan_manager.tools.changelog_tools import register_changelog_tools
+from plan_manager.tools.context_tools import register_context_tools
+from plan_manager.tools.plan_tools import register_plan_tools
+from plan_manager.tools.report_tools import register_report_tools
+from plan_manager.tools.story_tools import register_story_tools
+from plan_manager.tools.task_tools import register_task_tools
 
 logger = logging.getLogger(__name__)
 
@@ -59,9 +57,13 @@ def starlette_app() -> Starlette:
     if ENABLE_BROWSER:
         # Add this to starlette_app() function before returning app
         app.add_route(
-            "/", lambda r: RedirectResponse(url="/browse/"), name="browse_redirect")
-        app.add_route("/browse", lambda r: RedirectResponse(
-            url="/browse/"), name="browse_redirect")
+            "/", lambda r: RedirectResponse(url="/browse/"), name="browse_redirect"
+        )
+        app.add_route(
+            "/browse",
+            lambda r: RedirectResponse(url="/browse/"),
+            name="browse_redirect",
+        )
         app.add_route("/browse/", browse_endpoint, name="browse_root")
         app.add_route("/browse/{path:path}", browse_endpoint, name="browse")
 

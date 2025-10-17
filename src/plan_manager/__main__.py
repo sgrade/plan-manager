@@ -9,6 +9,8 @@ Usage:
 """
 
 import logging
+from importlib import import_module
+
 import uvicorn
 
 # --- Configuration Bootstrap ---
@@ -16,7 +18,7 @@ import uvicorn
 # ensure that configuration and logging are set up exactly once, as soon as
 # the application starts. The order is critical.
 from plan_manager import config
-from importlib import import_module
+
 # To prevent the warning: Import "plan_manager.logging" is not accessed
 import_module("plan_manager.logging")
 
@@ -25,16 +27,22 @@ logger = logging.getLogger(__name__)
 
 
 def main():
-
     log_destination = config.LOG_FILE_PATH if config.ENABLE_FILE_LOG else "stdout only"
     logger.info(
         "Starting MCP Plan Manager Server on %s:%s (reload=%s). App logs to: %s",
-        config.HOST, config.PORT, config.RELOAD, log_destination
+        config.HOST,
+        config.PORT,
+        config.RELOAD,
+        log_destination,
     )
 
     if config.RELOAD:
-        logger.info("Reloading enabled. Reload dirs: %s, includes: %s, excludes: %s",
-                    config.RELOAD_DIRS, config.RELOAD_INCLUDES, config.RELOAD_EXCLUDES)
+        logger.info(
+            "Reloading enabled. Reload dirs: %s, includes: %s, excludes: %s",
+            config.RELOAD_DIRS,
+            config.RELOAD_INCLUDES,
+            config.RELOAD_EXCLUDES,
+        )
     else:
         logger.info("Reloading disabled. App will not restart on code changes.")
 

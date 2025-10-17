@@ -1,22 +1,25 @@
-from typing import Callable, List, Optional, TypedDict
+from typing import Callable, Optional, TypedDict
+
 from mcp.server.fastmcp.prompts import base
 
 from plan_manager.prompts.plan_prompts import build_create_plan_prompt_messages
 from plan_manager.prompts.story_prompts import build_create_stories_prompt_messages
-from plan_manager.prompts.task_prompts import create_tasks_messages
-from plan_manager.prompts.task_prompts import create_steps_messages
+from plan_manager.prompts.task_prompts import (
+    create_steps_messages,
+    create_tasks_messages,
+)
 
 
 class PromptSpec(TypedDict):
     name: str
     title: str
     description: str
-    handler: Callable[[Optional[str]], List[base.Message]]
+    handler: Callable[[Optional[str]], list[base.Message]]
 
 
 # Catalog of prompts defined in this module. Servers can import this and
 # dynamically register/unregister entries at runtime.
-PROMPT_SPECS: List[PromptSpec] = [
+PROMPT_SPECS: list[PromptSpec] = [
     {
         "name": "create_plan",
         "title": "Create a plan",
@@ -44,13 +47,15 @@ PROMPT_SPECS: List[PromptSpec] = [
 ]
 
 
-def register_prompts(mcp_instance, prompt_specs: Optional[List[PromptSpec]] = None) -> None:
+def register_prompts(
+    mcp_instance, prompt_specs: Optional[list[PromptSpec]] = None
+) -> None:
     """Register prompts with the MCP instance using provided specs.
 
     This indirection makes it easy to later support dynamic runtime changes
     (add/remove/update prompt specs) and emit listChanged notifications.
     """
-    for spec in (prompt_specs or PROMPT_SPECS):
+    for spec in prompt_specs or PROMPT_SPECS:
         # Register the real handler directly so FastMCP reflects the actual
         # parameter name (plan_id/story_id/task_id) in the UI.
         mcp_instance.prompt(

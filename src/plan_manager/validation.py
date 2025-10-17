@@ -1,8 +1,7 @@
 """Input validation utilities for Plan Manager."""
 
 import re
-from typing import List, Dict, Any, Optional
-
+from typing import Any, Optional
 
 # Input length limits
 MAX_TITLE_LENGTH = 200
@@ -12,15 +11,23 @@ MAX_EXECUTION_SUMMARY_LENGTH = 10000
 MAX_FEEDBACK_LENGTH = 2000
 
 # Regular expression for safe identifiers (alphanumeric, hyphens, underscores)
-SAFE_ID_PATTERN = re.compile(r'^[a-zA-Z0-9_-]+$')
+SAFE_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+$")
 
 # Regular expression for safe text (no control characters except newlines/tabs)
-SAFE_TEXT_PATTERN = re.compile(r'^[^\x00-\x08\x0B\x0C\x0E-\x1F\x7F]*$')
+SAFE_TEXT_PATTERN = re.compile(r"^[^\x00-\x08\x0B\x0C\x0E-\x1F\x7F]*$")
 
 # Reserved words that shouldn't be used in identifiers
 RESERVED_WORDS = {
-    'null', 'none', 'undefined', 'true', 'false',
-    'admin', 'system', 'root', 'config', 'settings'
+    "null",
+    "none",
+    "undefined",
+    "true",
+    "false",
+    "admin",
+    "system",
+    "root",
+    "config",
+    "settings",
 }
 
 
@@ -65,7 +72,8 @@ def validate_description(description: Optional[str]) -> Optional[str]:
 
     if len(description) > MAX_DESCRIPTION_LENGTH:
         raise ValueError(
-            f"Description too long (max {MAX_DESCRIPTION_LENGTH} characters)")
+            f"Description too long (max {MAX_DESCRIPTION_LENGTH} characters)"
+        )
 
     if not SAFE_TEXT_PATTERN.match(description):
         raise ValueError("Description contains invalid characters")
@@ -73,7 +81,7 @@ def validate_description(description: Optional[str]) -> Optional[str]:
     return description.strip()
 
 
-def validate_acceptance_criteria(criteria: Optional[List[str]]) -> Optional[List[str]]:
+def validate_acceptance_criteria(criteria: Optional[list[str]]) -> Optional[list[str]]:
     """Validate acceptance criteria.
 
     Args:
@@ -99,25 +107,28 @@ def validate_acceptance_criteria(criteria: Optional[List[str]]) -> Optional[List
 
     for i, criterion in enumerate(criteria):
         if not isinstance(criterion, str):
-            raise ValueError(f"Acceptance criterion {i+1} must be a string")
+            raise ValueError(f"Acceptance criterion {i + 1} must be a string")
 
         if not criterion.strip():
-            raise ValueError(f"Acceptance criterion {i+1} cannot be empty")
+            raise ValueError(f"Acceptance criterion {i + 1} cannot be empty")
 
         if len(criterion) > 500:  # Individual criterion length limit
             raise ValueError(
-                f"Acceptance criterion {i+1} too long (max 500 characters)")
+                f"Acceptance criterion {i + 1} too long (max 500 characters)"
+            )
 
         if not SAFE_TEXT_PATTERN.match(criterion):
             raise ValueError(
-                f"Acceptance criterion {i+1} contains invalid characters")
+                f"Acceptance criterion {i + 1} contains invalid characters"
+            )
 
         validated_criteria.append(criterion.strip())
         total_length += len(criterion)
 
     if total_length > MAX_ACCEPTANCE_CRITERIA_LENGTH:
         raise ValueError(
-            f"Total acceptance criteria too long (max {MAX_ACCEPTANCE_CRITERIA_LENGTH} characters)")
+            f"Total acceptance criteria too long (max {MAX_ACCEPTANCE_CRITERIA_LENGTH} characters)"
+        )
 
     return validated_criteria
 
@@ -139,10 +150,11 @@ def validate_execution_summary(summary: str) -> str:
 
     if len(summary) > MAX_EXECUTION_SUMMARY_LENGTH:
         raise ValueError(
-            f"Execution summary too long (max {MAX_EXECUTION_SUMMARY_LENGTH} characters)")
+            f"Execution summary too long (max {MAX_EXECUTION_SUMMARY_LENGTH} characters)"
+        )
 
     # Allow newlines and tabs in execution summaries
-    safe_summary_pattern = re.compile(r'^[^\x00-\x08\x0B\x0C\x0E-\x1F\x7F]*$')
+    safe_summary_pattern = re.compile(r"^[^\x00-\x08\x0B\x0C\x0E-\x1F\x7F]*$")
     if not safe_summary_pattern.match(summary):
         raise ValueError("Execution summary contains invalid characters")
 
@@ -165,8 +177,7 @@ def validate_feedback(feedback: str) -> str:
         raise ValueError("Feedback cannot be empty")
 
     if len(feedback) > MAX_FEEDBACK_LENGTH:
-        raise ValueError(
-            f"Feedback too long (max {MAX_FEEDBACK_LENGTH} characters)")
+        raise ValueError(f"Feedback too long (max {MAX_FEEDBACK_LENGTH} characters)")
 
     if not SAFE_TEXT_PATTERN.match(feedback):
         raise ValueError("Feedback contains invalid characters")
@@ -174,7 +185,7 @@ def validate_feedback(feedback: str) -> str:
     return feedback.strip()
 
 
-def validate_task_steps(steps: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def validate_task_steps(steps: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Validate task steps structure.
 
     Args:
@@ -199,39 +210,43 @@ def validate_task_steps(steps: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 
     for i, step in enumerate(steps):
         if not isinstance(step, dict):
-            raise ValueError(f"Step {i+1} must be a dictionary")
+            raise ValueError(f"Step {i + 1} must be a dictionary")
 
-        if 'title' not in step:
-            raise ValueError(f"Step {i+1} missing required 'title' field")
+        if "title" not in step:
+            raise ValueError(f"Step {i + 1} missing required 'title' field")
 
-        title = step['title']
+        title = step["title"]
         if not isinstance(title, str) or not title.strip():
-            raise ValueError(f"Step {i+1} title must be a non-empty string")
+            raise ValueError(f"Step {i + 1} title must be a non-empty string")
 
         if len(title) > 200:
-            raise ValueError(f"Step {i+1} title too long (max 200 characters)")
+            raise ValueError(f"Step {i + 1} title too long (max 200 characters)")
 
         if not SAFE_TEXT_PATTERN.match(title):
-            raise ValueError(f"Step {i+1} title contains invalid characters")
+            raise ValueError(f"Step {i + 1} title contains invalid characters")
 
         # Validate optional description
-        description = step.get('description')
+        description = step.get("description")
         if description is not None:
             if not isinstance(description, str):
-                raise ValueError(f"Step {i+1} description must be a string")
+                raise ValueError(f"Step {i + 1} description must be a string")
 
             if len(description) > 1000:
                 raise ValueError(
-                    f"Step {i+1} description too long (max 1000 characters)")
+                    f"Step {i + 1} description too long (max 1000 characters)"
+                )
 
             if not SAFE_TEXT_PATTERN.match(description):
                 raise ValueError(
-                    f"Step {i+1} description contains invalid characters")
+                    f"Step {i + 1} description contains invalid characters"
+                )
 
-        validated_steps.append({
-            'title': title.strip(),
-            'description': description.strip() if description else None
-        })
+        validated_steps.append(
+            {
+                "title": title.strip(),
+                "description": description.strip() if description else None,
+            }
+        )
 
     return validated_steps
 
@@ -257,10 +272,10 @@ def validate_identifier(identifier: str, field_name: str = "identifier") -> str:
 
     if not SAFE_ID_PATTERN.match(identifier):
         raise ValueError(
-            f"{field_name} contains invalid characters (only letters, numbers, hyphens, and underscores allowed)")
+            f"{field_name} contains invalid characters (only letters, numbers, hyphens, and underscores allowed)"
+        )
 
     if identifier.lower() in RESERVED_WORDS:
-        raise ValueError(
-            f"{field_name} cannot use reserved word '{identifier}'")
+        raise ValueError(f"{field_name} cannot use reserved word '{identifier}'")
 
     return identifier.strip()

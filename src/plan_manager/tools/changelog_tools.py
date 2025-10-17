@@ -8,7 +8,9 @@ def register_changelog_tools(mcp_instance) -> None:
     mcp_instance.tool()(generate_changelog)
 
 
-def generate_changelog(version: str | None = None, date: str | None = None) -> ChangelogPreviewOut:
+def generate_changelog(
+    version: str | None = None, date: str | None = None
+) -> ChangelogPreviewOut:
     """Generate a changelog for all completed tasks in the current plan.
 
     Args:
@@ -28,8 +30,7 @@ def generate_changelog(version: str | None = None, date: str | None = None) -> C
     snippets = []
     for task in completed_tasks:
         # We pass the version and date for the header of each snippet
-        snippet = generate_changelog_for_task(
-            task, version, date)
+        snippet = generate_changelog_for_task(task, version, date)
         snippets.append(snippet)
 
     md = "\n\n".join(snippets)

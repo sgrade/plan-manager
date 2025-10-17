@@ -1,20 +1,30 @@
 import logging
-from typing import List, Optional
+from typing import Optional
 
 from pydantic import ValidationError
 
-from plan_manager.domain.models import Story, Status
+from plan_manager.domain.models import Status, Story
+from plan_manager.schemas.outputs import OperationResult, StoryListItem, StoryOut
+from plan_manager.services.state_repository import (
+    get_current_story_id,
+    set_current_story_id,
+)
 from plan_manager.services.story_service import (
     create_story as svc_create_story,
-    get_story as svc_get_story,
-    update_story as svc_update_story,
+)
+from plan_manager.services.story_service import (
     delete_story as svc_delete_story,
+)
+from plan_manager.services.story_service import (
+    get_story as svc_get_story,
+)
+from plan_manager.services.story_service import (
     list_stories as svc_list_stories,
 )
-from plan_manager.schemas.outputs import StoryOut, OperationResult, StoryListItem
+from plan_manager.services.story_service import (
+    update_story as svc_update_story,
+)
 from plan_manager.tools.util import coerce_optional_int
-from plan_manager.services.state_repository import set_current_story_id, get_current_story_id
-
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +39,13 @@ def register_story_tools(mcp_instance) -> None:
     mcp_instance.tool()(set_current_story)
 
 
-def create_story(title: str, description: Optional[str] = None, acceptance_criteria: Optional[list[str]] = None, priority: Optional[float] = None, depends_on: Optional[list[str]] = None) -> StoryOut:
+def create_story(
+    title: str,
+    description: Optional[str] = None,
+    acceptance_criteria: Optional[list[str]] = None,
+    priority: Optional[float] = None,
+    depends_on: Optional[list[str]] = None,
+) -> StoryOut:
     """Create a new story with the specified details.
 
     Args:
@@ -42,9 +58,10 @@ def create_story(title: str, description: Optional[str] = None, acceptance_crite
     Returns:
         StoryOut: The created story with its generated ID and metadata
     """
-    coerced_priority = coerce_optional_int(priority, 'priority')
-    data = svc_create_story(title, description, acceptance_criteria, coerced_priority,
-                            depends_on or [])
+    coerced_priority = coerce_optional_int(priority, "priority")
+    data = svc_create_story(
+        title, description, acceptance_criteria, coerced_priority, depends_on or []
+    )
     return StoryOut(**data)
 
 
@@ -53,16 +70,25 @@ def get_story(story_id: Optional[str] = None) -> StoryOut:
     story_id = story_id or get_current_story_id()
     if not story_id:
         raise ValueError(
-            "No current story set. Call set_current_story or provide story_id.")
+            "No current story set. Call set_current_story or provide story_id."
+        )
     data = svc_get_story(story_id)
     return StoryOut(**data)
 
 
-def update_story(story_id: str, title: Optional[str] = None, description: Optional[str] = None, acceptance_criteria: Optional[list[str]] = None, depends_on: Optional[list[str]] = None, priority: Optional[float] = None) -> StoryOut:
+def update_story(
+    story_id: str,
+    title: Optional[str] = None,
+    description: Optional[str] = None,
+    acceptance_criteria: Optional[list[str]] = None,
+    depends_on: Optional[list[str]] = None,
+    priority: Optional[float] = None,
+) -> StoryOut:
     """Update mutable fields of a story."""
-    coerced_priority = coerce_optional_int(priority, 'priority')
-    data = svc_update_story(story_id, title, description,
-                            acceptance_criteria, coerced_priority, depends_on)
+    coerced_priority = coerce_optional_int(priority, "priority")
+    data = svc_update_story(
+        story_id, title, description, acceptance_criteria, coerced_priority, depends_on
+    )
     return StoryOut(**data)
 
 
@@ -72,13 +98,19 @@ def delete_story(story_id: str) -> OperationResult:
     return OperationResult(**data)
 
 
-def list_stories(statuses: List[Status] = [], unblocked: bool = False, offset: Optional[int] = 0, limit: Optional[int] = None) -> List[StoryListItem]:
+def list_stories(
+    statuses: Optional[list[Status]] = None,
+    unblocked: bool = False,
+    offset: Optional[int] = 0,
+    limit: Optional[int] = None,
+) -> list[StoryListItem]:
     """List stories with optional status filter, unblocked flag and pagination."""
-    logger.info(
-        f"Handling list_stories: statuses={statuses}, unblocked={unblocked}")
+    if statuses is None:
+        statuses = []
+    logger.info(f"Handling list_stories: statuses={statuses}, unblocked={unblocked}")
     try:
-        stories: List[Story] = svc_list_stories(statuses, unblocked)
-        items: List[StoryListItem] = []
+        stories: list[Story] = svc_list_stories(statuses, unblocked)
+        items: list[StoryListItem] = []
         for s in stories:
             items.append(
                 StoryListItem(
@@ -86,27 +118,35 @@ def list_stories(statuses: List[Status] = [], unblocked: bool = False, offset: O
                     title=s.title,
                     status=s.status,
                     priority=s.priority,
-                    creation_time=s.creation_time.isoformat() if s.creation_time else None,
-                    completion_time=s.completion_time.isoformat() if getattr(
-                        s, 'completion_time', None) else None,
+                    creation_time=s.creation_time.isoformat()
+                    if s.creation_time
+                    else None,
+                    completion_time=s.completion_time.isoformat()
+                    if getattr(s, "completion_time", None)
+                    else None,
                 )
             )
         logger.info(
-            f"list_stories returning {len(items)} stories after sorting and filtering.")
+            f"list_stories returning {len(items)} stories after sorting and filtering."
+        )
         start = max(0, offset or 0)
         end = None if limit is None else start + max(0, limit)
         return items[start:end]
-    except (FileNotFoundError, ValidationError) as e:
+    except (FileNotFoundError, ValidationError):
         logger.exception("Failed to load/validate plan data for list_stories")
-        raise e
-    except Exception as e:
+        raise
+    except Exception:
         logger.exception("Unexpected error during list_stories")
-        raise e
+        raise
 
 
-def set_current_story(story_id: Optional[str] = None) -> OperationResult | List[StoryListItem]:
+def set_current_story(
+    story_id: Optional[str] = None,
+) -> OperationResult | list[StoryListItem]:
     """Set the current story. If no ID is provided, lists available stories."""
     if story_id:
         set_current_story_id(story_id)
-        return OperationResult(success=True, message=f"Current story set to '{story_id}'")
+        return OperationResult(
+            success=True, message=f"Current story set to '{story_id}'"
+        )
     return list_stories()

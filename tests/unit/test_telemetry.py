@@ -2,8 +2,10 @@
 
 import logging
 from unittest.mock import patch
+
 import pytest
-from plan_manager.telemetry import incr, timer, _should_sample
+
+from plan_manager.telemetry import _should_sample, incr, timer
 
 
 class TestTelemetrySampling:
@@ -11,36 +13,44 @@ class TestTelemetrySampling:
 
     def test_should_sample_disabled(self):
         """Test that sampling is disabled when TELEMETRY_ENABLED is False."""
-        with patch('plan_manager.telemetry.TELEMETRY_ENABLED', False):
+        with patch("plan_manager.telemetry.TELEMETRY_ENABLED", False):
             assert _should_sample() is False
 
     def test_should_sample_enabled_rate_1(self):
         """Test that sampling always returns True when rate is 1.0."""
-        with patch('plan_manager.telemetry.TELEMETRY_ENABLED', True), \
-                patch('plan_manager.telemetry.TELEMETRY_SAMPLE_RATE', 1.0), \
-                patch('random.random', return_value=0.5):
+        with (
+            patch("plan_manager.telemetry.TELEMETRY_ENABLED", True),
+            patch("plan_manager.telemetry.TELEMETRY_SAMPLE_RATE", 1.0),
+            patch("random.random", return_value=0.5),
+        ):
             assert _should_sample() is True
 
     def test_should_sample_enabled_rate_0(self):
         """Test that sampling always returns False when rate is 0.0."""
-        with patch('plan_manager.telemetry.TELEMETRY_ENABLED', True), \
-                patch('plan_manager.telemetry.TELEMETRY_SAMPLE_RATE', 0.0), \
-                patch('random.random', return_value=0.5):
+        with (
+            patch("plan_manager.telemetry.TELEMETRY_ENABLED", True),
+            patch("plan_manager.telemetry.TELEMETRY_SAMPLE_RATE", 0.0),
+            patch("random.random", return_value=0.5),
+        ):
             assert _should_sample() is False
 
     def test_should_sample_random_sampling(self):
         """Test random sampling logic."""
-        with patch('plan_manager.telemetry.TELEMETRY_ENABLED', True), \
-                patch('plan_manager.telemetry.TELEMETRY_SAMPLE_RATE', 0.5):
-            with patch('random.random', return_value=0.3):
+        with (
+            patch("plan_manager.telemetry.TELEMETRY_ENABLED", True),
+            patch("plan_manager.telemetry.TELEMETRY_SAMPLE_RATE", 0.5),
+        ):
+            with patch("random.random", return_value=0.3):
                 assert _should_sample() is True
-            with patch('random.random', return_value=0.7):
+            with patch("random.random", return_value=0.7):
                 assert _should_sample() is False
 
     def test_should_sample_invalid_rate_graceful(self):
         """Test that invalid sample rates are handled gracefully."""
-        with patch('plan_manager.telemetry.TELEMETRY_ENABLED', True), \
-                patch('plan_manager.telemetry.TELEMETRY_SAMPLE_RATE', "invalid"):
+        with (
+            patch("plan_manager.telemetry.TELEMETRY_ENABLED", True),
+            patch("plan_manager.telemetry.TELEMETRY_SAMPLE_RATE", "invalid"),
+        ):
             assert _should_sample() is False
 
 
@@ -49,7 +59,7 @@ class TestTelemetryIncr:
 
     def test_incr_not_sampled(self, caplog):
         """Test that incr doesn't log when not sampled."""
-        with patch('plan_manager.telemetry._should_sample', return_value=False):
+        with patch("plan_manager.telemetry._should_sample", return_value=False):
             with caplog.at_level(logging.DEBUG):
                 incr("test.metric", value=5, user_id="123", action="create")
 
@@ -57,7 +67,7 @@ class TestTelemetryIncr:
 
     def test_incr_sampled(self, caplog):
         """Test that incr logs telemetry data when sampled."""
-        with patch('plan_manager.telemetry._should_sample', return_value=True):
+        with patch("plan_manager.telemetry._should_sample", return_value=True):
             with caplog.at_level(logging.DEBUG):
                 incr("test.metric", value=5, user_id="123", action="create")
 
@@ -74,7 +84,7 @@ class TestTelemetryIncr:
 
     def test_incr_default_value(self, caplog):
         """Test that incr uses default value of 1."""
-        with patch('plan_manager.telemetry._should_sample', return_value=True):
+        with patch("plan_manager.telemetry._should_sample", return_value=True):
             with caplog.at_level(logging.DEBUG):
                 incr("test.metric")
 
@@ -84,7 +94,7 @@ class TestTelemetryIncr:
 
     def test_incr_no_labels(self, caplog):
         """Test incr with no additional labels."""
-        with patch('plan_manager.telemetry._should_sample', return_value=True):
+        with patch("plan_manager.telemetry._should_sample", return_value=True):
             with caplog.at_level(logging.DEBUG):
                 incr("test.metric", value=3)
 
@@ -99,7 +109,7 @@ class TestTelemetryTimer:
 
     def test_timer_not_sampled(self, caplog):
         """Test that timer doesn't log when not sampled."""
-        with patch('plan_manager.telemetry._should_sample', return_value=False):
+        with patch("plan_manager.telemetry._should_sample", return_value=False):
             with caplog.at_level(logging.DEBUG):
                 with timer("test.timer", operation="save"):
                     pass
@@ -108,8 +118,10 @@ class TestTelemetryTimer:
 
     def test_timer_sampled(self, caplog):
         """Test that timer logs duration when sampled."""
-        with patch('plan_manager.telemetry._should_sample', return_value=True), \
-                patch('time.perf_counter', side_effect=[100.0, 100.5]):
+        with (
+            patch("plan_manager.telemetry._should_sample", return_value=True),
+            patch("time.perf_counter", side_effect=[100.0, 100.5]),
+        ):
             with caplog.at_level(logging.DEBUG):
                 with timer("test.timer", operation="save", user_id="123"):
                     pass
@@ -127,8 +139,10 @@ class TestTelemetryTimer:
 
     def test_timer_exception_handling(self, caplog):
         """Test that timer still logs even if code raises exception."""
-        with patch('plan_manager.telemetry._should_sample', return_value=True), \
-                patch('time.perf_counter', side_effect=[100.0, 100.2]):
+        with (
+            patch("plan_manager.telemetry._should_sample", return_value=True),
+            patch("time.perf_counter", side_effect=[100.0, 100.2]),
+        ):
             with pytest.raises(ValueError):
                 with caplog.at_level(logging.DEBUG):
                     with timer("test.timer"):

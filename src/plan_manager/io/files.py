@@ -1,5 +1,6 @@
 import os
 from typing import Optional
+
 from plan_manager.config import WORKSPACE_ROOT
 
 
@@ -27,7 +28,7 @@ def read_text(path: str, encoding: str = "utf-8") -> str:
     Returns:
         str: The file contents
     """
-    with open(path, "r", encoding=encoding) as f:
+    with open(path, encoding=encoding) as f:
         return f.read()
 
 

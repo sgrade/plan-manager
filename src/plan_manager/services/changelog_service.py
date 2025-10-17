@@ -8,7 +8,9 @@ def _today_str() -> str:
     return datetime.now(timezone.utc).date().isoformat()
 
 
-def generate_changelog_for_task(task: Task, version: Optional[str] = None, date: Optional[str] = None) -> str:
+def generate_changelog_for_task(
+    task: Task, version: Optional[str] = None, date: Optional[str] = None
+) -> str:
     """Generates a changelog snippet for a single completed task."""
 
     header = []
@@ -19,7 +21,7 @@ def generate_changelog_for_task(task: Task, version: Optional[str] = None, date:
 
     body = ["### Changed\n"]
 
-    summary = task.execution_summary or 'No summary provided.'
+    summary = task.execution_summary or "No summary provided."
     entry = f"- **{task.title}**: {summary}"
     body.append(entry)
 

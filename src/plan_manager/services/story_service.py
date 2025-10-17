@@ -16,7 +16,7 @@ from plan_manager.services.shared import (
     write_story_details,
 )
 from plan_manager.services.shared import find_dependents
-from plan_manager.config import TODO_DIR
+from plan_manager.config import TODO_DIR, WORKSPACE_ROOT
 from plan_manager.logging_context import get_correlation_id
 from plan_manager.validation import validate_title, validate_description, validate_acceptance_criteria
 from plan_manager.services.state_repository import (

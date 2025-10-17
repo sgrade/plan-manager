@@ -1,10 +1,11 @@
 """Unit tests for validation module."""
 
 import pytest
+
 from plan_manager.validation import (
-    validate_title,
-    validate_description,
     validate_acceptance_criteria,
+    validate_description,
+    validate_title,
 )
 
 

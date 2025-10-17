@@ -1,9 +1,7 @@
 from contextvars import ContextVar
 from typing import Optional
 
-
-_correlation_id: ContextVar[Optional[str]] = ContextVar(
-    "correlation_id", default=None)
+_correlation_id: ContextVar[Optional[str]] = ContextVar("correlation_id", default=None)
 
 
 def set_correlation_id(value: Optional[str]) -> None:

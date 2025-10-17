@@ -1,4 +1,5 @@
 from typing import Optional
+
 from mcp.server.fastmcp.prompts import base
 
 from plan_manager.services.state_repository import (
@@ -15,7 +16,8 @@ def create_tasks_messages(story_id: Optional[str] = None) -> list[base.Message]:
             story_id = get_current_story_id()
         except ValueError as e:
             raise ValueError(
-                "Could not determine a story_id to build the prompt.") from e
+                "Could not determine a story_id to build the prompt."
+            ) from e
 
     return [
         # == Turn 1: The Example ==
@@ -47,7 +49,6 @@ def create_tasks_messages(story_id: Optional[str] = None) -> list[base.Message]:
   }
 ]"""
         ),
-
         # == Turn 2: The Real Request ==
         # Now that the model has seen the pattern, we ask our actual question.
         base.UserMessage(
@@ -68,7 +69,8 @@ def create_steps_messages(task_id: Optional[str] = None) -> list[base.Message]:
             task_id = get_current_task_id()
         except ValueError as e:
             raise ValueError(
-                "Could not determine a task_id to build the prompt.") from e
+                "Could not determine a task_id to build the prompt."
+            ) from e
 
     return [
         # == Turn 1: The Example ==
@@ -102,7 +104,6 @@ def create_steps_messages(task_id: Optional[str] = None) -> list[base.Message]:
   }
 ]"""
         ),
-
         # == Turn 2: The Real Request ==
         # Now that the model has seen the pattern, we ask our actual question.
         base.UserMessage(

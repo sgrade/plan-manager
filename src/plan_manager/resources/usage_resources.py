@@ -1,5 +1,5 @@
+from plan_manager.config import PROJECT_WORKFLOW_REL_PATH, USAGE_GUIDE_REL_PATH
 from plan_manager.io.files import read_markdown
-from plan_manager.config import USAGE_GUIDE_REL_PATH, PROJECT_WORKFLOW_REL_PATH
 
 
 def register_usage_resources(mcp_instance) -> None:

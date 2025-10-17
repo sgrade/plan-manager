@@ -27,7 +27,6 @@ def build_create_plan_prompt_messages() -> list[base.Message]:
   "priority": 2
 }"""
         ),
-
         # == Turn 2: The Real Request ==
         # Now that the model has seen the pattern, we ask our actual question.
         base.UserMessage(

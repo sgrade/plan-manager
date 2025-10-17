@@ -1,17 +1,27 @@
-from typing import List, Optional
+from typing import Optional
 
+from plan_manager.domain.models import Status
+from plan_manager.schemas.outputs import OperationResult, PlanListItem, PlanOut
+from plan_manager.services.plan_repository import (
+    get_current_plan_id,
+    set_current_plan_id,
+)
 from plan_manager.services.plan_service import (
     create_plan as svc_create_plan,
-    get_plan as svc_get_plan,
-    update_plan as svc_update_plan,
+)
+from plan_manager.services.plan_service import (
     delete_plan as svc_delete_plan,
+)
+from plan_manager.services.plan_service import (
+    get_plan as svc_get_plan,
+)
+from plan_manager.services.plan_service import (
     list_plans as svc_list_plans,
 )
-from plan_manager.domain.models import Status
-
-from plan_manager.schemas.outputs import PlanOut, PlanListItem, OperationResult
+from plan_manager.services.plan_service import (
+    update_plan as svc_update_plan,
+)
 from plan_manager.tools.util import coerce_optional_int
-from plan_manager.services.plan_repository import set_current_plan_id, get_current_plan_id
 
 
 def register_plan_tools(mcp_instance) -> None:
@@ -24,7 +34,9 @@ def register_plan_tools(mcp_instance) -> None:
     mcp_instance.tool()(set_current_plan)
 
 
-def create_plan(title: str, description: Optional[str] = None, priority: Optional[float] = None) -> PlanOut:
+def create_plan(
+    title: str, description: Optional[str] = None, priority: Optional[float] = None
+) -> PlanOut:
     """Create a new plan with the specified details.
 
     Args:
@@ -36,9 +48,8 @@ def create_plan(title: str, description: Optional[str] = None, priority: Optiona
         PlanOut: The created plan with its generated ID and metadata
     """
     # Coerce priority robustly to provide better error messages at the tool boundary
-    coerced_priority = coerce_optional_int(priority, 'priority')
-    data = svc_create_plan(
-        title, description, coerced_priority)
+    coerced_priority = coerce_optional_int(priority, "priority")
+    data = svc_create_plan(title, description, coerced_priority)
     return PlanOut(**data)
 
 
@@ -49,11 +60,16 @@ def get_plan(plan_id: Optional[str] = None) -> PlanOut:
     return PlanOut(**data)
 
 
-def update_plan(plan_id: str, title: Optional[str] = None, description: Optional[str] = None, priority: Optional[float] = None, status: Optional[Status] = None) -> PlanOut:
+def update_plan(
+    plan_id: str,
+    title: Optional[str] = None,
+    description: Optional[str] = None,
+    priority: Optional[float] = None,
+    status: Optional[Status] = None,
+) -> PlanOut:
     """Update a plan."""
-    coerced_priority = coerce_optional_int(priority, 'priority')
-    data = svc_update_plan(plan_id, title,
-                           description, coerced_priority, status)
+    coerced_priority = coerce_optional_int(priority, "priority")
+    data = svc_update_plan(plan_id, title, description, coerced_priority, status)
     return PlanOut(**data)
 
 
@@ -63,8 +79,14 @@ def delete_plan(plan_id: str) -> OperationResult:
     return OperationResult(**data)
 
 
-def list_plans(statuses: List[Status] = [], offset: Optional[int] = 0, limit: Optional[int] = None) -> List[PlanListItem]:
+def list_plans(
+    statuses: Optional[list[Status]] = None,
+    offset: Optional[int] = 0,
+    limit: Optional[int] = None,
+) -> list[PlanListItem]:
     """List plans with optional status filter and pagination."""
+    if statuses is None:
+        statuses = []
     data = svc_list_plans(statuses)
     items = [PlanListItem(**d) for d in data]
     start = max(0, offset or 0)
@@ -72,7 +94,9 @@ def list_plans(statuses: List[Status] = [], offset: Optional[int] = 0, limit: Op
     return items[start:end]
 
 
-def set_current_plan(plan_id: Optional[str] = None) -> OperationResult | List[PlanListItem]:
+def set_current_plan(
+    plan_id: Optional[str] = None,
+) -> OperationResult | list[PlanListItem]:
     """Set the current plan. If no ID is provided, lists available plans."""
     if plan_id:
         set_current_plan_id(plan_id)

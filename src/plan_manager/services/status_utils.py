@@ -6,6 +6,7 @@ from plan_manager.domain.models import Status
 
 class HasStatus(Protocol):
     """Protocol for models that expose a status and completion_time."""
+
     status: Status
     completion_time: datetime | None
 
@@ -42,9 +43,9 @@ def rollup_story_status(task_statuses: list[Status | str]) -> Status:
     values = [s.value if isinstance(s, Status) else s for s in task_statuses]
     if not values:
         return Status.TODO
-    if all(v == 'DONE' for v in values):
+    if all(v == "DONE" for v in values):
         return Status.DONE
-    if any(v == 'IN_PROGRESS' for v in values):
+    if any(v == "IN_PROGRESS" for v in values):
         return Status.IN_PROGRESS
     return Status.TODO
 
@@ -66,8 +67,8 @@ def rollup_plan_status(story_statuses: list[Status | str]) -> Status:
     values = [s.value if isinstance(s, Status) else s for s in story_statuses]
     if not values:
         return Status.TODO
-    if all(v == 'DONE' for v in values):
+    if all(v == "DONE" for v in values):
         return Status.DONE
-    if any(v == 'IN_PROGRESS' for v in values):
+    if any(v == "IN_PROGRESS" for v in values):
         return Status.IN_PROGRESS
     return Status.TODO

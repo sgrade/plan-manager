@@ -2,7 +2,7 @@ import logging
 import random
 import time
 from contextlib import contextmanager
-from typing import Any, Dict
+from typing import Any
 
 from plan_manager.config import TELEMETRY_ENABLED, TELEMETRY_SAMPLE_RATE
 
@@ -36,11 +36,11 @@ def incr(metric: str, value: int = 1, **labels) -> None:
         return
 
     # Log telemetry data at debug level for production monitoring
-    telemetry_data: Dict[str, Any] = {
+    telemetry_data: dict[str, Any] = {
         "metric": metric,
         "type": "counter",
         "value": value,
-        **labels
+        **labels,
     }
     logger.debug(f"Telemetry counter: {telemetry_data}")
 
@@ -66,6 +66,6 @@ def timer(metric: str, **labels):
             "metric": metric,
             "type": "timer",
             "ms": round(dur_ms, 2),
-            **labels
+            **labels,
         }
         logger.debug(f"Telemetry timer: {telemetry_data}")

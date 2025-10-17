@@ -1,6 +1,6 @@
 """Unit tests for domain models."""
 
-from plan_manager.domain.models import Plan, Story, Task, Status
+from plan_manager.domain.models import Plan, Status, Story, Task
 
 
 class TestPlanModel:
@@ -23,7 +23,7 @@ class TestPlanModel:
             title="Test Plan",
             description="A test plan",
             priority=1,
-            status=Status.IN_PROGRESS
+            status=Status.IN_PROGRESS,
         )
         assert plan.id == "test-plan"
         assert plan.title == "Test Plan"
@@ -62,7 +62,7 @@ class TestStoryModel:
             priority=2,
             status=Status.IN_PROGRESS,
             depends_on=["other-story"],
-            file_path="stories/test-story.md"
+            file_path="stories/test-story.md",
         )
         assert story.id == "test-story"
         assert story.title == "Test Story"
@@ -79,8 +79,12 @@ class TestTaskModel:
 
     def test_task_creation_minimal(self):
         """Test creating a task with minimal required fields."""
-        task = Task(id="story-1:task-1", title="Test Task",
-                    story_id="story-1", local_id="task-1")
+        task = Task(
+            id="story-1:task-1",
+            title="Test Task",
+            story_id="story-1",
+            local_id="task-1",
+        )
         assert task.id == "story-1:task-1"
         assert task.title == "Test Task"
         assert task.story_id == "story-1"
@@ -107,9 +111,9 @@ class TestTaskModel:
             depends_on=["task-2"],
             steps=[
                 Task.Step(title="Step 1", description="First step"),
-                Task.Step(title="Step 2")
+                Task.Step(title="Step 2"),
             ],
-            execution_summary="Completed successfully"
+            execution_summary="Completed successfully",
         )
         assert task.id == "story-1:task-1"
         assert task.title == "Test Task"
@@ -130,8 +134,7 @@ class TestTaskModel:
         assert step1.title == "Implement feature"
         assert step1.description is None
 
-        step2 = Task.Step(title="Add tests",
-                          description="Write comprehensive tests")
+        step2 = Task.Step(title="Add tests", description="Write comprehensive tests")
         assert step2.title == "Add tests"
         assert step2.description == "Write comprehensive tests"
 
@@ -160,8 +163,9 @@ class TestModelValidation:
     def test_task_id_format(self):
         """Test that task ID format is accepted."""
         # This should work as long as the model accepts the ID format
-        task = Task(id="story-1:task-1", title="Test",
-                    story_id="story-1", local_id="task-1")
+        task = Task(
+            id="story-1:task-1", title="Test", story_id="story-1", local_id="task-1"
+        )
         assert task.id == "story-1:task-1"
 
 
@@ -170,8 +174,7 @@ class TestModelSerialization:
 
     def test_plan_model_dump(self):
         """Test that Plan can be serialized."""
-        plan = Plan(id="test-plan", title="Test Plan",
-                    description="A test plan")
+        plan = Plan(id="test-plan", title="Test Plan", description="A test plan")
         data = plan.model_dump()
         assert data["id"] == "test-plan"
         assert data["title"] == "Test Plan"
@@ -188,8 +191,12 @@ class TestModelSerialization:
 
     def test_task_model_dump(self):
         """Test that Task can be serialized."""
-        task = Task(id="story-1:task-1", title="Test Task",
-                    story_id="story-1", local_id="task-1")
+        task = Task(
+            id="story-1:task-1",
+            title="Test Task",
+            story_id="story-1",
+            local_id="task-1",
+        )
         data = task.model_dump()
         assert data["id"] == "story-1:task-1"
         assert data["title"] == "Test Task"

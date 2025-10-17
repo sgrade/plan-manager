@@ -1,12 +1,10 @@
 """Pytest configuration and shared fixtures."""
 
-import pytest
-import shutil
-import importlib
 import os
+import shutil
 import tempfile
-from pathlib import Path
 
+import pytest
 
 # Set TODO_DIR to temp BEFORE any modules are imported
 # This happens at pytest startup, before test collection
@@ -19,7 +17,6 @@ def pytest_configure(config):
     # Create a persistent temp directory for the entire test session
     _TEST_TODO_DIR = tempfile.mkdtemp(prefix="pytest_plan_manager_")
     os.environ["TODO_DIR"] = _TEST_TODO_DIR
-    print(f"\n[TEST] TODO_DIR set to: {_TEST_TODO_DIR}")
 
 
 def pytest_unconfigure(config):
@@ -27,7 +24,6 @@ def pytest_unconfigure(config):
     global _TEST_TODO_DIR
     if _TEST_TODO_DIR and os.path.exists(_TEST_TODO_DIR):
         shutil.rmtree(_TEST_TODO_DIR, ignore_errors=True)
-        print(f"\n[TEST] Cleaned up: {_TEST_TODO_DIR}")
 
 
 @pytest.fixture(autouse=True)
@@ -39,12 +35,14 @@ def isolate_tests():
     """
     # Clear any global state that might persist between tests
     try:
+        from plan_manager.services.plan_repository import (
+            set_current_plan_id as set_plan_id,
+        )
         from plan_manager.services.state_repository import (
             set_current_plan_id,
             set_current_story_id,
             set_current_task_id,
         )
-        from plan_manager.services.plan_repository import set_current_plan_id as set_plan_id
 
         # Clear all current IDs
         set_current_plan_id(None)
@@ -56,7 +54,6 @@ def isolate_tests():
         pass
 
     # Yield control back to the test
-    yield
 
     # Cleanup happens at session end via pytest_unconfigure
 
@@ -77,7 +74,7 @@ def clean_workspace(tmp_path):
     """
     workspace = tmp_path / "workspace"
     workspace.mkdir(parents=True, exist_ok=True)
-    yield workspace
+    return workspace
     # Cleanup happens automatically via tmp_path
 
 

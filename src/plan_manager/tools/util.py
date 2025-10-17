@@ -30,11 +30,11 @@ def coerce_optional_int(value: Any, param_name: str) -> Optional[int]:
     # Accept basic integer-like strings
     if isinstance(value, str):
         value_stripped = value.strip()
-        if value_stripped.startswith(('+', '-')):
+        if value_stripped.startswith(("+", "-")):
             sign = value_stripped[0]
             digits = value_stripped[1:]
         else:
-            sign = ''
+            sign = ""
             digits = value_stripped
         if digits.isdigit():
             try:
