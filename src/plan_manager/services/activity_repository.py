@@ -1,5 +1,5 @@
-import os
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Optional
 
 import yaml
@@ -16,7 +16,7 @@ def _activity_file_path(plan_id: str) -> str:
     Returns:
         str: The file path for the activity file
     """
-    return os.path.join(TODO_DIR, plan_id, "activity.yaml")
+    return str(Path(TODO_DIR) / plan_id / "activity.yaml")
 
 
 def _read_events(plan_id: str) -> list[dict[str, Any]]:
@@ -28,10 +28,10 @@ def _read_events(plan_id: str) -> list[dict[str, Any]]:
     Returns:
         List[Dict[str, Any]]: List of activity events
     """
-    path = _activity_file_path(plan_id)
-    if not os.path.exists(path):
+    path = Path(_activity_file_path(plan_id))
+    if not path.exists():
         return []
-    with open(path, encoding="utf-8") as f:
+    with path.open(encoding="utf-8") as f:
         data = yaml.safe_load(f) or []
     if isinstance(data, list):
         return data
@@ -45,9 +45,9 @@ def _write_events(plan_id: str, events: list[dict[str, Any]]) -> None:
         plan_id: The plan identifier
         events: List of activity events to write
     """
-    path = _activity_file_path(plan_id)
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
+    path = Path(_activity_file_path(plan_id))
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as f:
         yaml.safe_dump(events, f, default_flow_style=False, sort_keys=False)
 
 

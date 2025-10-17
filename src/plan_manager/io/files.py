@@ -1,4 +1,4 @@
-import os
+from pathlib import Path
 from typing import Optional
 
 from plan_manager.config import WORKSPACE_ROOT
@@ -15,7 +15,7 @@ def resolve_workspace_path(relative_path: str, base: Optional[str] = None) -> st
         str: The absolute path
     """
     base_dir = base or WORKSPACE_ROOT
-    return os.path.abspath(os.path.join(base_dir, relative_path))
+    return str((Path(base_dir) / relative_path).resolve())
 
 
 def read_text(path: str, encoding: str = "utf-8") -> str:
@@ -28,8 +28,7 @@ def read_text(path: str, encoding: str = "utf-8") -> str:
     Returns:
         str: The file contents
     """
-    with open(path, encoding=encoding) as f:
-        return f.read()
+    return Path(path).read_text(encoding=encoding)
 
 
 def write_text(path: str, content: str, encoding: str = "utf-8") -> None:
@@ -40,9 +39,9 @@ def write_text(path: str, content: str, encoding: str = "utf-8") -> None:
         content: The text content to write
         encoding: The text encoding to use (default: utf-8)
     """
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "w", encoding=encoding) as f:
-        f.write(content)
+    file_path = Path(path)
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+    file_path.write_text(content, encoding=encoding)
 
 
 def read_markdown(relative_path: str) -> str:

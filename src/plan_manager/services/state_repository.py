@@ -1,4 +1,4 @@
-import os
+from pathlib import Path
 from typing import Any, Optional
 
 import yaml
@@ -17,23 +17,23 @@ __all__ = [
 
 def _state_file_path(plan_id: str) -> str:
     """Get the path to the state file for a given plan ID."""
-    return os.path.join(TODO_DIR, plan_id, "state.yaml")
+    return str(Path(TODO_DIR) / plan_id / "state.yaml")
 
 
 def _read_state(plan_id: str) -> dict[str, Any]:
     """Read the state file for a given plan ID."""
-    path = _state_file_path(plan_id)
-    if not os.path.exists(path):
+    path = Path(_state_file_path(plan_id))
+    if not path.exists():
         return {}
-    with open(path, encoding="utf-8") as f:
+    with path.open(encoding="utf-8") as f:
         return yaml.safe_load(f) or {}
 
 
 def _write_state(plan_id: str, data: dict[str, Any]) -> None:
     """Write the state file for a given plan ID."""
-    path = _state_file_path(plan_id)
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
+    path = Path(_state_file_path(plan_id))
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as f:
         yaml.safe_dump(data, f, default_flow_style=False, sort_keys=False)
 
 
