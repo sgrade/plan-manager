@@ -1,6 +1,6 @@
 import logging
-import os
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Optional
 
 import yaml
@@ -64,13 +64,11 @@ def atomic_write(abs_path: str, content: str) -> None:
         abs_path: The absolute path to write to
         content: The content to write
     """
-    directory = os.path.dirname(abs_path)
-    if directory:
-        os.makedirs(directory, exist_ok=True)
-    tmp_path = abs_path + ".tmp"
-    with open(tmp_path, "w", encoding="utf-8") as f:
-        f.write(content)
-    os.replace(tmp_path, abs_path)
+    file_path = Path(abs_path)
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = file_path.with_suffix(file_path.suffix + ".tmp")
+    tmp_path.write_text(content, encoding="utf-8")
+    tmp_path.replace(file_path)
 
 
 def read_item_file(details_path: str) -> tuple[dict[str, Any], str]:
@@ -82,11 +80,10 @@ def read_item_file(details_path: str) -> tuple[dict[str, Any], str]:
     Returns:
         Tuple[Dict[str, Any], str]: A tuple of (metadata_dict, content_body)
     """
-    abs_path = os.path.join(WORKSPACE_ROOT, details_path)
-    if not os.path.exists(abs_path):
+    abs_path = Path(WORKSPACE_ROOT) / details_path
+    if not abs_path.exists():
         return {}, ""
-    with open(abs_path, encoding="utf-8") as f:
-        raw = f.read()
+    raw = abs_path.read_text(encoding="utf-8")
     return split_front_matter(raw)
 
 
@@ -115,12 +112,12 @@ def save_item_to_file(
     Raises:
         FileExistsError: If overwrite=False and file already exists with different data
     """
-    abs_path = os.path.join(WORKSPACE_ROOT, details_path)
+    abs_path = Path(WORKSPACE_ROOT) / details_path
     try:
         existing_front: dict[str, Any]
         existing_body: str
         existing_front, existing_body = ({}, "")
-        if os.path.exists(abs_path):
+        if abs_path.exists():
             existing_front, existing_body = read_item_file(details_path)
 
         if hasattr(front_source, "model_dump"):
@@ -137,7 +134,7 @@ def save_item_to_file(
                 front[key] = _to_iso_z(front[key])
 
         merged: dict[str, Any] = (
-            dict(existing_front) if (os.path.exists(abs_path) and not overwrite) else {}
+            dict(existing_front) if (abs_path.exists() and not overwrite) else {}
         )
         merged.update(front)
         merged.setdefault("schema_version", 1)
@@ -145,7 +142,7 @@ def save_item_to_file(
         rendered = render_with_front_matter(
             merged, existing_body if content is None else content
         )
-        atomic_write(abs_path, rendered)
+        atomic_write(str(abs_path), rendered)
         logger.info("Wrote file_path file: %s", abs_path)
     except (OSError, yaml.YAMLError) as e:
         # Best-effort: log but don't fail on file write errors
@@ -159,9 +156,9 @@ def delete_item_file(details_path: str) -> None:
         details_path: Workspace-relative path to the file to delete
     """
     try:
-        abs_path = os.path.join(WORKSPACE_ROOT, details_path)
-        if os.path.exists(abs_path):
-            os.remove(abs_path)
+        abs_path = Path(WORKSPACE_ROOT) / details_path
+        if abs_path.exists():
+            abs_path.unlink()
             logger.info("Deleted file_path file: %s", abs_path)
     except OSError as e:
         # Best-effort: log but don't fail on delete errors

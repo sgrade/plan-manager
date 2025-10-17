@@ -1,6 +1,6 @@
 import logging
-import os
 import shutil
+from pathlib import Path
 from typing import Any
 
 import yaml
@@ -16,15 +16,15 @@ logger = logging.getLogger(__name__)
 
 def _plan_file_path(plan_id: str) -> str:
     """Get the path to the plan file for a given plan ID."""
-    return os.path.join(TODO_DIR, plan_id, "plan.yaml")
+    return str(Path(TODO_DIR) / plan_id / "plan.yaml")
 
 
 def _ensure_plans_index_exists() -> None:
     """Ensure the plans index file exists."""
-    index_dir = os.path.dirname(PLANS_INDEX_FILE_PATH)
-    os.makedirs(index_dir, exist_ok=True)
-    if not os.path.exists(PLANS_INDEX_FILE_PATH):
-        with open(PLANS_INDEX_FILE_PATH, "w", encoding="utf-8") as f:
+    index_path = Path(PLANS_INDEX_FILE_PATH)
+    index_path.parent.mkdir(parents=True, exist_ok=True)
+    if not index_path.exists():
+        with index_path.open("w", encoding="utf-8") as f:
             yaml.safe_dump(
                 {
                     "current": "default",
@@ -39,12 +39,12 @@ def _ensure_plans_index_exists() -> None:
 def save(plan: Plan, plan_id: str = "default") -> None:
     """Persist a validated Plan model to todo/<plan_id>/plan.yaml and ensure it's in the index."""
     # 1. Save the main plan file (manifest)
-    plan_path = _plan_file_path(plan_id)
-    os.makedirs(os.path.dirname(plan_path), exist_ok=True)
+    plan_path = Path(_plan_file_path(plan_id))
+    plan_path.parent.mkdir(parents=True, exist_ok=True)
     plan_manifest = plan.model_dump(
         mode="json", exclude={"stories"}, exclude_none=True)
     plan_manifest["stories"] = [s.id for s in plan.stories]
-    with open(plan_path, "w", encoding="utf-8") as f:
+    with plan_path.open("w", encoding="utf-8") as f:
         yaml.safe_dump(plan_manifest, f,
                        default_flow_style=False, sort_keys=False)
 
@@ -93,7 +93,8 @@ def _save_story(story: Story) -> None:
 def _update_plan_in_index(plan: Plan) -> None:
     """Ensure the plan is in the index and its status is up-to-date."""
     _ensure_plans_index_exists()
-    with open(PLANS_INDEX_FILE_PATH, encoding="utf-8") as f:
+    index_path = Path(PLANS_INDEX_FILE_PATH)
+    with index_path.open(encoding="utf-8") as f:
         idx = yaml.safe_load(f) or {}
 
     plans_list = idx.get("plans", [])
@@ -111,7 +112,7 @@ def _update_plan_in_index(plan: Plan) -> None:
         )
 
     idx["plans"] = plans_list
-    with open(PLANS_INDEX_FILE_PATH, "w", encoding="utf-8") as f:
+    with index_path.open("w", encoding="utf-8") as f:
         yaml.safe_dump(idx, f, default_flow_style=False, sort_keys=False)
 
 
@@ -120,7 +121,8 @@ def delete(plan_id: str) -> None:
     _ensure_plans_index_exists()
 
     # Remove from index
-    with open(PLANS_INDEX_FILE_PATH, encoding="utf-8") as f:
+    index_path = Path(PLANS_INDEX_FILE_PATH)
+    with index_path.open(encoding="utf-8") as f:
         idx = yaml.safe_load(f) or {}
 
     plans_list = idx.get("plans", [])
@@ -139,12 +141,12 @@ def delete(plan_id: str) -> None:
             idx["plans"] = [
                 {"id": "default", "title": "default", "status": "TODO"}]
 
-    with open(PLANS_INDEX_FILE_PATH, "w", encoding="utf-8") as f:
+    with index_path.open("w", encoding="utf-8") as f:
         yaml.safe_dump(idx, f, default_flow_style=False, sort_keys=False)
 
     # Remove directory
-    plan_dir = os.path.join(TODO_DIR, plan_id)
-    if os.path.isdir(plan_dir):
+    plan_dir = Path(TODO_DIR) / plan_id
+    if plan_dir.is_dir():
         try:
             shutil.rmtree(plan_dir)
             logger.info("Deleted plan directory: %s", plan_dir)
@@ -156,7 +158,8 @@ def delete(plan_id: str) -> None:
 def list_plans() -> list[dict[str, Any]]:
     """List plans from the strict index file. No directory scanning fallback."""
     _ensure_plans_index_exists()
-    with open(PLANS_INDEX_FILE_PATH, encoding="utf-8") as idxf:
+    index_path = Path(PLANS_INDEX_FILE_PATH)
+    with index_path.open(encoding="utf-8") as idxf:
         idx = yaml.safe_load(idxf) or {}
     plans_list = idx.get("plans")
     if plans_list is None:
@@ -169,11 +172,11 @@ def list_plans() -> list[dict[str, Any]]:
 def load(plan_id: str) -> Plan:
     """Load a specific plan by ID, rehydrating it from normalized files."""
     # 1. Load the plan manifest
-    plan_path = _plan_file_path(plan_id)
-    if not os.path.exists(plan_path):
+    plan_path = Path(_plan_file_path(plan_id))
+    if not plan_path.exists():
         raise FileNotFoundError(f"Plan file not found for ID '{plan_id}'")
 
-    with open(plan_path, encoding="utf-8") as f:
+    with plan_path.open(encoding="utf-8") as f:
         plan_manifest = yaml.safe_load(f) or {}
 
     # 2. Load stories and their tasks
@@ -232,7 +235,8 @@ def load_current() -> Plan:
 def get_current_plan_id() -> str:
     """Get the current plan ID."""
     _ensure_plans_index_exists()
-    with open(PLANS_INDEX_FILE_PATH, encoding="utf-8") as f:
+    index_path = Path(PLANS_INDEX_FILE_PATH)
+    with index_path.open(encoding="utf-8") as f:
         idx = yaml.safe_load(f) or {}
     cur = idx.get("current")
     if not isinstance(cur, str):
@@ -249,7 +253,8 @@ def get_current_plan_id() -> str:
 def set_current_plan_id(plan_id: str) -> None:
     """Set the current plan ID."""
     _ensure_plans_index_exists()
-    with open(PLANS_INDEX_FILE_PATH, encoding="utf-8") as f:
+    index_path = Path(PLANS_INDEX_FILE_PATH)
+    with index_path.open(encoding="utf-8") as f:
         idx = yaml.safe_load(f) or {}
     plans_list = idx.get("plans") or []
     if plan_id not in [p.get("id") for p in plans_list]:
@@ -257,5 +262,5 @@ def set_current_plan_id(plan_id: str) -> None:
             f"Plan '{plan_id}' not present in index {PLANS_INDEX_FILE_PATH}"
         )
     idx["current"] = plan_id
-    with open(PLANS_INDEX_FILE_PATH, "w", encoding="utf-8") as f:
+    with index_path.open("w", encoding="utf-8") as f:
         yaml.safe_dump(idx, f, default_flow_style=False, sort_keys=False)
