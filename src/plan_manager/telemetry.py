@@ -1,6 +1,7 @@
 import logging
 import random
 import time
+from collections.abc import Generator
 from contextlib import contextmanager
 from typing import Any
 
@@ -24,7 +25,7 @@ def _should_sample() -> bool:
         return False
 
 
-def incr(metric: str, value: int = 1, **labels) -> None:
+def incr(metric: str, value: int = 1, **labels: Any) -> None:
     """Increment a counter metric.
 
     Args:
@@ -46,7 +47,7 @@ def incr(metric: str, value: int = 1, **labels) -> None:
 
 
 @contextmanager
-def timer(metric: str, **labels):
+def timer(metric: str, **labels: Any) -> Generator[None, None, None]:
     """Context manager for timing operations.
 
     Args:
