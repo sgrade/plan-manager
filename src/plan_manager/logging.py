@@ -20,7 +20,7 @@ level = getattr(logging, config.LOG_LEVEL, logging.INFO)
 
 # Default to logging ONLY to stdout, following 12-factor app principles.
 # If PLAN_MANAGER_ENABLE_FILE_LOG is set, also log to a file for development.
-handlers = [logging.StreamHandler(sys.stdout)]
+handlers: list[logging.Handler] = [logging.StreamHandler(sys.stdout)]
 if config.ENABLE_FILE_LOG:
     # Ensure the log directory exists before configuring the file handler
     os.makedirs(os.path.dirname(config.LOG_FILE_PATH), exist_ok=True)
