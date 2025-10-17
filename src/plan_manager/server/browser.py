@@ -68,8 +68,11 @@ async def browse_endpoint(request: Request) -> Response:
             raise HTTPException(status_code=404, detail="Not Found")
     except HTTPException:
         raise
-    except Exception:
-        raise HTTPException(status_code=500, detail="Server Error")
+    except (OSError, ValueError, RuntimeError) as e:
+        # OSError: file system errors
+        # ValueError: invalid path operations
+        # RuntimeError: path resolution errors
+        raise HTTPException(status_code=500, detail="Server Error") from e
 
     if file_path.is_dir():
         html = f"""
@@ -85,10 +88,12 @@ async def browse_endpoint(request: Request) -> Response:
         """
         if relative_path:
             parent = Path(relative_path).parent
-            parent_link = f"/browse/{parent}" if str(parent) != "." else "/browse/"
+            parent_link = f"/browse/{parent}" if str(
+                parent) != "." else "/browse/"
             html += f'<li><a href="{parent_link}">.. (Parent Directory)</a></li>'
 
-        items = sorted(file_path.iterdir(), key=lambda p: (p.is_file(), p.name.lower()))
+        items = sorted(file_path.iterdir(), key=lambda p: (
+            p.is_file(), p.name.lower()))
 
         for item in items:
             item_name = item.name
@@ -106,5 +111,5 @@ async def browse_endpoint(request: Request) -> Response:
 
     if file_path.is_file():
         return FileResponse(file_path)
-    
+
     raise HTTPException(status_code=404, detail="Not Found")
