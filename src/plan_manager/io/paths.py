@@ -1,6 +1,15 @@
 import os
 import re
 
+from plan_manager.config import TODO_DIR
+
+
+def get_current_plan_id_lazy() -> str:
+    """Lazy import to avoid circular dependency."""
+    from plan_manager.services.plan_repository import get_current_plan_id  # noqa: PLC0415
+
+    return get_current_plan_id()
+
 
 def slugify(title: str) -> str:
     """Convert a title into a URL-safe slug.
@@ -31,10 +40,7 @@ def story_file_path(story_id: str, plan_id: str | None = None) -> str:
     Returns:
         str: The relative file path to the story markdown file
     """
-    from plan_manager.config import TODO_DIR
-    from plan_manager.services.plan_repository import get_current_plan_id
-
-    pid = plan_id or get_current_plan_id()
+    pid = plan_id or get_current_plan_id_lazy()
     return os.path.join(TODO_DIR, pid, story_id, "story.md")
 
 
@@ -51,8 +57,5 @@ def task_file_path(
     Returns:
         str: The relative file path to the task markdown file
     """
-    from plan_manager.config import TODO_DIR
-    from plan_manager.services.plan_repository import get_current_plan_id
-
-    pid = plan_id or get_current_plan_id()
+    pid = plan_id or get_current_plan_id_lazy()
     return os.path.join(TODO_DIR, pid, story_id, "tasks", f"{task_local_id}.md")

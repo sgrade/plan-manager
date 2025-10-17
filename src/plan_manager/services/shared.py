@@ -108,10 +108,10 @@ def parse_csv_list(csv: str) -> list[str]:
 
 def validate_and_save(plan: Plan) -> None:
     """Validate and save the plan."""
-    try:
-        # Import here to avoid potential import cycles
-        from plan_manager.domain.validation import validate_plan_dependencies
+    # Import here to avoid potential import cycles
+    from plan_manager.domain.validation import validate_plan_dependencies  # noqa: PLC0415
 
+    try:
         validate_plan_dependencies(plan.stories)
         plan_repo.save(plan, plan.id)
     except Exception:
