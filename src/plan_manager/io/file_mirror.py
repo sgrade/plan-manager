@@ -37,7 +37,8 @@ def split_front_matter(raw_text: str) -> tuple[dict[str, Any], str]:
                     if not isinstance(front, dict):
                         front = {}
                     return front, body.lstrip("\n")
-            except Exception:
+            except (yaml.YAMLError, ValueError, KeyError):
+                # Silently ignore malformed YAML front matter
                 pass
     return {}, raw_text
 
@@ -146,7 +147,8 @@ def save_item_to_file(
         )
         atomic_write(abs_path, rendered)
         logger.info(f"Wrote file_path file: {abs_path}")
-    except Exception as e:
+    except (OSError, yaml.YAMLError) as e:
+        # Best-effort: log but don't fail on file write errors
         logger.warning(f"Best-effort write failed for '{abs_path}': {e}")
 
 
@@ -161,5 +163,6 @@ def delete_item_file(details_path: str) -> None:
         if os.path.exists(abs_path):
             os.remove(abs_path)
             logger.info(f"Deleted file_path file: {abs_path}")
-    except Exception as e:
+    except OSError as e:
+        # Best-effort: log but don't fail on file delete errors
         logger.warning(f"Best-effort delete failed for '{details_path}': {e}")
