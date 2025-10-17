@@ -1,4 +1,7 @@
-from typing import Optional
+from typing import TYPE_CHECKING, Any, Optional
+
+if TYPE_CHECKING:
+    from mcp.server.fastmcp import FastMCP
 
 from plan_manager.domain.models import Status
 from plan_manager.logging import logger
@@ -19,39 +22,28 @@ from plan_manager.services.state_repository import (
     set_current_task_id,
 )
 from plan_manager.services.task_service import (
+    approve_current_task as svc_approve_current_task,
     create_steps as svc_create_steps,
-)
-from plan_manager.services.task_service import (
     create_task as svc_create_task,
-)
-from plan_manager.services.task_service import (
     delete_task as svc_delete_task,
-)
-from plan_manager.services.task_service import (
     get_task as svc_get_task,
-)
-from plan_manager.services.task_service import (
     list_tasks as svc_list_tasks,
-)
-from plan_manager.services.task_service import (
+    request_changes as svc_request_changes,
     submit_for_code_review as svc_submit_for_code_review,
-)
-from plan_manager.services.task_service import task_service
-from plan_manager.services.task_service import (
     update_task as svc_update_task,
 )
 from plan_manager.telemetry import incr, timer
 from plan_manager.tools.util import coerce_optional_int
 
 
-def _create_task_out(data: dict) -> TaskOut:
+def _create_task_out(data: dict[str, Any]) -> TaskOut:
     """Create a TaskOut object from a dictionary, populating the local_id."""
     if "id" in data and ":" in data["id"]:
         data["local_id"] = data["id"].split(":", 1)[1]
     return TaskOut(**data)
 
 
-def register_task_tools(mcp_instance) -> None:
+def register_task_tools(mcp_instance: "FastMCP") -> None:
     """Register task tools with the MCP instance."""
     mcp_instance.tool()(list_tasks)
     mcp_instance.tool()(create_task)
@@ -125,7 +117,7 @@ def update_task(
     priority: Optional[float] = None,
     depends_on: Optional[list[str]] = None,
     status: Optional[str] = None,
-    steps: Optional[list[dict]] = None,
+    steps: Optional[list[dict[str, Any]]] = None,
 ) -> TaskOut:
     """Update mutable fields of a task."""
     story_id, local_task_id = resolve_task_id(task_id)
@@ -213,7 +205,7 @@ def list_tasks(
 # ---------- Task workflow operations ----------
 
 
-def _status_to_gate(status: Status, steps: Optional[list[dict]]) -> WorkflowGate:
+def _status_to_gate(status: Status, steps: Optional[list[dict[str, Any]]]) -> WorkflowGate:
     if status == Status.DONE:
         return WorkflowGate.DONE
     if status == Status.PENDING_REVIEW:
@@ -435,12 +427,11 @@ def _compute_next_actions_for_task(
                     },
                 )
             )
-        return actions
 
     return actions
 
 
-def create_task_steps(task_id: str, steps: list[dict]) -> TaskWorkflowResult:
+def create_task_steps(task_id: str, steps: list[dict[str, Any]]) -> TaskWorkflowResult:
     """Create implementation steps for a task, enabling pre-execution review.
 
     Args:
@@ -518,7 +509,7 @@ def approve_task() -> TaskWorkflowResult:
     """
     logger.debug("approve_task tool called.")
     try:
-        result = task_service.approve_current_task()
+        result = svc_approve_current_task()
         # result includes updated task fields
         task = _create_task_out(
             {
@@ -578,7 +569,7 @@ def request_changes(task_id: str, feedback: str) -> TaskWorkflowResult:
     logger.debug("request_changes tool called.")
     try:
         s_id, local_task_id = resolve_task_id(task_id)
-        result = task_service.request_changes(
+        result = svc_request_changes(
             story_id=s_id, task_id=local_task_id, feedback=feedback
         )
         # Fetch the now-current task to include snapshot and next actions
@@ -637,11 +628,11 @@ def submit_for_review(task_id: str, execution_summary: str) -> TaskWorkflowResul
         )
     incr("submit_for_review.count")
     task = _create_task_out(data)
-    execution_summary = task.execution_summary
+    summary = task.execution_summary or ""
     message_lines = [
         f"Task '{task.title}' is now PENDING_REVIEW.",
         "Review Summary:",
-        execution_summary or "",
+        summary,
     ]
     gate = _status_to_gate(task.status, task.steps)
     next_actions = _compute_next_actions_for_task(task, gate)
