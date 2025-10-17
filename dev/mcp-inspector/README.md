@@ -4,8 +4,8 @@ See [https://github.com/modelcontextprotocol/inspector](https://github.com/model
 
 ## Prerequisites
 
-Make sure you have the dependencies installed (it will be done automatically if you are in the devcontainer). 
-Then. 
+Make sure you have the dependencies installed (it will be done automatically if you are in the devcontainer).
+Then.
 
 ```sh
 cd dev/mcp-inspector

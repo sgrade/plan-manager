@@ -33,7 +33,7 @@ graph TD
 
 The following diagram illustrates how a higher-level work item (a Story) is decomposed into children (Tasks). It includes paths for both manual creation and prompt-assisted ("Assisted") creation of child work items.
 
-A key concept in this workflow is that newly suggested items are considered **proposals**, not final work items. The user must give an explicit approval before the agent proceeds to formally create them in the system. 
+A key concept in this workflow is that newly suggested items are considered **proposals**, not final work items. The user must give an explicit approval before the agent proceeds to formally create them in the system.
 
 Assisted prompts used in this workflow:
 - **create_plan**: draft a plan (epic) JSON, stage for review, then create the plan upon approval.
@@ -70,7 +70,7 @@ The diagrams below illustrate this process.
 ```mermaid
 graph TD
     N1([Start]) --> N2{Current task set?};
-    
+
     subgraph Select Current Task
         N2 -- No --> N3["Agent runs list_tasks"];
         N3 --> N4["Agent proposes next task"];
@@ -92,7 +92,7 @@ graph TD
     N8a -- DONE --> N31;
 
     N9 --> N10{What does the user do?};
-    
+
     subgraph Gate 1: Pre-Execution Approval
         N10 -- Plan First (Assisted) --> N11["User runs /create_steps prompt"];
         N11 --> N12["Agent saves proposed steps to todo/temp/steps.json"];
@@ -106,11 +106,11 @@ graph TD
         N18 --> N19["Agent runs create_task_steps (no proposal UI)"];
         N19 --> N16;
     end
-        
+
     N17 --> N20["User says 'execute' in chat"];
     N20 --> N21["Agent executes the task"];
     N21 --> N22["Agent runs submit_for_review (non-empty execution_summary)"];
-    
+
     subgraph Gate 2: Code Review Approval
         N22 --> N23["Agent displays execution_summary and asks user to approve or request changes"]
         N23 --> N24[Task is in PENDING_REVIEW state];
@@ -119,7 +119,7 @@ graph TD
         N25 -- Request Changes --> N28["User provides feedback in natural language"] --> N29;
         N29["Agent runs request_changes"] --> N17;
     end
-    
+
     N27 --> N30["Changelog snippet is returned"];
     N30 --> N31([End]);
 

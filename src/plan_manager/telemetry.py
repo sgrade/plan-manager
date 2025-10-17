@@ -19,7 +19,9 @@ def _should_sample() -> bool:
     if not TELEMETRY_ENABLED:
         return False
     try:
-        return random.random() < max(0.0, min(1.0, TELEMETRY_SAMPLE_RATE))
+        return random.random() < max(  # nosec B311  # Non-cryptographic sampling
+            0.0, min(1.0, TELEMETRY_SAMPLE_RATE)
+        )
     except (TypeError, ValueError):
         # Handle invalid TELEMETRY_SAMPLE_RATE values gracefully
         return False

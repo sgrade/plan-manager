@@ -94,8 +94,7 @@ def create_task(
         }
     )
     plan = plan_repository.load_current()
-    story: Optional[Story] = next(
-        (s for s in plan.stories if s.id == story_id), None)
+    story: Optional[Story] = next((s for s in plan.stories if s.id == story_id), None)
     if not story:
         raise KeyError(f"story with ID '{story_id}' not found.")
 
@@ -118,8 +117,7 @@ def create_task(
             local_id=task_local_id,
         )
     except ValidationError as e:
-        logger.exception(
-            "Validation error creating new task '%s': %s", fq_task_id, e)
+        logger.exception("Validation error creating new task '%s'", fq_task_id)
         raise ValueError(
             f"Validation error creating new task '{fq_task_id}': {e}"
         ) from e
@@ -131,8 +129,7 @@ def create_task(
         write_task_details(task)
     except (ValueError, AttributeError, OSError):
         # Best-effort: log but don't fail on write errors
-        logger.info(
-            "Best-effort creation of task file failed for '%s'.", fq_task_id)
+        logger.info("Best-effort creation of task file failed for '%s'.", fq_task_id)
 
     try:
         write_story_details(story)
@@ -161,15 +158,13 @@ def get_task(story_id: str, task_id: str) -> dict[str, Any]:
     plan = plan_repository.load_current()
     s_id, local_task_id = resolve_task_id(task_id, story_id)
 
-    story: Optional[Story] = next(
-        (s for s in plan.stories if s.id == s_id), None)
+    story: Optional[Story] = next((s for s in plan.stories if s.id == s_id), None)
     if not story:
         raise KeyError(f"story with ID '{s_id}' not found.")
 
     fq_task_id = f"{s_id}:{local_task_id}"
     if not story.tasks or not any(t.id == fq_task_id for t in story.tasks):
-        raise KeyError(
-            f"task with ID '{fq_task_id}' not found under story '{s_id}'.")
+        raise KeyError(f"task with ID '{fq_task_id}' not found under story '{s_id}'.")
     task_obj = next((t for t in story.tasks if t.id == fq_task_id), None)
     if task_obj:
         base = task_obj.model_dump(
@@ -221,8 +216,7 @@ def _find_task(
     """Helper to find a task and its story, returning (story, task, fq_id) or raising KeyError."""
     s_id, local_task_id = resolve_task_id(task_id, story_id)
 
-    story: Optional[Story] = next(
-        (s for s in plan.stories if s.id == s_id), None)
+    story: Optional[Story] = next((s for s in plan.stories if s.id == s_id), None)
     if not story:
         raise KeyError(f"Story with ID '{s_id}' not found.")
 
@@ -231,8 +225,7 @@ def _find_task(
         (t for t in (story.tasks or []) if t.id == fq_task_id), None
     )
     if not task_obj:
-        raise KeyError(
-            f"Task with ID '{fq_task_id}' not found under story '{s_id}'.")
+        raise KeyError(f"Task with ID '{fq_task_id}' not found under story '{s_id}'.")
     return story, task_obj, fq_task_id
 
 
@@ -254,8 +247,7 @@ def _update_dependent_task_statuses(plan: Plan) -> None:
                     )
                 elif task.status == Status.BLOCKED and currently_unblocked:
                     task.status = Status.TODO
-                    logger.info(
-                        "Task '%s' is now UNBLOCKED and set to TODO.", task.id)
+                    logger.info("Task '%s' is now UNBLOCKED and set to TODO.", task.id)
 
 
 def update_task(
@@ -271,11 +263,14 @@ def update_task(
     story, task_obj, _fq_task_id = _find_task(plan, story_id, task_id)
 
     # Prevent starting a blocked task
-    if status == Status.IN_PROGRESS and task_obj.status == Status.TODO:
-        if not is_unblocked(task_obj, plan):
-            raise ValueError(
-                f"Task '{task_obj.title}' cannot be started because it is blocked by one or more dependencies."
-            )
+    if (
+        status == Status.IN_PROGRESS
+        and task_obj.status == Status.TODO
+        and not is_unblocked(task_obj, plan)
+    ):
+        raise ValueError(
+            f"Task '{task_obj.title}' cannot be started because it is blocked by one or more dependencies."
+        )
 
     if title is not None:
         task_obj.title = title
@@ -328,14 +323,12 @@ def update_task(
 
     # 1. Roll up story status
     prev_story_status = story.status
-    next_story_status = rollup_story_status(
-        [t.status for t in (story.tasks or [])])
+    next_story_status = rollup_story_status([t.status for t in (story.tasks or [])])
     if prev_story_status != next_story_status:
         apply_status_change(story, next_story_status)
         if story.file_path:
             try:
-                save_item_to_file(story.file_path, story,
-                                  content=None, overwrite=False)
+                save_item_to_file(story.file_path, story, content=None, overwrite=False)
             except (OSError, yaml.YAMLError):
                 # Best-effort: log but don't fail on write errors
                 logger.info(
@@ -371,8 +364,7 @@ def update_task(
 
 def delete_task(story_id: str, task_id: str) -> dict[str, Any]:
     plan = plan_repository.load_current()
-    story: Optional[Story] = next(
-        (s for s in plan.stories if s.id == story_id), None)
+    story: Optional[Story] = next((s for s in plan.stories if s.id == story_id), None)
     if not story:
         raise KeyError(f"story with ID '{story_id}' not found.")
     fq_task_id = f"{story_id}:{task_id}" if ":" not in task_id else task_id
@@ -395,12 +387,10 @@ def delete_task(story_id: str, task_id: str) -> dict[str, Any]:
         delete_item_file(task_details_path)
     except (IndexError, OSError):
         # Best-effort: log but don't fail on delete errors
-        logger.info(
-            "Best-effort delete of task file failed for '%s'.", fq_task_id)
+        logger.info("Best-effort delete of task file failed for '%s'.", fq_task_id)
     try:
         if story.file_path:
-            save_item_to_file(story.file_path, story,
-                              content=None, overwrite=False)
+            save_item_to_file(story.file_path, story, content=None, overwrite=False)
     except (OSError, yaml.YAMLError):
         # Best-effort: log but don't fail on write errors
         logger.info(

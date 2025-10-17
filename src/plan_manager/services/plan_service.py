@@ -35,7 +35,7 @@ def create_plan(
     try:
         plan = Plan(id=plan_id, title=title, description=description, priority=priority)
     except ValidationError as e:
-        logger.exception("Validation error creating plan '%s': %s", plan_id, e)
+        logger.exception("Validation error creating plan '%s'", plan_id)
         raise ValueError(f"Validation error creating plan '{plan_id}': {e}") from e
 
     repo.save(plan, plan_id)

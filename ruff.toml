@@ -84,10 +84,22 @@ ignore = [
     "ISC001",  # Single-line implicit string concatenation (conflicts with formatter)
     "E501",    # Line too long (86 remaining in prompts/docstrings; fix before 1.0)
     "S101",    # Use of assert (allowed in tests)
+    "S311",    # random.random() is fine for non-cryptographic sampling
     "PLR0913", # Too many arguments
     "TRY003",  # Avoid specifying long messages outside exception class
     "S603",    # subprocess without shell=True is fine
     "S607",    # Starting a process with a partial path
+    # Complexity rules - acceptable for clear, well-tested business logic
+    "PLR0911", # Too many return statements
+    "PLR0912", # Too many branches
+    "PLR0915", # Too many statements
+    # Code style preferences - intentional patterns
+    "TRY300",  # Consider moving statement to else block
+    "TRY301",  # Abstract raise to inner function
+    # Magic values - business logic constants documented in code
+    "PLR2004", # Magic value in comparison
+    # Circular import breaks - documented and necessary
+    "PLC0415", # Import should be at top level (lazy imports for circular deps)
 ]
 
 [lint.per-file-ignores]
@@ -95,6 +107,16 @@ ignore = [
     "S101",    # assert allowed in tests
     "PLR2004", # magic values allowed in tests
     "ARG",     # unused arguments allowed in fixtures
+    "INP001",  # tests don't need __init__.py
+    "N806",    # variable naming rules relaxed for tests
+    "PT011",   # pytest.raises can be broad in tests
+    "PT012",   # pytest.raises can have multiple statements in tests
+    "S307",    # eval allowed in tests for parsing telemetry logs
+    "SIM117",  # nested with statements ok in tests for clarity
+    "RUF043",  # regex patterns in match= don't need escaping in tests
+    "PLW0602", # global statement allowed in pytest hooks
+    "PLW0603", # global statement allowed in pytest hooks
+    "PTH110",  # os.path allowed in test conftest for compatibility
 ]
 "**/__init__.py" = [
     "F401",    # unused imports allowed in __init__.py

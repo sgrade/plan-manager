@@ -13,7 +13,7 @@ def register_usage_resources(mcp_instance: "FastMCP") -> None:
     The content is loaded from docs/usage_guide_agents.md so it can be edited easily.
     """
 
-    @mcp_instance.resource(
+    @mcp_instance.resource(  # type: ignore[misc]
         uri="resource://plan-manager/usage_guide_agents.md",
         name="usage_guide_agents.md",
         title="Plan Manager Usage Guide for Agents",
@@ -27,7 +27,7 @@ def register_usage_resources(mcp_instance: "FastMCP") -> None:
             # Fallback minimal content if file cannot be read
             return "# Plan Manager — Usage Guide\n\nSee project docs for details."
 
-    @mcp_instance.resource(
+    @mcp_instance.resource(  # type: ignore[misc]
         uri="resource://plan-manager/project_workflow.md",
         name="project_workflow.md",
         title="Plan Manager Project Workflow",

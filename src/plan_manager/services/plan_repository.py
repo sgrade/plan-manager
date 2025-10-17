@@ -63,14 +63,12 @@ def _save_story(story: Story) -> None:
         front = story.model_dump(mode="json", exclude_none=True)
         # Replace tasks with list of task identifiers (use local IDs for readability)
         front["tasks"] = [
-            (
-                t.local_id
-                if hasattr(t, "local_id") and t.local_id
-                else (
-                    t.id.split(":", 1)[1]
-                    if isinstance(getattr(t, "id", None), str) and ":" in t.id
-                    else getattr(t, "id", None)
-                )
+            t.local_id
+            if hasattr(t, "local_id") and t.local_id
+            else (
+                t.id.split(":", 1)[1]
+                if isinstance(getattr(t, "id", None), str) and ":" in t.id
+                else getattr(t, "id", None)
             )
             for t in (story.tasks or [])
         ]
@@ -148,8 +146,8 @@ def delete(plan_id: str) -> None:
         try:
             shutil.rmtree(plan_dir)
             logger.info("Deleted plan directory: %s", plan_dir)
-        except OSError as e:
-            logger.exception("Error deleting directory %s: %s", plan_dir, e)
+        except OSError:
+            logger.exception("Error deleting directory %s", plan_dir)
             raise
 
 
