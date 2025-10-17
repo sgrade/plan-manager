@@ -74,7 +74,7 @@ def _save_story(story: Story) -> None:
         # Remove any None entries from tasks list
         front["tasks"] = [tid for tid in front["tasks"] if isinstance(tid, str) and tid]
         save_item_to_file(story_path, front, overwrite=True)
-    except Exception:
+    except (KeyError, ValueError, AttributeError):
         # Fallback to prior behavior if shaping fails
         save_item_to_file(story_path, story, overwrite=True)
 
@@ -198,7 +198,7 @@ def _load_story(story_id: str) -> Story | None:
 
         frontmatter["tasks"] = tasks
         return Story.model_validate(frontmatter)
-    except Exception as e:
+    except (OSError, KeyError, ValidationError) as e:
         logger.warning(f"Failed to load story '{story_id}': {e}")
         return None
 
@@ -213,7 +213,7 @@ def _load_task(story_id: str, task_id: str) -> Task | None:
         if not frontmatter:
             return None
         return Task.model_validate(frontmatter)
-    except Exception as e:
+    except (OSError, KeyError, ValidationError) as e:
         logger.warning(f"Failed to load task '{task_id}' in story '{story_id}': {e}")
         return None
 
