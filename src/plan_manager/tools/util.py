@@ -39,7 +39,7 @@ def coerce_optional_int(value: Any, param_name: str) -> Optional[int]:
         if digits.isdigit():
             try:
                 return int(sign + digits)
-            except Exception:
+            except (ValueError, OverflowError):
                 # Fallback to generic error if int conversion unexpectedly fails
                 pass
         raise ValueError(
