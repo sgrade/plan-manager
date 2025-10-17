@@ -23,8 +23,8 @@ def register_usage_resources(mcp_instance: "FastMCP") -> None:
     def usage_guide_resource() -> str:
         try:
             return read_markdown(USAGE_GUIDE_REL_PATH)
-        except Exception:
-            # Fallback minimal content
+        except (OSError, FileNotFoundError, PermissionError):
+            # Fallback minimal content if file cannot be read
             return "# Plan Manager — Usage Guide\n\nSee project docs for details."
 
     @mcp_instance.resource(
@@ -37,7 +37,8 @@ def register_usage_resources(mcp_instance: "FastMCP") -> None:
     def project_workflow_resource() -> str:
         try:
             return read_markdown(PROJECT_WORKFLOW_REL_PATH)
-        except Exception:
+        except (OSError, FileNotFoundError, PermissionError):
+            # Fallback minimal content if file cannot be read
             return "# Plan Manager — Project Workflow\n\nSee project docs for details."
 
     # Reference the function to avoid unused-function linter warnings.
