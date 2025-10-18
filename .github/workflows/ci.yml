@@ -52,7 +52,7 @@ jobs:
           fi
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         if: github.ref == 'refs/heads/main' || github.event_name == 'pull_request'
         with:
           file: ./coverage.xml
