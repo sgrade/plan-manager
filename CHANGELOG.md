@@ -47,6 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Blind exception catching: replaced 31 instances of `except Exception` with specific exceptions
 - Logging performance: converted 28 f-string logging calls to lazy `%` formatting
 - Code quality: fixed 189 total issues across type safety, maintainability, pathlib migration, and code quality
+- LICENSE: corrected copyright holder from "Plan Manager" to "sgrade"
 
 ### Removed
 - Performance benchmark tests (overkill for pre-1.0 project)
