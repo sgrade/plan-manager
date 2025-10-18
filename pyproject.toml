@@ -55,6 +55,9 @@ link-mode = "copy"
 [tool.hatch.build.targets.wheel]
 packages = ["src/plan_manager"]
 
+[tool.hatchling.build.targets.wheel.force-include]
+"docs" = "plan_manager/docs"
+
 # Pytest configuration
 [tool.pytest.ini_options]
 minversion = "8.0"

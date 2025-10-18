@@ -1,10 +1,9 @@
 # Plan Manager
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python: 3.13+](https://img.shields.io/badge/python-3.13+-blue.svg)](https://www.python.org/downloads/)
 [![CI](https://github.com/sgrade/plan-manager/actions/workflows/ci.yml/badge.svg)](https://github.com/sgrade/plan-manager/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/sgrade/plan-manager/branch/main/graph/badge.svg)](https://codecov.io/gh/sgrade/plan-manager)
-[![Python Version](https://img.shields.io/pypi/pyversions/plan-manager.svg)](https://pypi.org/project/plan-manager/)
-[![PyPI version](https://badge.fury.io/py/plan-manager.svg)](https://badge.fury.io/py/plan-manager)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 [![Type checked: mypy](https://img.shields.io/badge/type%20checked-mypy-blue.svg)](https://mypy-lang.org/)
 
@@ -30,19 +29,16 @@ Plan Manager is a tool for a single developer or orchestrator to coordinate work
 - Dependencies: tasks/stories may block others.
 - Priority: 0–5 (0 is highest).
 
-## Features
-
-- ✅ **MCP Protocol Support** - Compatible with Model Context Protocol
-- ✅ **Structured Planning** - Hierarchical organization (Plans → Stories → Tasks)
-- ✅ **Workflow Management** - Status tracking with approval gates
-- ✅ **Dependency Management** - Task and story dependencies with cycle detection
-- ✅ **API Documentation** - Auto-generated API docs
-- ✅ **Type Safety** - Full type hints with mypy strict mode
-- ✅ **Comprehensive Testing** - Unit, integration, and performance tests
-- ✅ **CI/CD Pipeline** - Automated testing, linting, and deployment
-- ✅ **Security Scanning** - Bandit security checks and dependency review
-
 ## Installation
+
+> ⚠️ **Pre-release:** Plan Manager is not yet published to PyPI.
+> Install from source (see [Contributing](docs/contributing.md)) or GitHub:
+>
+> ```bash
+> pip install git+https://github.com/sgrade/plan-manager.git
+> ```
+
+### Future: PyPI Installation (when published)
 
 ```bash
 # Using uv (recommended)
