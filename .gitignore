@@ -1,6 +1,3 @@
-# Working documents (temporary, not for commit)
-CODE_QUALITY_ROADMAP.md
-
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -157,3 +154,8 @@ uv.lock
 
 # Pre-commit
 .pre-commit-config.yaml.bak
+
+# Archive directory for reference materials not needed in the repo
+.archive/
+
+ux_analysis.md

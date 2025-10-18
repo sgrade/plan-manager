@@ -146,13 +146,15 @@ Want to contribute? See [docs/contributing.md](docs/contributing.md) for develop
 
 ## Documentation
 
-- [Contributing Guide](docs/contributing.md)
-- [Usage Guide for Agents](docs/usage_guide_agents.md)
-- [Project Workflow](docs/project_workflow.md)
-- [Configuration Reference](docs/config_reference.md)
-- [Triage Guide](docs/triage_guide.md)
-- [Release Checklist](docs/release_checklist.md)
-- [API Documentation](https://sgrade.github.io/plan-manager/)
+### For Users & Agents
+- [Usage Guide for Agents](docs/usage_guide_agents.md) - How agents interact with Plan Manager
+- [Project Workflow](docs/project_workflow.md) - Workflow diagrams and patterns
+- [Configuration Reference](docs/config_reference.md) - Environment variables and settings
+
+### For Developers
+- [Contributing Guide](docs/contributing.md) - Development setup and guidelines
+- [Triage Guide](docs/triage_guide.md) - Issue triage process
+- [Release Checklist](docs/release_checklist.md) - Release process
 
 ## License
 
