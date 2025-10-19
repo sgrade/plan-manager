@@ -39,7 +39,7 @@ from plan_manager.services.status_utils import (
 )
 from plan_manager.telemetry import incr, timer
 from plan_manager.validation import (
-    validate_changelog_entries,
+    validate_changes,
     validate_description,
     validate_feedback,
     validate_task_steps,
@@ -175,7 +175,7 @@ def get_task(story_id: str, task_id: str) -> dict[str, Any]:
                 "priority",
                 "creation_time",
                 "description",
-                "changelog_entries",
+                "changes",
                 "depends_on",
             },
             exclude_none=True,
@@ -292,17 +292,15 @@ def update_task(
                 )
             apply_status_change(task_obj, status)
         elif status == Status.PENDING_REVIEW and prev_status == Status.IN_PROGRESS:
-            # Submitting for review requires changelog entries to have been set
-            if not task_obj.changelog_entries:
+            # Submitting for review requires changes to have been set
+            if not task_obj.changes:
                 raise ValueError(
-                    "Changelog entries must be provided before submitting for review."
+                    "Changes must be provided before submitting for review."
                 )
             apply_status_change(task_obj, status)
         elif status == Status.DONE and prev_status == Status.PENDING_REVIEW:
-            if not task_obj.changelog_entries:
-                raise ValueError(
-                    "Changelog entries must be provided before marking as DONE."
-                )
+            if not task_obj.changes:
+                raise ValueError("Changes must be provided before marking as DONE.")
             apply_status_change(task_obj, status)
             # After a task is done, re-evaluate blockers across the plan
             _update_dependent_task_statuses(plan)
@@ -564,11 +562,11 @@ def start_current_task() -> dict[str, Any]:
     }
 
 
-def approve_current_task_review() -> dict[str, Any]:
+def approve_pr() -> dict[str, Any]:
     """Approve the current PENDING_REVIEW task (Gate 2: PENDING_REVIEW → DONE).
 
     Completes the code review process and marks the task as DONE. Generates a
-    changelog snippet from the task's changelog_entries.
+    changelog snippet from the task's changes.
 
     Returns:
         dict: Updated task data including a success flag, message, and changelog snippet
@@ -678,7 +676,7 @@ def approve_current_task() -> dict[str, Any]:
     if task.status == Status.TODO:
         return start_current_task()
     if task.status == Status.PENDING_REVIEW:
-        return approve_current_task_review()
+        return approve_pr()
 
     # Task is not in a state requiring approval
     raise ValueError(
@@ -686,25 +684,23 @@ def approve_current_task() -> dict[str, Any]:
     )
 
 
-def submit_for_code_review(
-    story_id: str, task_id: str, changelog_entries: list[str]
-) -> dict[str, Any]:
-    """Submit a task for code review by setting changelog entries and moving to PENDING_REVIEW.
+def submit_pr(story_id: str, task_id: str, changes: list[str]) -> dict[str, Any]:
+    """Submit a task for code review by setting changes and moving to PENDING_REVIEW.
 
     Args:
         story_id: The ID of the story containing the task
         task_id: The local ID of the task within the story
-        changelog_entries: List of changelog entries describing what was accomplished
+        changes: List of changes describing what was accomplished
 
     Returns:
         dict: Updated task data
 
     Raises:
-        ValueError: If task is not in IN_PROGRESS or entry validation fails
+        ValueError: If task is not in IN_PROGRESS or changes validation fails
         KeyError: If story or task doesn't exist
     """
-    # Validate changelog entries
-    changelog_entries = validate_changelog_entries(changelog_entries)
+    # Validate changes
+    changes = validate_changes(changes)
 
     plan = plan_repository.load_current()
     _, task_obj, _ = _find_task(plan, story_id, task_id)
@@ -714,8 +710,8 @@ def submit_for_code_review(
             f"Can only submit for review a task that is IN_PROGRESS. Current status is {task_obj.status}."
         )
 
-    task_obj.changelog_entries = changelog_entries
-    # Persist the changelog_entries so the subsequent update_task (which reloads the plan)
+    task_obj.changes = changes
+    # Persist the changes so the subsequent update_task (which reloads the plan)
     # can see it when validating the transition to PENDING_REVIEW.
     plan_repository.save(plan, plan_id=plan.id)
 

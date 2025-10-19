@@ -48,9 +48,7 @@ def generate_changelog_for_task(
     header.append(f"### {category}\n")
 
     # Format entries as bullets
-    entries = (
-        task.changelog_entries if task.changelog_entries else ["No entries provided"]
-    )
+    entries = task.changes if task.changes else ["No entries provided"]
     bullets = [f"- {entry}" for entry in entries]
 
     return "\n".join(header + bullets).strip() + "\n"
@@ -93,8 +91,8 @@ def generate_commit_message_for_task(
 
     # Body: changelog entries as bullets
     body_lines = []
-    if task.changelog_entries:
-        body_lines = [f"- {entry}" for entry in task.changelog_entries]
+    if task.changes:
+        body_lines = [f"- {entry}" for entry in task.changes]
 
     # Footer: story reference
     footer = []

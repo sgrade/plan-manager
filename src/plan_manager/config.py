@@ -65,10 +65,8 @@ REQUIRE_EXECUTION_INTENT_BEFORE_IN_PROGRESS = _env_bool(
     "REQUIRE_EXECUTION_INTENT_BEFORE_IN_PROGRESS", True
 )
 
-# Require changelog_entries before moving a Task to DONE
-REQUIRE_CHANGELOG_ENTRIES_BEFORE_DONE = _env_bool(
-    "REQUIRE_CHANGELOG_ENTRIES_BEFORE_DONE", True
-)
+# Require changes before moving a Task to DONE
+REQUIRE_CHANGES_BEFORE_DONE = _env_bool("REQUIRE_CHANGES_BEFORE_DONE", True)
 
 # --- UI / Browser ---
 ENABLE_BROWSER = _env_bool("PLAN_MANAGER_ENABLE_BROWSER", True)

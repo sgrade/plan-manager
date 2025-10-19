@@ -16,7 +16,7 @@ class TestGenerateChangelogForTask:
             title="Implement login",
             story_id="story-1",
             local_id="task-1",
-            changelog_entries=[
+            changes=[
                 "Added POST /auth/login endpoint",
                 "Implemented JWT tokens",
             ],
@@ -38,7 +38,7 @@ class TestGenerateChangelogForTask:
             title="Fix bug",
             story_id="story-1",
             local_id="task-1",
-            changelog_entries=["Fixed authentication bug"],
+            changes=["Fixed authentication bug"],
         )
 
         result = changelog_service.generate_changelog_for_task(task, category="Fixed")
@@ -55,7 +55,7 @@ class TestGenerateChangelogForTask:
             title="Task",
             story_id="story-1",
             local_id="task-1",
-            changelog_entries=[],
+            changes=[],
         )
 
         result = changelog_service.generate_changelog_for_task(task, category="Changed")
@@ -70,7 +70,7 @@ class TestGenerateChangelogForTask:
             title="Task",
             story_id="story-1",
             local_id="task-1",
-            changelog_entries=["Entry"],
+            changes=["Entry"],
         )
 
         with pytest.raises(ValueError, match="Invalid category"):
@@ -89,7 +89,7 @@ class TestGenerateCommitMessageForTask:
             title="Implement login",
             story_id="story-1",
             local_id="task-1",
-            changelog_entries=[
+            changes=[
                 "Added POST /auth/login endpoint",
                 "Implemented JWT tokens",
             ],
@@ -110,7 +110,7 @@ class TestGenerateCommitMessageForTask:
             id="task-1",
             title="Fix bug",
             local_id="task-1",
-            changelog_entries=["Fixed bug"],
+            changes=["Fixed bug"],
         )
 
         result = changelog_service.generate_commit_message_for_task(
@@ -128,7 +128,7 @@ class TestGenerateCommitMessageForTask:
             title="Task",
             story_id="story-1",
             local_id="task-1",
-            changelog_entries=[],
+            changes=[],
         )
 
         result = changelog_service.generate_commit_message_for_task(
@@ -146,7 +146,7 @@ class TestGenerateCommitMessageForTask:
             title="Task",
             story_id="story-1",
             local_id="task-1",
-            changelog_entries=["Entry"],
+            changes=["Entry"],
         )
 
         with pytest.raises(ValueError, match="Invalid commit type"):
@@ -160,7 +160,7 @@ class TestGenerateCommitMessageForTask:
             id="story-1:my-task-id",
             title="Task",
             story_id="story-1",
-            changelog_entries=["Entry"],
+            changes=["Entry"],
         )
 
         result = changelog_service.generate_commit_message_for_task(

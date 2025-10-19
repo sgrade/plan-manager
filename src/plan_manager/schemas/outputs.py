@@ -136,7 +136,7 @@ class TaskOut(BaseModel):
     completion_time: Optional[str] = None
     depends_on: list[str] = []
     steps: Optional[list[dict[str, Any]]] = None
-    changelog_entries: list[str] = []
+    changes: list[str] = []
     review_feedback: Optional[list[dict[str, Any]]] = None
     rework_count: Optional[int] = None
 
@@ -174,9 +174,9 @@ class ActionType(str, Enum):
     NONE = "NONE"
     SET_CURRENT_TASK = "SET_CURRENT_TASK"
     CREATE_STEPS = "CREATE_STEPS"
-    APPROVE = "APPROVE"
-    SUBMIT_FOR_REVIEW = "SUBMIT_FOR_REVIEW"
-    REQUEST_CHANGES = "REQUEST_CHANGES"
+    APPROVE_PR = "APPROVE_PR"
+    SUBMIT_PR = "SUBMIT_PR"
+    REQUEST_PR_CHANGES = "REQUEST_PR_CHANGES"
 
 
 class WhoRuns(str, Enum):

@@ -79,9 +79,9 @@ class Task(WorkItem):
         default_factory=list,
         description="Ordered implementation steps. Each step has a title and an optional description.",
     )
-    changelog_entries: list[str] = Field(
+    changes: list[str] = Field(
         default_factory=list,
-        description="List of changelog entries describing what was accomplished (keepachangelog.com format).",
+        description="List of changes made during task execution (PR description / changelog entries).",
     )
 
     class ReviewFeedback(BaseModel):

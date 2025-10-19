@@ -1,7 +1,7 @@
 """Minimal workflow prompts for convenience only.
 
 These prompts provide small, composable templates to assist the user in
-authoring execution_intent, changelog_entries, and review checklists.
+authoring execution_intent, changes, and review checklists.
 
 Design constraints:
 - No storage coupling. Purely text templates.
@@ -14,12 +14,10 @@ from mcp.server.fastmcp.prompts.base import AssistantMessage, Message, UserMessa
 
 # TODO: Rewrite this prompt for a story review checklist. Then register it.
 async def prompt_review_checklist(
-    task_title: str = "", changelog_entries: list[str] | None = None
+    task_title: str = "", changes: list[str] | None = None
 ) -> list[Message]:
     entries_text = (
-        "\n".join([f"- {entry}" for entry in changelog_entries])
-        if changelog_entries
-        else "No entries"
+        "\n".join([f"- {entry}" for entry in changes]) if changes else "No entries"
     )
     return [
         UserMessage(

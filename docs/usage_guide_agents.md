@@ -16,10 +16,10 @@ Plan Manager is a tool for a single developer or orchestrator to coordinate the 
 
 ### Workflow Tools
 - **start_task** — approve implementation plan and start work (Gate 1: TODO → IN_PROGRESS)
-- **submit_for_review(changelog_entries)** — submit work for code review (IN_PROGRESS → PENDING_REVIEW)
-- **approve_task** — approve code review (Gate 2: PENDING_REVIEW → DONE)
-- **finalize_task(task_id, category, commit_type)** — **RECOMMENDED**: approve + generate changelog + commit (Gate 2 convenience)
-- **request_changes(feedback)** — request modifications (PENDING_REVIEW → IN_PROGRESS)
+- **submit_pr(changes)** — submit work for code review (IN_PROGRESS → PENDING_REVIEW)
+- **approve_pr** — approve code review (Gate 2: PENDING_REVIEW → DONE)
+- **merge_pr(task_id, category, commit_type)** — **RECOMMENDED**: approve + generate changelog + commit (Gate 2 convenience)
+- **request_pr_changes(feedback)** — request modifications (PENDING_REVIEW → IN_PROGRESS)
 
 ### Task Management Tools
 - list_*, create_*, update_*, delete_*, set_current_* — manage items and selection
@@ -43,7 +43,7 @@ Result shape essentials (for agents):
 ```text
 NextAction {
   kind: "tool" | "prompt" | "instruction",
-  name: string,            // e.g., "approve_task", "submit_for_review"
+  name: string,            // e.g., "approve_pr", "submit_pr"
   label: string,           // human-readable
   who: "USER" | "AGENT" | "AGENT_AFTER_USER_APPROVAL" | "EITHER",
   recommended: boolean,

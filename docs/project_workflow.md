@@ -109,18 +109,18 @@ graph TD
 
     N17 --> N20["User says 'execute' in chat"];
     N20 --> N21["Agent executes the task"];
-    N21 --> N22["Agent runs submit_for_review (changelog_entries list)"];
+    N21 --> N22["Agent runs submit_pr (changes list)"];
 
     subgraph Gate 2: Code Review Approval
-        N22 --> N23["Agent displays changelog_entries and asks user to approve or request changes"]
+        N22 --> N23["Agent displays changes and asks user to approve or request changes"]
         N23 --> N24[Task is in PENDING_REVIEW state];
         N24 --> N25{User reviews the code};
-        N25 -- Approve --> N26["User says 'approve review' in chat"] --> N26a["Agent runs finalize_task (or approve_task)"] --> N27[Task is in DONE state];
+        N25 -- Approve --> N26["User says 'approve review' in chat"] --> N26a["Agent runs merge_pr (or approve_pr)"] --> N27[Task is in DONE state];
         N25 -- Request Changes --> N28["User provides feedback in natural language"] --> N29;
-        N29["Agent runs request_changes"] --> N17;
+        N29["Agent runs request_pr_changes"] --> N17;
     end
 
-    N27 --> N30["Changelog entry and commit message returned (from finalize_task)"];
+    N27 --> N30["Changelog entry and commit message returned (from merge_pr)"];
     N30 --> N31([End]);
 
 ```

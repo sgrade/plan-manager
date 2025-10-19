@@ -9,18 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - `start_task` tool for Gate 1 (Pre-Execution Approval: TODO → IN_PROGRESS)
-- `finalize_task` convenience tool in task_tools for Gate 2 workflow (approve + generate artifacts)
+- `merge_pr` convenience tool (formerly `finalize_task`) for Gate 2 workflow
 
 ### Changed
-- **BREAKING**: Split `approve_task` functionality - now only handles Gate 2 (Code Review Approval: PENDING_REVIEW → DONE)
-  - Use `start_task` for Gate 1 instead
-  - `approve_current_task()` service function still works for backward compatibility
-- Moved `finalize_task` from changelog_tools to task_tools (workflow orchestration tool)
+- **BREAKING**: Renamed `changelog_entries` field to `changes` in Task model (clearer PR-centric terminology)
+  - Validation function: `validate_changelog_entries` → `validate_changes`
+  - Config variable: `REQUIRE_CHANGELOG_ENTRIES_BEFORE_DONE` → `REQUIRE_CHANGES_BEFORE_DONE`
+  - All error messages updated to use "changes" terminology
+- **BREAKING**: Renamed tools to match PR workflow terminology
+  - `submit_for_review` → `submit_pr`
+  - `approve_task` → `approve_pr`
+  - `finalize_task` → `merge_pr`
+  - `request_changes` → `request_pr_changes`
+  - ActionType enum values updated (SUBMIT_PR, APPROVE_PR, REQUEST_PR_CHANGES)
+- **BREAKING**: Renamed service functions to match tools
+  - `submit_for_code_review` → `submit_pr`
+  - `approve_current_task_review` → `approve_pr`
 - Updated workflow documentation to use "Gate 1" and "Gate 2" terminology consistently
-- NextActions now recommend `finalize_task` as primary action at Gate 2
+- NextActions now recommend `merge_pr` as primary action at Gate 2
 
 ### Fixed
-- Clarified tool responsibilities: `start_task` (Gate 1) vs `approve_task` (Gate 2)
+- Clarified tool responsibilities: `start_task` (Gate 1) vs `approve_pr` (Gate 2)
 
 ## [0.8.0] - 2025-10-18
 

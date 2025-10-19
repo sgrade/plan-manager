@@ -23,7 +23,7 @@ Note: The server prints structured logs to stdout by default; file log is option
   - Gate status changes off TODO via approval flow
 - REQUIRE_EXECUTION_INTENT_BEFORE_IN_PROGRESS (default: `true`)
   - Require an execution intent/plan before starting
-- REQUIRE_CHANGELOG_ENTRIES_BEFORE_DONE (default: `true`)
+- REQUIRE_CHANGES_BEFORE_DONE (default: `true`)
   - Require changelog entries before DONE
 
 ## UI / Browser

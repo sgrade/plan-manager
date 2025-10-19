@@ -119,66 +119,66 @@ class TestValidateAcceptanceCriteria:
         assert result == ["First", "Second"]
 
 
-class TestValidateChangelogEntries:
-    """Test validate_changelog_entries function."""
+class TestValidateChanges:
+    """Test validate_changes function."""
 
     def test_valid_entries_list(self):
         """Test validation of a valid changelog entries list."""
-        from plan_manager.validation import validate_changelog_entries
+        from plan_manager.validation import validate_changes
 
         entries = ["Added login feature", "Fixed bug in authentication"]
-        result = validate_changelog_entries(entries)
+        result = validate_changes(entries)
         assert result == ["Added login feature", "Fixed bug in authentication"]
 
     def test_empty_list_raises(self):
         """Test that empty list raises ValueError."""
-        from plan_manager.validation import validate_changelog_entries
+        from plan_manager.validation import validate_changes
 
-        with pytest.raises(ValueError, match="Changelog entries cannot be empty"):
-            validate_changelog_entries([])
+        with pytest.raises(ValueError, match="Changes list cannot be empty"):
+            validate_changes([])
 
     def test_entries_strip_whitespace(self):
         """Test that entries have whitespace stripped."""
-        from plan_manager.validation import validate_changelog_entries
+        from plan_manager.validation import validate_changes
 
         entries = ["  Added feature  ", "  Fixed bug  "]
-        result = validate_changelog_entries(entries)
+        result = validate_changes(entries)
         assert result == ["Added feature", "Fixed bug"]
 
     def test_entries_strip_leading_bullets(self):
         """Test that leading bullets are stripped from entries."""
-        from plan_manager.validation import validate_changelog_entries
+        from plan_manager.validation import validate_changes
 
         entries = ["- Added feature", "* Fixed bug", "  - Updated docs"]
-        result = validate_changelog_entries(entries)
+        result = validate_changes(entries)
         assert result == ["Added feature", "Fixed bug", "Updated docs"]
 
     def test_empty_entry_after_strip_raises(self):
         """Test that entry that becomes empty after stripping raises ValueError."""
-        from plan_manager.validation import validate_changelog_entries
+        from plan_manager.validation import validate_changes
 
-        with pytest.raises(ValueError, match="Entry .* is empty"):
-            validate_changelog_entries(["Valid entry", "  ", "Another entry"])
+        with pytest.raises(ValueError, match="Change .* is empty"):
+            validate_changes(["Valid entry", "  ", "Another entry"])
 
     def test_non_string_entry_raises(self):
         """Test that non-string entry raises TypeError."""
-        from plan_manager.validation import validate_changelog_entries
+        from plan_manager.validation import validate_changes
 
-        with pytest.raises(TypeError, match="Entry .* must be a string"):
-            validate_changelog_entries(["Valid entry", 123, "Another entry"])  # type: ignore
+        with pytest.raises(TypeError, match="Change .* must be a string"):
+            validate_changes(["Valid entry", 123, "Another entry"])  # type: ignore
 
     def test_too_many_entries_raises(self):
         """Test that more than 50 entries raises ValueError."""
-        from plan_manager.validation import validate_changelog_entries
+        from plan_manager.validation import validate_changes
 
-        entries = [f"Entry {i}" for i in range(51)]
-        with pytest.raises(ValueError, match="Too many changelog entries"):
-            validate_changelog_entries(entries)
+        entries = [f"Change {i}" for i in range(51)]
+        with pytest.raises(ValueError, match="Too many changes"):
+            validate_changes(entries)
 
     def test_entry_too_long_raises(self):
         """Test that entry longer than MAX_CHANGELOG_ENTRY_LENGTH raises ValueError."""
-        from plan_manager.validation import validate_changelog_entries
+        from plan_manager.validation import validate_changes
 
         long_entry = "A" * 501  # MAX_CHANGELOG_ENTRY_LENGTH is 500
-        with pytest.raises(ValueError, match="Entry .* too long"):
-            validate_changelog_entries([long_entry])
+        with pytest.raises(ValueError, match="Change .* too long"):
+            validate_changes([long_entry])

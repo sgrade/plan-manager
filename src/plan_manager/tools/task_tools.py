@@ -24,7 +24,7 @@ from plan_manager.services.state_repository import (
     set_current_task_id,
 )
 from plan_manager.services.task_service import (
-    approve_current_task_review as svc_approve_current_task_review,
+    approve_pr as svc_approve_pr,
 )
 from plan_manager.services.task_service import (
     create_steps as svc_create_steps,
@@ -42,13 +42,13 @@ from plan_manager.services.task_service import (
     list_tasks as svc_list_tasks,
 )
 from plan_manager.services.task_service import (
-    request_changes as svc_request_changes,
+    request_changes as svc_request_pr_changes,
 )
 from plan_manager.services.task_service import (
     start_current_task as svc_start_current_task,
 )
 from plan_manager.services.task_service import (
-    submit_for_code_review as svc_submit_for_code_review,
+    submit_pr as svc_submit_pr,
 )
 from plan_manager.services.task_service import (
     update_task as svc_update_task,
@@ -73,11 +73,11 @@ def register_task_tools(mcp_instance: "FastMCP") -> None:
     mcp_instance.tool()(delete_task)
     mcp_instance.tool()(set_current_task)
     mcp_instance.tool()(create_task_steps)
-    mcp_instance.tool()(submit_for_review)
+    mcp_instance.tool()(submit_pr)
     mcp_instance.tool()(start_task)  # Gate 1
-    mcp_instance.tool()(approve_task)  # Gate 2
-    mcp_instance.tool()(request_changes)
-    mcp_instance.tool()(finalize_task)  # Convenience: Gate 2 + artifacts
+    mcp_instance.tool()(approve_pr)  # Gate 2
+    mcp_instance.tool()(request_pr_changes)
+    mcp_instance.tool()(merge_pr)  # Convenience: Gate 2 + artifacts
 
 
 # ---------- Task CRUD operations ----------
@@ -350,18 +350,18 @@ def _compute_next_actions_for_task(
         actions.append(
             NextAction(
                 kind="tool",
-                name="submit_for_review",
-                label="Agent runs submit_for_review (changelog_entries list)",
+                name="submit_pr",
+                label="Agent runs submit_pr (changes list)",
                 who=WhoRuns.AGENT,
                 recommended=False,
-                arguments={"task_id": task.id, "changelog_entries": []},
+                arguments={"task_id": task.id, "changes": []},
             )
         )
         return actions
 
     if gate == WorkflowGate.AWAITING_REVIEW:
         # Gate 2 sequence per workflow:
-        # 1) Agent displays changelog_entries and asks the user to approve or
+        # 1) Agent displays changes and asks the user to approve or
         # request changes
         actions.append(
             NextAction(
@@ -380,14 +380,14 @@ def _compute_next_actions_for_task(
                 label="User says 'approve review' in chat",
                 who=WhoRuns.USER,
                 recommended=False,
-                arguments={"then": [{"tool": "finalize_task"}]},
+                arguments={"then": [{"tool": "merge_pr"}]},
             )
         )
         actions.append(
             NextAction(
                 kind="tool",
-                name="finalize_task",
-                label="Agent runs finalize_task (approve + generate changelog/commit) - RECOMMENDED",
+                name="merge_pr",
+                label="Agent runs merge_pr (approve + generate changelog/commit) - RECOMMENDED",
                 who=WhoRuns.AGENT,
                 recommended=True,
                 arguments={
@@ -401,13 +401,13 @@ def _compute_next_actions_for_task(
         actions.append(
             NextAction(
                 kind="tool",
-                name="approve_task",
-                label="Agent runs approve_task (Gate 2: Code Review Approval) - then generate artifacts separately",
+                name="approve_pr",
+                label="Agent runs approve_pr (Gate 2: Code Review Approval) - then generate artifacts separately",
                 who=WhoRuns.AGENT,
                 recommended=False,
             )
         )
-        # 2c) REWORK: User provides feedback, then agent runs request_changes
+        # 2c) REWORK: User provides feedback, then agent runs request_pr_changes
         actions.append(
             NextAction(
                 kind="instruction",
@@ -415,14 +415,14 @@ def _compute_next_actions_for_task(
                 label="User provides feedback in chat",
                 who=WhoRuns.USER,
                 recommended=False,
-                arguments={"then": [{"tool": "request_changes"}]},
+                arguments={"then": [{"tool": "request_pr_changes"}]},
             )
         )
         actions.append(
             NextAction(
                 kind="tool",
-                name="request_changes",
-                label="Agent runs request_changes to return task to IN_PROGRESS",
+                name="request_pr_changes",
+                label="Agent runs request_pr_changes to return task to IN_PROGRESS",
                 who=WhoRuns.AGENT,
                 recommended=False,
                 arguments={"feedback": "", "task_id": task.id},
@@ -583,25 +583,25 @@ def start_task() -> TaskWorkflowResult:
             message=result.get("message", ""),
             task=task,
             gate=gate,
-            action=ActionType.APPROVE,
+            action=ActionType.APPROVE_PR,
             next_actions=next_actions,
             changelog_snippet=result.get("changelog_snippet"),
         )
 
     except ValueError as e:
         return TaskWorkflowResult(
-            success=False, message=str(e), action=ActionType.APPROVE
+            success=False, message=str(e), action=ActionType.APPROVE_PR
         )
 
     except KeyError as e:
         return TaskWorkflowResult(
             success=False,
             message=f"Error: Could not find the specified item. {e}",
-            action=ActionType.APPROVE,
+            action=ActionType.APPROVE_PR,
         )
 
 
-def approve_task() -> TaskWorkflowResult:
+def approve_pr() -> TaskWorkflowResult:
     """
     Approve the current PENDING_REVIEW task (Gate 2: Code Review Approval).
 
@@ -610,7 +610,7 @@ def approve_task() -> TaskWorkflowResult:
 
     Validates:
     - Task is in PENDING_REVIEW status
-    - Task has changelog_entries
+    - Task has changes
 
     Transition: PENDING_REVIEW → DONE
     Gate: Gate 2 (Code Review Approval)
@@ -622,7 +622,7 @@ def approve_task() -> TaskWorkflowResult:
     """
     logger.debug("approve_task tool called.")
     try:
-        result = svc_approve_current_task_review()
+        result = svc_approve_pr()
         task = _create_task_out(
             {
                 k: v
@@ -637,33 +637,33 @@ def approve_task() -> TaskWorkflowResult:
             message=result.get("message", ""),
             task=task,
             gate=gate,
-            action=ActionType.APPROVE,
+            action=ActionType.APPROVE_PR,
             next_actions=next_actions,
             changelog_snippet=result.get("changelog_snippet"),
         )
 
     except ValueError as e:
         return TaskWorkflowResult(
-            success=False, message=str(e), action=ActionType.APPROVE
+            success=False, message=str(e), action=ActionType.APPROVE_PR
         )
 
     except KeyError as e:
         return TaskWorkflowResult(
             success=False,
             message=f"Error: Could not find the specified item. {e}",
-            action=ActionType.APPROVE,
+            action=ActionType.APPROVE_PR,
         )
     except RuntimeError as e:
         # Handle data inconsistencies or other specific errors
         return TaskWorkflowResult(
-            success=False, message=f"Error: {e}", action=ActionType.APPROVE
+            success=False, message=f"Error: {e}", action=ActionType.APPROVE_PR
         )
 
     except OSError as e:
         # Handle file system errors
         logger.warning("Approval failed due to OS error: %s", e)
         return TaskWorkflowResult(
-            success=False, message=str(e), action=ActionType.APPROVE
+            success=False, message=str(e), action=ActionType.APPROVE_PR
         )
     except Exception as e:  # noqa: BLE001
         # Intentional catch-all to prevent workflow tool from crashing
@@ -672,16 +672,16 @@ def approve_task() -> TaskWorkflowResult:
         return TaskWorkflowResult(
             success=False,
             message="An unexpected error occurred during approval",
-            action=ActionType.APPROVE,
+            action=ActionType.APPROVE_PR,
         )
 
 
-def request_changes(task_id: str, feedback: str) -> TaskWorkflowResult:
+def request_pr_changes(task_id: str, feedback: str) -> TaskWorkflowResult:
     """Request changes for the current task (PENDING_REVIEW -> IN_PROGRESS)."""
     logger.debug("request_changes tool called.")
     try:
         s_id, local_task_id = resolve_task_id(task_id)
-        result = svc_request_changes(
+        result = svc_request_pr_changes(
             story_id=s_id, task_id=local_task_id, feedback=feedback
         )
         # Fetch the now-current task to include snapshot and next actions
@@ -704,14 +704,14 @@ def request_changes(task_id: str, feedback: str) -> TaskWorkflowResult:
             message=result.get("message", ""),
             task=task,
             gate=gate,
-            action=ActionType.REQUEST_CHANGES,
+            action=ActionType.REQUEST_PR_CHANGES,
             next_actions=next_actions,
         )
     except (ValueError, KeyError, OSError, RuntimeError) as e:
         # Handle expected business logic errors
         logger.warning(f"Request changes failed due to business logic error: {e}")
         return TaskWorkflowResult(
-            success=False, message=str(e), action=ActionType.REQUEST_CHANGES
+            success=False, message=str(e), action=ActionType.REQUEST_PR_CHANGES
         )
     except Exception as e:  # noqa: BLE001
         # Intentional catch-all to prevent workflow tool from crashing
@@ -720,31 +720,31 @@ def request_changes(task_id: str, feedback: str) -> TaskWorkflowResult:
         return TaskWorkflowResult(
             success=False,
             message=f"An unexpected error occurred during request changes: {e}",
-            action=ActionType.REQUEST_CHANGES,
+            action=ActionType.REQUEST_PR_CHANGES,
         )
 
 
-def submit_for_review(task_id: str, changelog_entries: list[str]) -> TaskWorkflowResult:
+def submit_pr(task_id: str, changes: list[str]) -> TaskWorkflowResult:
     """Submit a completed task for code review and move it to PENDING_REVIEW status.
 
     Args:
         task_id: The ID of the task to submit for review (local or fully qualified)
-        changelog_entries: List of changelog entries describing what was accomplished
+        changes: List of changelog entries describing what was accomplished
 
     Returns:
         TaskWorkflowResult: Result containing the updated task and next actions for review
     """
     story_id, local_task_id = resolve_task_id(task_id)
     with timer("submit_for_review.duration_ms", task_id=local_task_id):
-        data = svc_submit_for_code_review(
+        data = svc_submit_pr(
             story_id=story_id,
             task_id=local_task_id,
-            changelog_entries=changelog_entries,
+            changes=changes,
         )
     incr("submit_for_review.count")
     task = _create_task_out(data)
 
-    entries_formatted = "\n".join([f"- {entry}" for entry in task.changelog_entries])
+    entries_formatted = "\n".join([f"- {entry}" for entry in task.changes])
     message_lines = [
         f"Task '{task.title}' is now PENDING_REVIEW.",
         "Changelog Entries:",
@@ -757,12 +757,12 @@ def submit_for_review(task_id: str, changelog_entries: list[str]) -> TaskWorkflo
         message="\n".join(message_lines),
         task=task,
         gate=gate,
-        action=ActionType.SUBMIT_FOR_REVIEW,
+        action=ActionType.SUBMIT_PR,
         next_actions=next_actions,
     )
 
 
-def finalize_task(
+def merge_pr(
     task_id: str,
     changelog_category: str,
     commit_type: str,
@@ -790,7 +790,7 @@ def finalize_task(
         TaskFinalizationOut: Contains approved task details, changelog entry, and commit message
     """
     # 1. Approve task review (will fail if not in PENDING_REVIEW)
-    svc_approve_current_task_review()
+    svc_approve_pr()
 
     # 2. Get the updated task
     story_id, local_task_id = resolve_task_id(task_id)

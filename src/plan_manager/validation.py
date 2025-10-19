@@ -133,41 +133,41 @@ def validate_acceptance_criteria(criteria: Optional[list[str]]) -> Optional[list
     return validated_criteria
 
 
-def validate_changelog_entries(entries: list[str]) -> list[str]:
-    """Validate changelog entries.
+def validate_changes(changes: list[str]) -> list[str]:
+    """Validate changes list (PR description / changelog entries).
 
     Args:
-        entries: List of changelog entries to validate
+        changes: List of changes to validate
 
     Returns:
-        list[str]: Validated entries
+        list[str]: Validated changes
 
     Raises:
-        ValueError: If entries are invalid
+        ValueError: If changes are invalid
     """
-    if not entries:
-        raise ValueError("Changelog entries cannot be empty")
+    if not changes:
+        raise ValueError("Changes list cannot be empty")
 
-    if len(entries) > 50:
-        raise ValueError("Too many changelog entries (max 50)")
+    if len(changes) > 50:
+        raise ValueError("Too many changes (max 50)")
 
     validated = []
-    for i, entry in enumerate(entries):
-        if not isinstance(entry, str):
-            raise TypeError(f"Entry {i + 1} must be a string")
+    for i, change in enumerate(changes):
+        if not isinstance(change, str):
+            raise TypeError(f"Change {i + 1} must be a string")
 
-        stripped_entry = entry.strip()
-        if not stripped_entry:
-            raise ValueError(f"Entry {i + 1} is empty")
+        stripped_change = change.strip()
+        if not stripped_change:
+            raise ValueError(f"Change {i + 1} is empty")
 
-        if len(stripped_entry) > MAX_CHANGELOG_ENTRY_LENGTH:
+        if len(stripped_change) > MAX_CHANGELOG_ENTRY_LENGTH:
             raise ValueError(
-                f"Entry {i + 1} too long (max {MAX_CHANGELOG_ENTRY_LENGTH} characters)"
+                f"Change {i + 1} too long (max {MAX_CHANGELOG_ENTRY_LENGTH} characters)"
             )
 
         # Remove leading bullets if present (we'll add them in formatting)
-        cleaned_entry = stripped_entry.lstrip("- ").lstrip("* ").strip()
-        validated.append(cleaned_entry)
+        cleaned_change = stripped_change.lstrip("- ").lstrip("* ").strip()
+        validated.append(cleaned_change)
 
     return validated
 

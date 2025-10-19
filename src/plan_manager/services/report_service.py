@@ -168,10 +168,10 @@ def _generate_story_report(plan: Plan) -> str:
                 active_task.title
             }' is ready for code review. Run `approve_task` to mark it as DONE."
         )
-        changelog_entries = getattr(active_task, "changelog_entries", [])
-        if changelog_entries:
+        changes = getattr(active_task, "changes", [])
+        if changes:
             report.append("\nChangelog Entries:")
-            report.extend(f"  - {entry}" for entry in changelog_entries)
+            report.extend(f"  - {entry}" for entry in changes)
         return "\n".join(report)
 
     # Scenario 5: No active task, or active task is DONE/IN_PROGRESS. Suggest

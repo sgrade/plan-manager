@@ -94,7 +94,7 @@ class TestTaskModel:
         assert task.status == Status.TODO
         assert task.depends_on == []
         assert task.steps == []  # Default is empty list, not None
-        assert task.changelog_entries == []  # Default is empty list
+        assert task.changes == []  # Default is empty list
 
     def test_task_creation_full(self):
         """Test creating a task with all fields."""
@@ -113,7 +113,7 @@ class TestTaskModel:
                 Task.Step(title="Step 1", description="First step"),
                 Task.Step(title="Step 2"),
             ],
-            changelog_entries=["Completed successfully", "Fixed bug"],
+            changes=["Completed successfully", "Fixed bug"],
         )
         assert task.id == "story-1:task-1"
         assert task.title == "Test Task"
@@ -126,7 +126,7 @@ class TestTaskModel:
         assert task.steps[0].description == "First step"
         assert task.steps[1].title == "Step 2"
         assert task.steps[1].description is None
-        assert task.changelog_entries == ["Completed successfully", "Fixed bug"]
+        assert task.changes == ["Completed successfully", "Fixed bug"]
 
     def test_task_step_creation(self):
         """Test creating task steps."""
