@@ -136,7 +136,7 @@ class TaskOut(BaseModel):
     completion_time: Optional[str] = None
     depends_on: list[str] = []
     steps: Optional[list[dict[str, Any]]] = None
-    execution_summary: Optional[str] = None
+    changelog_entries: list[str] = []
     review_feedback: Optional[list[dict[str, Any]]] = None
     rework_count: Optional[int] = None
 
@@ -221,3 +221,29 @@ class TaskWorkflowResult(BaseModel):
     next_actions: list[NextAction] = Field(default_factory=list)
     changelog_snippet: Optional[str] = None
     # Keep output minimal; agents infer behavior from next_actions.who
+
+
+class ChangelogEntryOut(BaseModel):
+    """Output schema for generated changelog entries."""
+
+    markdown: str
+    task_id: str
+    category: str
+
+
+class CommitMessageOut(BaseModel):
+    """Output schema for generated commit messages."""
+
+    message: str
+    task_id: str
+    commit_type: str
+
+
+class TaskFinalizationOut(BaseModel):
+    """Output schema for finalize_task convenience tool."""
+
+    task_id: str
+    task_title: str
+    status: str
+    changelog_entry: str
+    commit_message: str

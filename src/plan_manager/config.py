@@ -65,9 +65,9 @@ REQUIRE_EXECUTION_INTENT_BEFORE_IN_PROGRESS = _env_bool(
     "REQUIRE_EXECUTION_INTENT_BEFORE_IN_PROGRESS", True
 )
 
-# Require an execution_summary before moving a Task to DONE
-REQUIRE_EXECUTION_SUMMARY_BEFORE_DONE = _env_bool(
-    "REQUIRE_EXECUTION_SUMMARY_BEFORE_DONE", True
+# Require changelog_entries before moving a Task to DONE
+REQUIRE_CHANGELOG_ENTRIES_BEFORE_DONE = _env_bool(
+    "REQUIRE_CHANGELOG_ENTRIES_BEFORE_DONE", True
 )
 
 # --- UI / Browser ---

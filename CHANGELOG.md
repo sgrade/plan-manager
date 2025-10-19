@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- `start_task` tool for Gate 1 (Pre-Execution Approval: TODO → IN_PROGRESS)
+- `finalize_task` convenience tool in task_tools for Gate 2 workflow (approve + generate artifacts)
+
+### Changed
+- **BREAKING**: Split `approve_task` functionality - now only handles Gate 2 (Code Review Approval: PENDING_REVIEW → DONE)
+  - Use `start_task` for Gate 1 instead
+  - `approve_current_task()` service function still works for backward compatibility
+- Moved `finalize_task` from changelog_tools to task_tools (workflow orchestration tool)
+- Updated workflow documentation to use "Gate 1" and "Gate 2" terminology consistently
+- NextActions now recommend `finalize_task` as primary action at Gate 2
+
+### Fixed
+- Clarified tool responsibilities: `start_task` (Gate 1) vs `approve_task` (Gate 2)
+
 ## [0.8.0] - 2025-10-18
 
 ### Added

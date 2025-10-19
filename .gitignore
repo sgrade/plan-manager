@@ -152,10 +152,8 @@ tmp/
 .uv/
 uv.lock
 
-# Pre-commit
-.pre-commit-config.yaml.bak
-
 # Archive directory for reference materials not needed in the repo
 .archive/
+.workflow-terminology-recommendations.md
 
 ux_analysis.md

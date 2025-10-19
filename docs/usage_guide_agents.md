@@ -9,16 +9,28 @@ Plan Manager is a tool for a single developer or orchestrator to coordinate the 
 ## Core concepts
 - Plan: epic/major-level scope that groups stories.
 - Story: user-facing outcome (the WHAT and WHY), minor-level; contains tasks.
-- Task: implementation unit for the agent (the HOW), patch-level; contains optional steps and an execution summary.
+- Task: implementation unit for the agent (the HOW), patch-level; contains optional steps and changelog entries.
 - Context IDs: current plan/story/task are read from server-side state and can be set via `set_current_plan`, `set_current_story`, `set_current_task`.
 
 ## Commands (tools)
+
+### Workflow Tools
+- **start_task** — approve implementation plan and start work (Gate 1: TODO → IN_PROGRESS)
+- **submit_for_review(changelog_entries)** — submit work for code review (IN_PROGRESS → PENDING_REVIEW)
+- **approve_task** — approve code review (Gate 2: PENDING_REVIEW → DONE)
+- **finalize_task(task_id, category, commit_type)** — **RECOMMENDED**: approve + generate changelog + commit (Gate 2 convenience)
+- **request_changes(feedback)** — request modifications (PENDING_REVIEW → IN_PROGRESS)
+
+### Task Management Tools
 - list_*, create_*, update_*, delete_*, set_current_* — manage items and selection
-- approve_task — approve the current task (contextual)
-- submit_for_review(execution_summary) — submit current work for code review
-- request_changes(feedback) — record feedback and reopen the task for rework
-- create_task_steps(steps) — replace task steps (full replacement)
-- report, get_current — status and context helpers
+- **create_task_steps(steps)** — define implementation steps (replaces existing steps)
+
+### Artifact Generation Tools
+- **generate_changelog_entry(task_id, category)** — generate keepachangelog.com entry
+- **generate_commit_message(task_id, commit_type)** — generate conventional commit message
+
+### Status and Context Tools
+- **report**, **get_current** — status and context helpers
 
 All tools return structured results. On failure, responses include human-readable guidance.
 

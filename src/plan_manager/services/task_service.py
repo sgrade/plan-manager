@@ -39,8 +39,8 @@ from plan_manager.services.status_utils import (
 )
 from plan_manager.telemetry import incr, timer
 from plan_manager.validation import (
+    validate_changelog_entries,
     validate_description,
-    validate_execution_summary,
     validate_feedback,
     validate_task_steps,
     validate_title,
@@ -175,7 +175,7 @@ def get_task(story_id: str, task_id: str) -> dict[str, Any]:
                 "priority",
                 "creation_time",
                 "description",
-                "execution_summary",
+                "changelog_entries",
                 "depends_on",
             },
             exclude_none=True,
@@ -292,16 +292,16 @@ def update_task(
                 )
             apply_status_change(task_obj, status)
         elif status == Status.PENDING_REVIEW and prev_status == Status.IN_PROGRESS:
-            # Submitting for review requires an execution summary to have been set
-            if not task_obj.execution_summary:
+            # Submitting for review requires changelog entries to have been set
+            if not task_obj.changelog_entries:
                 raise ValueError(
-                    "An execution summary must be provided before submitting for review."
+                    "Changelog entries must be provided before submitting for review."
                 )
             apply_status_change(task_obj, status)
         elif status == Status.DONE and prev_status == Status.PENDING_REVIEW:
-            if not task_obj.execution_summary:
+            if not task_obj.changelog_entries:
                 raise ValueError(
-                    "An execution summary must be provided before marking as DONE."
+                    "Changelog entries must be provided before marking as DONE."
                 )
             apply_status_change(task_obj, status)
             # After a task is done, re-evaluate blockers across the plan
@@ -488,14 +488,160 @@ def create_steps(
 # ---------- Task workflow operations ----------
 
 
-def approve_current_task() -> dict[str, Any]:
-    """Approve the currently active task, moving it to its next state in the workflow.
+def start_current_task() -> dict[str, Any]:
+    """Start work on the current TODO task (Gate 1: TODO → IN_PROGRESS).
 
-    This is the core engine for moving a task through its lifecycle. The transition
-    depends on the current task state:
-    - TODO with steps → IN_PROGRESS
-    - TODO without steps → requires steps first (fast-track)
-    - IN_PROGRESS → PENDING_REVIEW (after execution)
+    Validates that the task has steps defined and is not blocked by dependencies,
+    then transitions the task from TODO to IN_PROGRESS status.
+
+    Returns:
+        dict: Updated task data including a success flag and message
+
+    Raises:
+        ValueError: If no task is active, task has no steps, or task is blocked
+        RuntimeError: If data inconsistency is detected
+    """
+    plan_id = plan_repository.get_current_plan_id()
+    if not plan_id:
+        raise ValueError("No active plan. Please select a plan first.")
+    plan = plan_repository.load(plan_id)
+
+    task_id = get_current_task_id(plan_id)
+    if not task_id:
+        raise ValueError("No active task. Use set_current_task first.")
+
+    story_id = get_current_story_id(plan_id)
+    if not story_id:
+        story_id = task_id.split(":")[0]
+
+    story = next((s for s in plan.stories if s.id == story_id), None)
+    if not story:
+        raise RuntimeError(
+            f"Data inconsistency: Story '{story_id}' not found for active task."
+        )
+
+    task = next((t for t in (story.tasks or []) if t.id == task_id), None)
+    if not task:
+        raise RuntimeError(
+            f"Data inconsistency: Active task '{task_id}' not found in story '{story_id}'."
+        )
+
+    if task.status != Status.TODO:
+        raise ValueError(
+            f"Task '{task.title}' is not in TODO status (current: {task.status}). "
+            "Only TODO tasks can be started."
+        )
+
+    # Require steps to exist
+    if not task.steps:
+        raise ValueError(
+            "No steps found. Create steps first via create_task_steps, then run start_task."
+        )
+
+    # Enforce dependency gate right before transition
+    if not is_unblocked(task, plan):
+        raise ValueError(
+            f"Task '{task.title}' is BLOCKED by unmet dependencies. Resolve blockers before starting."
+        )
+
+    logger.info(
+        {
+            "event": "start_task",
+            "task_id": task.id,
+            "corr_id": get_correlation_id(),
+        }
+    )
+    with timer("start_task.duration_ms", kind="plan", task_id=task.id):
+        updated_task_data = update_task(
+            story_id=story.id, task_id=task.id, status=Status.IN_PROGRESS
+        )
+    incr("start_task.count", kind="plan")
+    return {
+        "success": True,
+        "message": f"Task '{task.title}' started and moved to IN_PROGRESS.",
+        "changelog_snippet": None,
+        **updated_task_data,
+    }
+
+
+def approve_current_task_review() -> dict[str, Any]:
+    """Approve the current PENDING_REVIEW task (Gate 2: PENDING_REVIEW → DONE).
+
+    Completes the code review process and marks the task as DONE. Generates a
+    changelog snippet from the task's changelog_entries.
+
+    Returns:
+        dict: Updated task data including a success flag, message, and changelog snippet
+
+    Raises:
+        ValueError: If no task is active or task is not in PENDING_REVIEW status
+        RuntimeError: If data inconsistency is detected
+    """
+    plan_id = plan_repository.get_current_plan_id()
+    if not plan_id:
+        raise ValueError("No active plan. Please select a plan first.")
+    plan = plan_repository.load(plan_id)
+
+    task_id = get_current_task_id(plan_id)
+    if not task_id:
+        raise ValueError("No active task. There is nothing to approve.")
+
+    story_id = get_current_story_id(plan_id)
+    if not story_id:
+        story_id = task_id.split(":")[0]
+
+    story = next((s for s in plan.stories if s.id == story_id), None)
+    if not story:
+        raise RuntimeError(
+            f"Data inconsistency: Story '{story_id}' not found for active task."
+        )
+
+    task = next((t for t in (story.tasks or []) if t.id == task_id), None)
+    if not task:
+        raise RuntimeError(
+            f"Data inconsistency: Active task '{task_id}' not found in story '{story_id}'."
+        )
+
+    if task.status != Status.PENDING_REVIEW:
+        raise ValueError(
+            f"Task '{task.title}' is not in PENDING_REVIEW status (current: {task.status}). "
+            "Only PENDING_REVIEW tasks can be approved."
+        )
+
+    logger.info(
+        {
+            "event": "approve_review",
+            "task_id": task.id,
+            "corr_id": get_correlation_id(),
+        }
+    )
+    with timer("approve_task.duration_ms", kind="review", task_id=task.id):
+        updated_task_data = update_task(
+            story_id=story.id, task_id=task.id, status=Status.DONE
+        )
+    incr("approve_task.count", kind="review")
+
+    # Generate changelog snippet (using default "Changed" category for backward compat)
+    updated_task = Task(**updated_task_data)
+    changelog_snippet = generate_changelog_for_task(updated_task, category="Changed")
+
+    return {
+        "success": True,
+        "message": f"Task '{task.title}' approved and moved to DONE.",
+        "changelog_snippet": changelog_snippet,
+        **updated_task_data,
+    }
+
+
+def approve_current_task() -> dict[str, Any]:
+    """Approve the currently active task (context-aware: Gate 1 or Gate 2).
+
+    DEPRECATED: Use start_current_task() for Gate 1 or approve_current_task_review() for Gate 2.
+    This function is kept for backward compatibility.
+
+    The transition depends on the current task state:
+    - TODO with steps → IN_PROGRESS (delegates to start_current_task)
+    - PENDING_REVIEW → DONE (delegates to approve_current_task_review)
 
     Returns:
         Dict[str, Any]: Result containing success status and any error messages
@@ -514,7 +660,6 @@ def approve_current_task() -> dict[str, Any]:
 
     story_id = get_current_story_id(plan_id)
     if not story_id:
-        # This should ideally not happen if a task is active
         story_id = task_id.split(":")[0]
 
     story = next((s for s in plan.stories if s.id == story_id), None)
@@ -529,88 +674,37 @@ def approve_current_task() -> dict[str, Any]:
             f"Data inconsistency: Active task '{task_id}' not found in story '{story_id}'."
         )
 
-    # Case 1: Approving a pre-execution review (Gate 1)
+    # Delegate to specialized functions
     if task.status == Status.TODO:
-        # Require steps to exist. Fast-track does not seed steps server-side.
-        if not task.steps:
-            raise ValueError(
-                "No steps found. Fast-track: create steps now via create_task_steps, then run approve_task."
-            )
-        # Enforce dependency gate right before transition
-        if not is_unblocked(task, plan):
-            raise ValueError(
-                f"Task '{task.title}' is BLOCKED by unmet dependencies. Resolve blockers before starting."
-            )
-        logger.info(
-            {
-                "event": "approve_plan",
-                "task_id": task.id,
-                "corr_id": get_correlation_id(),
-            }
-        )
-        with timer("approve_task.duration_ms", kind="plan", task_id=task.id):
-            updated_task_data = update_task(
-                story_id=story.id, task_id=task.id, status=Status.IN_PROGRESS
-            )
-        incr("approve_task.count", kind="plan")
-        return {
-            "success": True,
-            "message": f"Task '{task.title}' approved and moved to IN_PROGRESS.",
-            "changelog_snippet": None,
-            **updated_task_data,
-        }
-
-    # Case 2: Approving a code review
+        return start_current_task()
     if task.status == Status.PENDING_REVIEW:
-        logger.info(
-            {
-                "event": "approve_review",
-                "task_id": task.id,
-                "corr_id": get_correlation_id(),
-            }
-        )
-        with timer("approve_task.duration_ms", kind="review", task_id=task.id):
-            updated_task_data = update_task(
-                story_id=story.id, task_id=task.id, status=Status.DONE
-            )
-        incr("approve_task.count", kind="review")
+        return approve_current_task_review()
 
-        # Generate changelog snippet
-        updated_task = Task(**updated_task_data)
-        changelog_snippet = generate_changelog_for_task(updated_task)
-
-        return {
-            "success": True,
-            "message": f"Task '{task.title}' approved and moved to DONE.",
-            "changelog_snippet": changelog_snippet,
-            **updated_task_data,
-        }
-
-    # Case 3: Task is not in a reviewable state
+    # Task is not in a state requiring approval
     raise ValueError(
-        f"The active task '{task.title}' is not in a reviewable state (current status: {task.status})."
+        f"The active task '{task.title}' is not in a state requiring approval (current status: {task.status})."
     )
 
 
 def submit_for_code_review(
-    story_id: str, task_id: str, summary_text: str
+    story_id: str, task_id: str, changelog_entries: list[str]
 ) -> dict[str, Any]:
-    """Submit a task for code review by setting execution summary and moving to PENDING_REVIEW.
+    """Submit a task for code review by setting changelog entries and moving to PENDING_REVIEW.
 
     Args:
         story_id: The ID of the story containing the task
         task_id: The local ID of the task within the story
-        summary_text: Summary of work completed (will be validated)
+        changelog_entries: List of changelog entries describing what was accomplished
 
     Returns:
         dict: Updated task data
 
     Raises:
-        ValueError: If task is not in IN_PROGRESS or summary validation fails
+        ValueError: If task is not in IN_PROGRESS or entry validation fails
         KeyError: If story or task doesn't exist
     """
-    # Validate execution summary
-    summary_text = validate_execution_summary(summary_text)
+    # Validate changelog entries
+    changelog_entries = validate_changelog_entries(changelog_entries)
 
     plan = plan_repository.load_current()
     _, task_obj, _ = _find_task(plan, story_id, task_id)
@@ -620,8 +714,8 @@ def submit_for_code_review(
             f"Can only submit for review a task that is IN_PROGRESS. Current status is {task_obj.status}."
         )
 
-    task_obj.execution_summary = summary_text
-    # Persist the execution_summary so the subsequent update_task (which reloads the plan)
+    task_obj.changelog_entries = changelog_entries
+    # Persist the changelog_entries so the subsequent update_task (which reloads the plan)
     # can see it when validating the transition to PENDING_REVIEW.
     plan_repository.save(plan, plan_id=plan.id)
 

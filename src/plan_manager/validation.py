@@ -7,7 +7,7 @@ from typing import Any, Optional
 MAX_TITLE_LENGTH = 200
 MAX_DESCRIPTION_LENGTH = 2000
 MAX_ACCEPTANCE_CRITERIA_LENGTH = 5000
-MAX_EXECUTION_SUMMARY_LENGTH = 10000
+MAX_CHANGELOG_ENTRY_LENGTH = 500
 MAX_FEEDBACK_LENGTH = 2000
 
 # Regular expression for safe identifiers (alphanumeric, hyphens, underscores)
@@ -133,32 +133,43 @@ def validate_acceptance_criteria(criteria: Optional[list[str]]) -> Optional[list
     return validated_criteria
 
 
-def validate_execution_summary(summary: str) -> str:
-    """Validate an execution summary.
+def validate_changelog_entries(entries: list[str]) -> list[str]:
+    """Validate changelog entries.
 
     Args:
-        summary: The execution summary to validate
+        entries: List of changelog entries to validate
 
     Returns:
-        str: The validated summary
+        list[str]: Validated entries
 
     Raises:
-        ValueError: If the summary is invalid
+        ValueError: If entries are invalid
     """
-    if not summary:
-        raise ValueError("Execution summary cannot be empty")
+    if not entries:
+        raise ValueError("Changelog entries cannot be empty")
 
-    if len(summary) > MAX_EXECUTION_SUMMARY_LENGTH:
-        raise ValueError(
-            f"Execution summary too long (max {MAX_EXECUTION_SUMMARY_LENGTH} characters)"
-        )
+    if len(entries) > 50:
+        raise ValueError("Too many changelog entries (max 50)")
 
-    # Allow newlines and tabs in execution summaries
-    safe_summary_pattern = re.compile(r"^[^\x00-\x08\x0B\x0C\x0E-\x1F\x7F]*$")
-    if not safe_summary_pattern.match(summary):
-        raise ValueError("Execution summary contains invalid characters")
+    validated = []
+    for i, entry in enumerate(entries):
+        if not isinstance(entry, str):
+            raise TypeError(f"Entry {i + 1} must be a string")
 
-    return summary.strip()
+        stripped_entry = entry.strip()
+        if not stripped_entry:
+            raise ValueError(f"Entry {i + 1} is empty")
+
+        if len(stripped_entry) > MAX_CHANGELOG_ENTRY_LENGTH:
+            raise ValueError(
+                f"Entry {i + 1} too long (max {MAX_CHANGELOG_ENTRY_LENGTH} characters)"
+            )
+
+        # Remove leading bullets if present (we'll add them in formatting)
+        cleaned_entry = stripped_entry.lstrip("- ").lstrip("* ").strip()
+        validated.append(cleaned_entry)
+
+    return validated
 
 
 def validate_feedback(feedback: str) -> str:

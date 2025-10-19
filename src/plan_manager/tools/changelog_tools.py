@@ -1,8 +1,13 @@
 from typing import TYPE_CHECKING
 
-from plan_manager.schemas.outputs import ChangelogPreviewOut
-from plan_manager.services.changelog_service import generate_changelog_for_task
-from plan_manager.services.plan_repository import load_current
+from plan_manager.domain.models import Task
+from plan_manager.schemas.outputs import (
+    ChangelogEntryOut,
+    CommitMessageOut,
+)
+from plan_manager.services import changelog_service
+from plan_manager.services.task_service import get_task
+from plan_manager.tools.task_tools import resolve_task_id
 
 if TYPE_CHECKING:
     from mcp.server.fastmcp import FastMCP
@@ -10,31 +15,57 @@ if TYPE_CHECKING:
 
 def register_changelog_tools(mcp_instance: "FastMCP") -> None:
     """Register changelog tools with the MCP instance."""
-    mcp_instance.tool()(generate_changelog)
+    mcp_instance.tool()(generate_changelog_entry)
+    mcp_instance.tool()(generate_commit_message)
 
 
-def generate_changelog(
-    version: str | None = None, date: str | None = None
-) -> ChangelogPreviewOut:
-    """Generate a changelog for all completed tasks in the current plan.
+def generate_changelog_entry(
+    task_id: str,
+    category: str,
+    version: str | None = None,
+    date: str | None = None,
+) -> ChangelogEntryOut:
+    """Generate keepachangelog.com format entry from a completed task's changelog entries.
 
     Args:
-        version: Optional version string to include in changelog headers
-        date: Optional date string to include in changelog headers
+        task_id: The ID of the task (local or fully qualified)
+        category: Changelog category - one of: Added, Changed, Deprecated, Removed, Fixed, Security
+        version: Optional version string (e.g., "0.9.0")
+        date: Optional date string (e.g., "2025-01-19")
 
     Returns:
-        ChangelogPreviewOut: The generated changelog in markdown format
+        ChangelogEntryOut: Formatted changelog entry ready to paste into CHANGELOG.md
     """
-    plan = load_current()
-    completed_tasks = [
-        task for story in plan.stories for task in story.tasks if task.status == "DONE"
-    ]
+    story_id, local_task_id = resolve_task_id(task_id)
+    task_data = get_task(story_id, local_task_id)
+    task = Task(**task_data)
 
-    snippets = []
-    for task in completed_tasks:
-        # We pass the version and date for the header of each snippet
-        snippet = generate_changelog_for_task(task, version, date)
-        snippets.append(snippet)
+    markdown = changelog_service.generate_changelog_for_task(
+        task, category=category, version=version, date=date
+    )
 
-    md = "\n\n".join(snippets)
-    return ChangelogPreviewOut(markdown=md)
+    return ChangelogEntryOut(markdown=markdown, task_id=task.id, category=category)
+
+
+def generate_commit_message(
+    task_id: str,
+    commit_type: str,
+) -> CommitMessageOut:
+    """Generate conventional commit message from a completed task's changelog entries.
+
+    Args:
+        task_id: The ID of the task (local or fully qualified)
+        commit_type: Commit type - one of: feat, fix, docs, style, refactor, perf, test, build, ci, chore
+
+    Returns:
+        CommitMessageOut: Formatted commit message following conventional commits spec
+    """
+    story_id, local_task_id = resolve_task_id(task_id)
+    task_data = get_task(story_id, local_task_id)
+    task = Task(**task_data)
+
+    message = changelog_service.generate_commit_message_for_task(
+        task, commit_type=commit_type
+    )
+
+    return CommitMessageOut(message=message, task_id=task.id, commit_type=commit_type)

@@ -7,11 +7,11 @@
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 [![Type checked: mypy](https://img.shields.io/badge/type%20checked-mypy-blue.svg)](https://mypy-lang.org/)
 
-Sync AI agent(s) and models around common goals and constraints.
+Sync AI agent(s) and models around common plan.
 
 ## Overview
 
-AI agents supported by models operate in a limited context window. If the amount of work is greater, there is a need to periodically coordinate the agent with broader plans. Moreover, if several AI models or agents perform different tasks, for example, to optimize costs, they need to be synchronized. The Plan Manager makes it easier to coordinate agents and LLMs with a plan according to user-defined constraints.
+AI agents supported by models operate in a limited context window. If the amount of work is greater, there is a need to periodically coordinate the agent with broader context. Moreover, if several AI models or agents perform different parts of the work, for example, to optimize costs, they need to be aligned. The Plan Manager makes it easier to coordinate agents and LLMs with a plan according to user-defined constraints.
 
 ## Positioning
 

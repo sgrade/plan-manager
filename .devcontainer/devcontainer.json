@@ -22,7 +22,8 @@
                 "github.vscode-github-actions",
                 "GitHub.copilot",
                 "ms-azuretools.vscode-docker",
-                "github.vscode-github-actions"
+                "github.vscode-github-actions",
+                "mermaidchart.vscode-mermaid-chart"
             ]
         }
     },

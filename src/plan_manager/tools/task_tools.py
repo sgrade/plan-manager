@@ -9,12 +9,14 @@ from plan_manager.schemas.outputs import (
     ActionType,
     NextAction,
     OperationResult,
+    TaskFinalizationOut,
     TaskListItem,
     TaskOut,
     TaskWorkflowResult,
     WhoRuns,
     WorkflowGate,
 )
+from plan_manager.services import changelog_service
 from plan_manager.services.shared import resolve_task_id
 from plan_manager.services.state_repository import (
     get_current_story_id,
@@ -22,7 +24,7 @@ from plan_manager.services.state_repository import (
     set_current_task_id,
 )
 from plan_manager.services.task_service import (
-    approve_current_task as svc_approve_current_task,
+    approve_current_task_review as svc_approve_current_task_review,
 )
 from plan_manager.services.task_service import (
     create_steps as svc_create_steps,
@@ -41,6 +43,9 @@ from plan_manager.services.task_service import (
 )
 from plan_manager.services.task_service import (
     request_changes as svc_request_changes,
+)
+from plan_manager.services.task_service import (
+    start_current_task as svc_start_current_task,
 )
 from plan_manager.services.task_service import (
     submit_for_code_review as svc_submit_for_code_review,
@@ -69,8 +74,10 @@ def register_task_tools(mcp_instance: "FastMCP") -> None:
     mcp_instance.tool()(set_current_task)
     mcp_instance.tool()(create_task_steps)
     mcp_instance.tool()(submit_for_review)
-    mcp_instance.tool()(approve_task)
+    mcp_instance.tool()(start_task)  # Gate 1
+    mcp_instance.tool()(approve_task)  # Gate 2
     mcp_instance.tool()(request_changes)
+    mcp_instance.tool()(finalize_task)  # Convenience: Gate 2 + artifacts
 
 
 # ---------- Task CRUD operations ----------
@@ -302,7 +309,7 @@ def _compute_next_actions_for_task(
                                 "tool": "create_task_steps",
                                 "arguments": {"task_id": task.id, "steps": []},
                             },
-                            {"tool": "approve_task"},
+                            {"tool": "start_task"},
                         ]
                     },
                 )
@@ -311,8 +318,8 @@ def _compute_next_actions_for_task(
             actions.append(
                 NextAction(
                     kind="tool",
-                    name="approve_task",
-                    label="Gate 1: Agent runs approve_task to start execution",
+                    name="start_task",
+                    label="Gate 1: Agent runs start_task to begin work (Pre-Execution Approval)",
                     who=WhoRuns.AGENT,
                     recommended=True,
                 )
@@ -344,28 +351,28 @@ def _compute_next_actions_for_task(
             NextAction(
                 kind="tool",
                 name="submit_for_review",
-                label="Agent runs submit_for_review (non-empty execution_summary)",
+                label="Agent runs submit_for_review (changelog_entries list)",
                 who=WhoRuns.AGENT,
                 recommended=False,
-                arguments={"task_id": task.id, "execution_summary": ""},
+                arguments={"task_id": task.id, "changelog_entries": []},
             )
         )
         return actions
 
     if gate == WorkflowGate.AWAITING_REVIEW:
         # Gate 2 sequence per workflow:
-        # 1) Agent displays execution_summary and asks the user to approve or
+        # 1) Agent displays changelog_entries and asks the user to approve or
         # request changes
         actions.append(
             NextAction(
                 kind="instruction",
                 name="display_review_and_prompt",
-                label="Show execution summary and ask: Say 'approve review' or provide feedback to request changes.",
+                label="Show changelog entries and ask: Say 'approve review' or provide feedback to request changes.",
                 who=WhoRuns.AGENT,
                 recommended=True,
             )
         )
-        # 2a) User approves review in chat, then agent runs approve_task
+        # 2a) PRIMARY: User approves review in chat, then agent runs finalize_task
         actions.append(
             NextAction(
                 kind="instruction",
@@ -373,19 +380,34 @@ def _compute_next_actions_for_task(
                 label="User says 'approve review' in chat",
                 who=WhoRuns.USER,
                 recommended=False,
-                arguments={"then": [{"tool": "approve_task"}]},
+                arguments={"then": [{"tool": "finalize_task"}]},
             )
         )
         actions.append(
             NextAction(
                 kind="tool",
+                name="finalize_task",
+                label="Agent runs finalize_task (approve + generate changelog/commit) - RECOMMENDED",
+                who=WhoRuns.AGENT,
+                recommended=True,
+                arguments={
+                    "task_id": task.id,
+                    "changelog_category": "Added",  # Example - agent should determine
+                    "commit_type": "feat",  # Example - agent should determine
+                },
+            )
+        )
+        # 2b) FALLBACK: Manual approval + artifact generation
+        actions.append(
+            NextAction(
+                kind="tool",
                 name="approve_task",
-                label="Agent runs approve_task to mark task DONE",
+                label="Agent runs approve_task (Gate 2: Code Review Approval) - then generate artifacts separately",
                 who=WhoRuns.AGENT,
                 recommended=False,
             )
         )
-        # 2b) Or the user provides feedback, then agent runs request_changes
+        # 2c) REWORK: User provides feedback, then agent runs request_changes
         actions.append(
             NextAction(
                 kind="instruction",
@@ -525,17 +547,28 @@ def set_current_task(task_id: Optional[str] = None) -> TaskWorkflowResult:
     )
 
 
-def approve_task() -> TaskWorkflowResult:
+def start_task() -> TaskWorkflowResult:
     """
-    Contextually approves the current task. This command is the primary way
-    to move a task forward through its lifecycle.
+    Start work on the current TODO task (Gate 1: Pre-Execution Approval).
 
-    Important: agents should only call this tool after the user runs `approve_task` or provides similar instruction.
+    Approves the implementation plan and transitions the task from TODO to IN_PROGRESS status.
+    This tool should be called after create_task_steps() has been used to define the
+    implementation plan.
+
+    Validates:
+    - Task is in TODO status
+    - Task has steps defined
+    - Task is not blocked by dependencies
+
+    Transition: TODO → IN_PROGRESS
+    Gate: Gate 1 (Pre-Execution Approval)
+
+    Returns:
+        TaskWorkflowResult: Result with task details and next actions for execution
     """
-    logger.debug("approve_task tool called.")
+    logger.debug("start_task tool called.")
     try:
-        result = svc_approve_current_task()
-        # result includes updated task fields
+        result = svc_start_current_task()
         task = _create_task_out(
             {
                 k: v
@@ -556,7 +589,60 @@ def approve_task() -> TaskWorkflowResult:
         )
 
     except ValueError as e:
-        # Keep selection orchestration client-side; return clear error only.
+        return TaskWorkflowResult(
+            success=False, message=str(e), action=ActionType.APPROVE
+        )
+
+    except KeyError as e:
+        return TaskWorkflowResult(
+            success=False,
+            message=f"Error: Could not find the specified item. {e}",
+            action=ActionType.APPROVE,
+        )
+
+
+def approve_task() -> TaskWorkflowResult:
+    """
+    Approve the current PENDING_REVIEW task (Gate 2: Code Review Approval).
+
+    Completes the code review process and marks the task as DONE. This tool should be
+    called after the user has reviewed the submitted work and provides approval.
+
+    Validates:
+    - Task is in PENDING_REVIEW status
+    - Task has changelog_entries
+
+    Transition: PENDING_REVIEW → DONE
+    Gate: Gate 2 (Code Review Approval)
+
+    Important: agents should only call this tool after the user approves the review.
+
+    Returns:
+        TaskWorkflowResult: Result with task details, changelog snippet, and next actions
+    """
+    logger.debug("approve_task tool called.")
+    try:
+        result = svc_approve_current_task_review()
+        task = _create_task_out(
+            {
+                k: v
+                for k, v in result.items()
+                if k not in ("success", "message", "changelog_snippet")
+            }
+        )
+        gate = _status_to_gate(task.status, task.steps)
+        next_actions = _compute_next_actions_for_task(task, gate)
+        return TaskWorkflowResult(
+            success=result.get("success", False),
+            message=result.get("message", ""),
+            task=task,
+            gate=gate,
+            action=ActionType.APPROVE,
+            next_actions=next_actions,
+            changelog_snippet=result.get("changelog_snippet"),
+        )
+
+    except ValueError as e:
         return TaskWorkflowResult(
             success=False, message=str(e), action=ActionType.APPROVE
         )
@@ -638,12 +724,12 @@ def request_changes(task_id: str, feedback: str) -> TaskWorkflowResult:
         )
 
 
-def submit_for_review(task_id: str, execution_summary: str) -> TaskWorkflowResult:
+def submit_for_review(task_id: str, changelog_entries: list[str]) -> TaskWorkflowResult:
     """Submit a completed task for code review and move it to PENDING_REVIEW status.
 
     Args:
         task_id: The ID of the task to submit for review (local or fully qualified)
-        execution_summary: Summary of the work completed and implementation details
+        changelog_entries: List of changelog entries describing what was accomplished
 
     Returns:
         TaskWorkflowResult: Result containing the updated task and next actions for review
@@ -651,15 +737,18 @@ def submit_for_review(task_id: str, execution_summary: str) -> TaskWorkflowResul
     story_id, local_task_id = resolve_task_id(task_id)
     with timer("submit_for_review.duration_ms", task_id=local_task_id):
         data = svc_submit_for_code_review(
-            story_id=story_id, task_id=local_task_id, summary_text=execution_summary
+            story_id=story_id,
+            task_id=local_task_id,
+            changelog_entries=changelog_entries,
         )
     incr("submit_for_review.count")
     task = _create_task_out(data)
-    summary = task.execution_summary or ""
+
+    entries_formatted = "\n".join([f"- {entry}" for entry in task.changelog_entries])
     message_lines = [
         f"Task '{task.title}' is now PENDING_REVIEW.",
-        "Review Summary:",
-        summary,
+        "Changelog Entries:",
+        entries_formatted,
     ]
     gate = _status_to_gate(task.status, task.steps)
     next_actions = _compute_next_actions_for_task(task, gate)
@@ -670,4 +759,63 @@ def submit_for_review(task_id: str, execution_summary: str) -> TaskWorkflowResul
         gate=gate,
         action=ActionType.SUBMIT_FOR_REVIEW,
         next_actions=next_actions,
+    )
+
+
+def finalize_task(
+    task_id: str,
+    changelog_category: str,
+    commit_type: str,
+    version: str | None = None,
+) -> TaskFinalizationOut:
+    """Convenience tool: approve task + generate changelog + commit message in one call.
+
+    This tool combines the approve_task, generate_changelog_entry, and generate_commit_message
+    operations into a single workflow step for convenience when the user approves the review.
+
+    ONLY use this if:
+    - Task is in PENDING_REVIEW status
+    - User has explicitly approved the review
+    - No further changes are needed
+
+    If changes are needed, use request_changes to return the task to IN_PROGRESS.
+
+    Args:
+        task_id: The ID of the task (local or fully qualified)
+        changelog_category: Category for changelog (Added, Changed, Fixed, Removed, Deprecated, Security)
+        commit_type: Type for commit message (feat, fix, docs, style, refactor, perf, test, build, ci, chore)
+        version: Optional version for changelog header
+
+    Returns:
+        TaskFinalizationOut: Contains approved task details, changelog entry, and commit message
+    """
+    # 1. Approve task review (will fail if not in PENDING_REVIEW)
+    svc_approve_current_task_review()
+
+    # 2. Get the updated task
+    story_id, local_task_id = resolve_task_id(task_id)
+    task_data = svc_get_task(story_id, local_task_id)
+    task_out = _create_task_out(task_data)
+
+    # Convert TaskOut to Task for changelog generation
+    from plan_manager.domain.models import Task as TaskModel
+
+    task = TaskModel(**task_data)
+
+    # 3. Generate changelog entry
+    changelog_markdown = changelog_service.generate_changelog_for_task(
+        task, category=changelog_category, version=version
+    )
+
+    # 4. Generate commit message
+    commit_message = changelog_service.generate_commit_message_for_task(
+        task, commit_type=commit_type
+    )
+
+    return TaskFinalizationOut(
+        task_id=task_out.id,
+        task_title=task_out.title,
+        status=task_out.status,
+        changelog_entry=changelog_markdown,
+        commit_message=commit_message,
     )

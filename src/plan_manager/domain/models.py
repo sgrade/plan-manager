@@ -79,9 +79,9 @@ class Task(WorkItem):
         default_factory=list,
         description="Ordered implementation steps. Each step has a title and an optional description.",
     )
-    execution_summary: Optional[str] = Field(
-        default=None,
-        description="Brief outcome summary after completion (what changed, where).",
+    changelog_entries: list[str] = Field(
+        default_factory=list,
+        description="List of changelog entries describing what was accomplished (keepachangelog.com format).",
     )
 
     class ReviewFeedback(BaseModel):
