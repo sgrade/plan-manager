@@ -85,19 +85,19 @@ def generate_commit_message_for_task(
             f"Invalid commit type '{commit_type}'. Must be one of: {', '.join(valid_types)}"
         )
 
-    # Subject line: type(scope): title
-    local_id = task.local_id or task.id.split(":")[-1]
-    subject = f"{commit_type}({local_id}): {task.title}"
+    # Subject line: type: title (no scope, lowercase first letter)
+    title = task.title[0].lower() + task.title[1:] if task.title else task.title
+    subject = f"{commit_type}: {title}"
 
     # Body: changelog entries as bullets
     body_lines = []
     if task.changes:
         body_lines = [f"- {entry}" for entry in task.changes]
 
-    # Footer: story reference
+    # Footer: full task ID reference (includes story_id:task_id)
     footer = []
-    if task.story_id:
-        footer.append(f"Refs: {task.story_id}")
+    if task.id:
+        footer.append(f"Refs: {task.id}")
 
     # Assemble message
     parts = [subject, ""]

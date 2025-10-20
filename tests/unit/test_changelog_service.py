@@ -99,10 +99,10 @@ class TestGenerateCommitMessageForTask:
             task, commit_type="feat"
         )
 
-        assert "feat(task-1): Implement login" in result
+        assert "feat: implement login" in result
         assert "- Added POST /auth/login endpoint" in result
         assert "- Implemented JWT tokens" in result
-        assert "Refs: story-1" in result
+        assert "Refs: story-1:task-1" in result
 
     def test_generate_without_story_id(self):
         """Test generating commit message without story_id."""
@@ -117,9 +117,9 @@ class TestGenerateCommitMessageForTask:
             task, commit_type="fix"
         )
 
-        assert "fix(task-1): Fix bug" in result
+        assert "fix: fix bug" in result
         assert "- Fixed bug" in result
-        assert "Refs:" not in result  # No story reference
+        assert "Refs: task-1" in result  # Full task ID reference
 
     def test_generate_with_empty_entries(self):
         """Test generating commit message with empty entries."""
@@ -135,8 +135,8 @@ class TestGenerateCommitMessageForTask:
             task, commit_type="chore"
         )
 
-        assert "chore(task-1): Task" in result
-        assert "Refs: story-1" in result
+        assert "chore: task" in result
+        assert "Refs: story-1:task-1" in result
         # Should not have bullet points if no entries
 
     def test_invalid_commit_type_raises(self):
@@ -154,8 +154,8 @@ class TestGenerateCommitMessageForTask:
                 task, commit_type="invalid"
             )
 
-    def test_extracts_local_id_from_full_id(self):
-        """Test that local_id is extracted from full task ID if local_id is not set."""
+    def test_uses_full_task_id_in_refs(self):
+        """Test that full task ID is used in Refs footer."""
         task = Task(
             id="story-1:my-task-id",
             title="Task",
@@ -167,4 +167,5 @@ class TestGenerateCommitMessageForTask:
             task, commit_type="feat"
         )
 
-        assert "feat(my-task-id): Task" in result
+        assert "feat: task" in result
+        assert "Refs: story-1:my-task-id" in result

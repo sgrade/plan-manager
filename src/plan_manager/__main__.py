@@ -1,12 +1,4 @@
-"""Entry point for running the Plan Manager MCP server.
-
-Usage:
-    # Dev (auto-reload)
-    uv run plan-manager --reload
-
-    # Prod (no reload)
-    uv run plan-manager
-"""
+"""Entry point for running the Plan Manager MCP server."""
 
 import logging
 from importlib import import_module
