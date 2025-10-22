@@ -291,6 +291,9 @@ def update_task(
                     "An implementation plan must be approved before starting work."
                 )
             apply_status_change(task_obj, status)
+        elif status == Status.IN_PROGRESS and prev_status == Status.PENDING_REVIEW:
+            # Rework: reviewer requested changes, moving back to IN_PROGRESS
+            apply_status_change(task_obj, status)
         elif status == Status.PENDING_REVIEW and prev_status == Status.IN_PROGRESS:
             # Submitting for review requires changes to have been set
             if not task_obj.changes:
@@ -747,6 +750,9 @@ def request_changes(story_id: str, task_id: str, feedback: str) -> dict[str, Any
 
     # Log feedback and update rework count
     _log_review_feedback(plan.id, task, feedback)
+
+    # Save the plan with updated feedback and rework count before status change
+    validate_and_save(plan)
 
     # Delegate to update_task for status change
     update_task(story_id=story_id, task_id=task_id, status=Status.IN_PROGRESS)
