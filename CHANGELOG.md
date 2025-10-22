@@ -27,9 +27,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `approve_current_task_review` → `approve_pr`
 - Updated workflow documentation to use "Gate 1" and "Gate 2" terminology consistently
 - NextActions now recommend `merge_pr` as primary action at Gate 2
+- Commit message format: removed redundant scope, now uses full task ID in Refs footer, and lowercases first letter of subject line for consistency
 
 ### Fixed
 - Clarified tool responsibilities: `start_task` (Gate 1) vs `approve_pr` (Gate 2)
+- Status rollup logic now correctly shows stories and plans as IN_PROGRESS when work has been done but no task is currently active (e.g., when some tasks are DONE and others are TODO)
+- Stories with tasks in PENDING_REVIEW now correctly show as IN_PROGRESS
 
 ## [0.8.0] - 2025-10-18
 

@@ -31,8 +31,11 @@ def rollup_story_status(task_statuses: list[Status | str]) -> Status:
 
     Logic:
     - DONE if all tasks are DONE
-    - IN_PROGRESS if any task is IN_PROGRESS
-    - TODO otherwise (BLOCKED/DEFERRED are not rolled up here)
+    - IN_PROGRESS if any task is IN_PROGRESS, PENDING_REVIEW, or if there's a mix of DONE and TODO
+    - TODO if all tasks are TODO (or BLOCKED/DEFERRED)
+
+    This ensures that a story shows as IN_PROGRESS when work has started but isn't complete,
+    even if no task is currently actively being worked on.
 
     Args:
         task_statuses: List of task statuses to roll up
@@ -43,10 +46,22 @@ def rollup_story_status(task_statuses: list[Status | str]) -> Status:
     values = [s.value if isinstance(s, Status) else s for s in task_statuses]
     if not values:
         return Status.TODO
+
+    # All done → story is done
     if all(v == "DONE" for v in values):
         return Status.DONE
-    if any(v == "IN_PROGRESS" for v in values):
+
+    # Any active work → story is in progress
+    if any(v in ("IN_PROGRESS", "PENDING_REVIEW") for v in values):
         return Status.IN_PROGRESS
+
+    # Mix of DONE and not-started → story is in progress (work has been done)
+    has_done = any(v == "DONE" for v in values)
+    has_not_started = any(v in ("TODO", "BLOCKED", "DEFERRED") for v in values)
+    if has_done and has_not_started:
+        return Status.IN_PROGRESS
+
+    # All tasks are TODO/BLOCKED/DEFERRED → story is todo
     return Status.TODO
 
 
@@ -55,8 +70,8 @@ def rollup_plan_status(story_statuses: list[Status | str]) -> Status:
 
     Uses the same logic as rollup_story_status:
     - DONE if all stories are DONE
-    - IN_PROGRESS if any story is IN_PROGRESS
-    - TODO otherwise
+    - IN_PROGRESS if any story is IN_PROGRESS, PENDING_REVIEW, or if there's a mix of DONE and TODO
+    - TODO if all stories are TODO (or BLOCKED/DEFERRED)
 
     Args:
         story_statuses: List of story statuses to roll up
@@ -67,8 +82,20 @@ def rollup_plan_status(story_statuses: list[Status | str]) -> Status:
     values = [s.value if isinstance(s, Status) else s for s in story_statuses]
     if not values:
         return Status.TODO
+
+    # All done → plan is done
     if all(v == "DONE" for v in values):
         return Status.DONE
-    if any(v == "IN_PROGRESS" for v in values):
+
+    # Any active work → plan is in progress
+    if any(v in ("IN_PROGRESS", "PENDING_REVIEW") for v in values):
         return Status.IN_PROGRESS
+
+    # Mix of DONE and not-started → plan is in progress (work has been done)
+    has_done = any(v == "DONE" for v in values)
+    has_not_started = any(v in ("TODO", "BLOCKED", "DEFERRED") for v in values)
+    if has_done and has_not_started:
+        return Status.IN_PROGRESS
+
+    # All stories are TODO/BLOCKED/DEFERRED → plan is todo
     return Status.TODO

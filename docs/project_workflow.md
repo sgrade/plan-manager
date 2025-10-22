@@ -129,9 +129,22 @@ graph TD
 
 ### Plan and Story Statuses
 
-It is important to note that only `Task` items have a direct, manageable lifecycle. The status of a `Story` or a `Plan` is a **rolled-up property** that is a calculated based on the statuses of its children.
+It is important to note that only `Task` items have a direct, manageable lifecycle. The status of a `Story` or a `Plan` is a **rolled-up property** that is calculated based on the statuses of its children.
 
--   A **Story's status** is a summary of its `Task` statuses (e.g., if any task is `IN_PROGRESS`, the story is `IN_PROGRESS`).
--   A **Plan's status** is a summary of its `Story` statuses.
+#### Story Status Rules
+
+A **Story's status** is derived from its tasks:
+- **DONE**: All tasks are DONE
+- **IN_PROGRESS**: Any task is IN_PROGRESS or PENDING_REVIEW, OR there's a mix of DONE and TODO/BLOCKED/DEFERRED tasks (indicating work has started but isn't complete)
+- **TODO**: All tasks are TODO/BLOCKED/DEFERRED (no work has started)
+
+This ensures that stories accurately reflect work progress. For example, if you've finished 2 tasks and have 3 more TODO tasks, the story will show as IN_PROGRESS rather than misleadingly appearing as TODO.
+
+#### Plan Status Rules
+
+A **Plan's status** is derived from its stories using the same logic:
+- **DONE**: All stories are DONE
+- **IN_PROGRESS**: Any story is IN_PROGRESS or PENDING_REVIEW, OR there's a mix of DONE and TODO stories
+- **TODO**: All stories are TODO (no work has started)
 
 Because their statuses are not managed directly, there are no state diagrams for `Plan` or `Story` items. The `Task` lifecycle is the core driver of the entire system's state.
