@@ -14,6 +14,80 @@ Semantic Versioning: [https://semver.org](https://semver.org)
 
 Changelog: [https://keepachangelog.com](https://keepachangelog.com)
 
+## Branching Strategy
+
+This project follows a simplified Git Flow:
+
+### Normal Development
+
+**Work on `develop` branch:**
+```bash
+git checkout develop
+git commit -m "feat: add new feature"
+git commit -m "fix: resolve bug"
+git push origin develop
+```
+
+**When ready to release:**
+```bash
+# Merge develop to main
+git checkout main
+git merge develop
+git push origin main
+
+# Release-please will automatically:
+# 1. Create a Release PR
+# 2. Update version and changelog
+# You then review and merge the Release PR
+```
+
+### Emergency Hotfixes
+
+For critical production issues (P0) that can't wait for the normal release cycle:
+
+**Option 1: Hotfix branch from main**
+```bash
+# Create hotfix branch from main
+git checkout -b hotfix/critical-security-fix main
+
+# Fix the issue
+git commit -m "fix: critical security vulnerability in authentication"
+
+# Merge to main
+git checkout main
+git merge hotfix/critical-security-fix
+git push origin main
+
+# Merge back to develop to keep in sync
+git checkout develop
+git merge hotfix/critical-security-fix
+git push origin develop
+```
+
+**Option 2: Direct commit to main (extreme emergency only)**
+```bash
+# Only when CI is down or immediate release required
+git checkout main
+git commit -m "fix: critical data loss bug"
+git push origin main
+
+# Don't forget to merge back to develop
+git checkout develop
+git merge main
+git push origin develop
+```
+
+**Always:** Ensure hotfixes are merged back to `develop` to keep branches in sync.
+
+### Branch Protection
+
+The `main` branch should be protected with these settings:
+- Require pull request before merging (exceptions: hotfixes, release-please)
+- Require status checks to pass (CI, tests, lint)
+- Require branches to be up to date before merging
+
+See [GitHub Branch Protection](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches) for setup instructions.
+
 ## Triage
 
 Refer to the Triage Guide for labels, severity definitions, SLAs, and routine:
