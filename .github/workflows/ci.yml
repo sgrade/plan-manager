@@ -55,7 +55,7 @@ jobs:
         uses: codecov/codecov-action@v5
         if: github.ref == 'refs/heads/main' || github.event_name == 'pull_request'
         with:
-          file: ./coverage.xml
+          files: ./coverage.xml
           fail_ci_if_error: false
           token: ${{ secrets.CODECOV_TOKEN }}
 
