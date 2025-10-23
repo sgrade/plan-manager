@@ -136,6 +136,61 @@ open htmlcov/index.html
 
 See [config_reference.md](./config_reference.md) for all environment variables, defaults, and examples.
 
-## Release Checklist
+## Release Process
 
-See [release_checklist.md](./release_checklist.md) for the beta release gates and steps.
+This project uses [release-please](https://github.com/googleapis/release-please) to automate releases based on [Conventional Commits](https://www.conventionalcommits.org/).
+
+### How It Works
+
+1. **Commit your changes** using conventional commit messages:
+   ```bash
+   git commit -m "feat: add new amazing feature"
+   git commit -m "fix: resolve critical bug"
+   git commit -m "docs: update documentation"
+   ```
+
+2. **Merge to main** (via develop or direct):
+   ```bash
+   git checkout main
+   git merge develop
+   git push origin main
+   ```
+
+3. **Release-please automatically**:
+   - Analyzes commits since last release
+   - Determines version bump (major/minor/patch) based on commit types
+   - Creates a "Release PR" with:
+     - Updated `CHANGELOG.md`
+     - Bumped version in `pyproject.toml`
+     - Updated `.release-please-manifest.json`
+
+4. **Review and merge the Release PR**:
+   - Check the version bump is appropriate
+   - Verify the changelog entries are accurate
+   - Merge the PR on GitHub
+
+5. **Automatic release**:
+   - Release-please creates a git tag (e.g., `v0.10.0`)
+   - Creates a GitHub Release with release notes
+   - CI workflow builds and uploads distribution artifacts
+
+### Commit Message Format
+
+Follow the [Conventional Commits](https://www.conventionalcommits.org/) specification:
+
+- `feat:` - New feature (bumps minor version: 0.9.0 → 0.10.0)
+- `fix:` - Bug fix (bumps patch version: 0.9.0 → 0.9.1)
+- `docs:` - Documentation only (no version bump)
+- `chore:` - Maintenance tasks (no version bump)
+- `refactor:` - Code refactoring (no version bump)
+- `perf:` - Performance improvements (no version bump)
+- `test:` - Test changes (no version bump)
+- `BREAKING CHANGE:` - Breaking change (bumps major version: 0.9.0 → 1.0.0)
+
+### Emergency Manual Release
+
+In exceptional circumstances (e.g., critical hotfix when CI is down, or need to release from a fork), manual release steps are documented in [release_checklist.md](./release_checklist.md).
+
+## Quality Gates
+
+See [release_checklist.md](./release_checklist.md) for pre-release quality checks and verification steps.

@@ -1,39 +1,70 @@
-# Beta Release Checklist
+# Release Checklist
 
-Keep this checklist versioned with the codebase. Complete all items before tagging a beta release.
+This checklist ensures release quality. Most release mechanics are automated by [release-please](https://github.com/googleapis/release-please).
 
-## Gates (must pass)
+## Pre-Release Quality Gates
+
+Complete all items before merging the release-please PR.
+
+### Code Quality
 - [ ] No open P0 issues; all P1s triaged with owners
-- [ ] Structured logs and telemetry enabled as needed for diagnosis
-- [ ] Manual QA checklist completed for core flows across supported platforms
-- [ ] Release notes drafted with known limitations and upgrade steps
-- [ ] Tagging and artifact publishing dry-run succeeds end-to-end
+- [ ] All CI checks passing (tests, lint, type-check, security)
+- [ ] Test coverage meets threshold (40%+)
+- [ ] No known regressions from previous version
 
-## Manual QA (core flows)
-- [ ] Create plan → create stories → create tasks → create steps → approve_task (TODO→IN_PROGRESS)
-- [ ] submit_for_review → review summary displays → approve_task (DONE)
+### Documentation
+- [ ] Usage guide reflects new features/changes
+- [ ] API changes documented
+- [ ] Breaking changes clearly documented with migration guide
+- [ ] README updated if needed
+
+### Manual QA (Core Flows)
+- [ ] Create plan → create stories → create tasks → create steps → start_task (TODO→IN_PROGRESS)
+- [ ] submit_pr → review summary displays → approve_pr or request_pr_changes → merge_pr (DONE)
 - [ ] report (plan/story) shows expected guidance and summaries
 - [ ] set_current_* messages guide user correctly (no auto-actions)
 
-## Docs
-- [ ] Quickstart concise and linked to usage guide and triage guide
-- [ ] Usage guide reflects pause-after-selection and review behavior
-- [ ] Triage guide up to date (labels, severities, dashboards, cadence)
-- [ ] Config reference documents logging/telemetry and reload/reconnect
-
-## Logging & Telemetry
+### Logging & Telemetry
+- [ ] Structured logs for critical actions present
 - [ ] Correlation ID middleware active; corr_id appears in mutation logs
-- [ ] Structured JSON logs for critical actions present
 - [ ] Telemetry counters/timers sampled correctly when enabled
 
-## Versioning & Tagging
-- [ ] CHANGELOG Unreleased section finalized for this beta
-- [ ] Tag prepared (e.g., v0.6.0-beta.N) and artifact generation commands validated
-- [ ] Artifacts validated (format, contents, integrity)
+### Release Notes
+- [ ] Release-please generated changelog is accurate
+- [ ] Breaking changes are highlighted
+- [ ] Known limitations documented
+- [ ] Upgrade steps provided (if needed)
 
-### Commands: Tagging and Artifacts (dry-run)
+## Release Process (Automated)
 
-Use these commands to validate tagging and artifact generation without pushing or publishing.
+The project uses release-please for automated releases:
+
+1. **Development**: Commit changes using [Conventional Commits](https://www.conventionalcommits.org/)
+2. **Merge to main**: Push to main or merge develop → main
+3. **Release PR created**: Release-please automatically creates a PR with:
+   - Version bump in `pyproject.toml`
+   - Updated `CHANGELOG.md`
+   - Release notes
+4. **Review**: Complete this checklist ✓
+5. **Merge Release PR**: Merging triggers automatic:
+   - Git tag creation
+   - GitHub Release
+   - Artifact build and upload
+
+See [contributing.md](./contributing.md#release-process) for detailed workflow.
+
+## Manual Release (Exceptional Circumstances Only)
+
+**When to use:** Only in exceptional cases such as:
+- Critical hotfix needed when GitHub Actions is down
+- Emergency security patch
+- Need to release from a fork without release-please configured
+
+**Normal process:** Use the automated release-please workflow above.
+
+### Manual Steps
+
+If you must release manually, follow these steps:
 
 1) Verify a clean working tree and inspect the latest tag
 
