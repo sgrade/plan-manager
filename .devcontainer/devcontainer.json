@@ -5,14 +5,16 @@
     },
     "features": {
         "ghcr.io/devcontainers/features/common-utils:2": {
+            // Docker Desktop for Windows: Inside the container, mounted files appear as owned by root
+            // We don't use non-root user to avoid git ownership issues
             "upgradePackages": "true"
         },
-        "ghcr.io/devcontainers/features/python:1": "none",
+        "ghcr.io/devcontainers/features/python:1": "none", // Using uv for Python environment management
         "ghcr.io/devcontainers/features/git:1": {
             "version": "latest",
             "ppa": "false"
         },
-        "ghcr.io/devcontainers/features/node:1": {}
+        "ghcr.io/devcontainers/features/node:1": {} // For mcp-inspector
     },
     "customizations": {
         "vscode": {
@@ -22,10 +24,53 @@
                 "github.vscode-github-actions",
                 "GitHub.copilot",
                 "ms-azuretools.vscode-docker",
-                "github.vscode-github-actions",
+                "charliermarsh.ruff", // For Python linting and formatting
                 "mermaidchart.vscode-mermaid-chart"
-            ]
+            ],
+            "settings": {
+                // Python interpreter path for debugger
+                "python.defaultInterpreterPath": "${containerWorkspaceFolder}/.venv/bin/python",
+                // Formatting with Ruff
+                "[python]": {
+                    "editor.defaultFormatter": "charliermarsh.ruff",
+                    "editor.formatOnSave": true,
+                    "editor.codeActionsOnSave": {
+                        "source.organizeImports": "explicit",
+                        "source.fixAll": "explicit"
+                    }
+                },
+                // Ruff linting - catch issues as you type (matches CI)
+                "ruff.lint.run": "onSave",
+                "ruff.lint.args": [],
+                // Python linting - show problems inline
+                "python.linting.enabled": true,
+                "python.linting.lintOnSave": true,
+                // Type checking with Pylance (matches CI mypy checks)
+                "python.analysis.typeCheckingMode": "strict",
+                "python.analysis.diagnosticMode": "workspace",
+                // Test discovery
+                "python.testing.pytestEnabled": true,
+                "python.testing.unittestEnabled": false,
+                "python.testing.pytestArgs": [
+                    "tests"
+                ]
+            }
         }
     },
-    "postCreateCommand": "uv sync --all-extras --dev && uv run pre-commit install"
+    "remoteEnv": {
+        "PLAN_MANAGER_ENABLE_FILE_LOG": "false",
+        "PLAN_MANAGER_RELOAD": "true"
+    },
+    // Run commands
+    "postCreateCommand": "uv sync --all-extras --dev && uv run pre-commit install",
+    "postStartCommand": "uv run pm",
+    // Port forwarding
+    "forwardPorts": [
+        3000
+    ],
+    "portsAttributes": {
+        "3000": {
+            "label": "Plan Manager MCP Server"
+        }
+    }
 }
