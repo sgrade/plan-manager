@@ -39,9 +39,6 @@
                         "source.fixAll": "explicit"
                     }
                 },
-                // Ruff linting - catch issues as you type (matches CI)
-                "ruff.lint.run": "onSave",
-                "ruff.lint.args": [],
                 // Python linting - show problems inline
                 "python.linting.enabled": true,
                 "python.linting.lintOnSave": true,
