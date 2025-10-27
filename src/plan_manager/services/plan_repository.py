@@ -59,25 +59,21 @@ def _save_story(story: Story) -> None:
     story_path = story_file_path(story.id)
     story.file_path = story_path
     # Persist story frontmatter with task IDs (not embedded task objects)
-    try:
-        front = story.model_dump(mode="json", exclude_none=True)
-        # Replace tasks with list of task identifiers (use local IDs for readability)
-        front["tasks"] = [
-            t.local_id
-            if hasattr(t, "local_id") and t.local_id
-            else (
-                t.id.split(":", 1)[1]
-                if isinstance(getattr(t, "id", None), str) and ":" in t.id
-                else getattr(t, "id", None)
-            )
-            for t in (story.tasks or [])
-        ]
-        # Remove any None entries from tasks list
-        front["tasks"] = [tid for tid in front["tasks"] if isinstance(tid, str) and tid]
-        save_item_to_file(story_path, front, overwrite=True)
-    except (KeyError, ValueError, AttributeError):
-        # Fallback to prior behavior if shaping fails
-        save_item_to_file(story_path, story, overwrite=True)
+    front = story.model_dump(mode="json", exclude_none=True)
+    # Replace tasks with list of task identifiers (use local IDs for readability)
+    front["tasks"] = [
+        t.local_id
+        if hasattr(t, "local_id") and t.local_id
+        else (
+            t.id.split(":", 1)[1]
+            if isinstance(getattr(t, "id", None), str) and ":" in t.id
+            else getattr(t, "id", None)
+        )
+        for t in (story.tasks or [])
+    ]
+    # Remove any None entries from tasks list
+    front["tasks"] = [tid for tid in front["tasks"] if isinstance(tid, str) and tid]
+    save_item_to_file(story_path, front, overwrite=True)
 
     # Save each task to its own file
     for task in story.tasks:
@@ -178,7 +174,7 @@ def load(plan_id: str) -> Plan:
     # 2. Load stories and their tasks
     stories = []
     for story_id in plan_manifest.get("stories", []):
-        story = _load_story(story_id)
+        story = _load_story(story_id, plan_id)
         if story:
             stories.append(story)
 
@@ -186,17 +182,27 @@ def load(plan_id: str) -> Plan:
     return Plan.model_validate(plan_manifest)
 
 
-def _load_story(story_id: str) -> Story | None:
+def _load_story(story_id: str, plan_id: str | None = None) -> Story | None:
     """Loads a single story and its tasks from their files."""
     try:
-        story_path = story_file_path(story_id)
+        story_path = story_file_path(story_id, plan_id)
         frontmatter, _ = read_item_file(story_path)
         if not frontmatter:
             return None
 
         tasks = []
-        for task_id in frontmatter.get("tasks", []):
-            task = _load_task(story_id, task_id)
+        for task_ref in frontmatter.get("tasks", []):
+            # Only support normalized format: task_ref must be a string ID
+            if not isinstance(task_ref, str):
+                logger.error(
+                    "Invalid task reference in story '%s': expected string ID, got %s. "
+                    "Story file may be corrupted.",
+                    story_id,
+                    type(task_ref).__name__,
+                )
+                continue
+
+            task = _load_task(story_id, task_ref, plan_id)
             if task:
                 tasks.append(task)
 
@@ -207,12 +213,12 @@ def _load_story(story_id: str) -> Story | None:
         return None
 
 
-def _load_task(story_id: str, task_id: str) -> Task | None:
+def _load_task(story_id: str, task_id: str, plan_id: str | None = None) -> Task | None:
     """Loads a single task from its file."""
     try:
         # task_id can be fully qualified, so extract local_id for path
         local_id = task_id.split(":")[-1]
-        task_path = task_file_path(story_id, local_id)
+        task_path = task_file_path(story_id, local_id, plan_id)
         frontmatter, _ = read_item_file(task_path)
         if not frontmatter:
             return None

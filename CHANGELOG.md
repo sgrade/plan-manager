@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Validation to prevent ':' character in task and story titles (reserved as ID separator)
+- Error logging when corrupted story files with embedded task objects are detected
+
+### Changed
+- **BREAKING**: Removed legacy fallback that saved embedded task objects in story files
+- Story files now strictly require normalized format (task IDs as strings, not embedded objects)
+- Refactored `_load_story()` and `_load_task()` to accept explicit `plan_id` parameter instead of relying on global state
+- Loading code now rejects and logs errors for corrupted story files with embedded task dictionaries
+
+### Fixed
+- **CRITICAL**: Fixed `'dict' object has no attribute 'split'` error when loading corrupted story files
+- Corrected story file format for `refactor_board_tile_system_for_multi_modal_interaction` story
+- Prevented future file corruption by removing fallback that could save malformed data
+
 ## [0.9.0] - 2025-10-24
 
 ### Added
