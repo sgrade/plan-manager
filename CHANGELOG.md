@@ -22,6 +22,104 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Corrected story file format for `refactor_board_tile_system_for_multi_modal_interaction` story
 - Prevented future file corruption by removing fallback that could save malformed data
 
+## [0.10.0](https://github.com/sgrade/plan-manager/compare/plan-manager-v0.9.0...plan-manager-v0.10.0) (2025-10-23)
+
+
+### ⚠ BREAKING CHANGES
+
+* Major terminology update for clarity and industry alignment
+* **workflow:** approve_task no longer handles TODO → IN_PROGRESS transitions. Use start_task for Gate 1 instead. The approve_current_task() service function still delegates for backward compatibility.
+
+### Features
+
+* acceptance criteria in Story ([87883e8](https://github.com/sgrade/plan-manager/commit/87883e8d81cdd7b45d1b18c11a9fe28404c9f7d1))
+* add CI/CD pipeline, test isolation, and code quality tools ([d6ec879](https://github.com/sgrade/plan-manager/commit/d6ec879e7dac00f896fe8328b381dc2ae8934f40))
+* align it with the rewrtitten task-centric workflow defined in .cursor/rules/project-management.mdc ([8a3665e](https://github.com/sgrade/plan-manager/commit/8a3665ece0674e4414fa3f4faa1958bc86ceec27))
+* assisted planning workflow - introduction ([e5e3362](https://github.com/sgrade/plan-manager/commit/e5e33623148a87a1c78bbca734260fc0131103ae))
+* basic telemetry for key flows: Implemented env-gated counters/timers with sampling; instrumented approve_task and submit_for_review; documented telemetry env vars. ([3d42e80](https://github.com/sgrade/plan-manager/commit/3d42e801b451fbc3305881e0ff600eb294b12ca9))
+* **cli:** Improve tool-layer error handling ([409a94c](https://github.com/sgrade/plan-manager/commit/409a94c7f44357363ce5ddce32717d890d681ffb))
+* **cli:** Improve tool-layer error handling ([54af7d7](https://github.com/sgrade/plan-manager/commit/54af7d79aa63b446a6ebe9a59dc7309bd8304445))
+* **cli:** Make set_current commands context-aware ([f916c82](https://github.com/sgrade/plan-manager/commit/f916c82ddd5e1b0bc6473b397b7adc8c30f0359c))
+* **cli:** overhaul workflow for clarity and explicit user control ([36367df](https://github.com/sgrade/plan-manager/commit/36367df3e2f15958661fe37d51c6480c91b1668a))
+* **cli:** refactor command layer for clarity and predictability ([9a70e4b](https://github.com/sgrade/plan-manager/commit/9a70e4b8d55297706248f348a82d56f92b31b36c))
+* correlation: correlation IDs to mutations: middleware and propagated corr_id into plan/story/task creation logs; each request includes x-correlation-id. ([cb65d2c](https://github.com/sgrade/plan-manager/commit/cb65d2c390b492b5e8d069b49d1d0a31c0250ed7))
+* implement planning/execution workflow, agent actions (workflow_status.actions), select_or_create, guardrails, pagination, client-side changelog ([9d8e63b](https://github.com/sgrade/plan-manager/commit/9d8e63b0876d9454fddf3cfb7d563e3b84217e4b))
+* integrate task blocker checking into report service ([1d6d306](https://github.com/sgrade/plan-manager/commit/1d6d306c1d7497c531508e6f83d0e491813d2bea))
+* plan create prompt ([ef8325f](https://github.com/sgrade/plan-manager/commit/ef8325f0272face661eef7ee376b6dffadd5dbec))
+* **reporting:** Implement scoped reports ([a821719](https://github.com/sgrade/plan-manager/commit/a82171965acdc74434466654a49ac1fd9efed082))
+* simple browser to see the work items; can be switched off ([f6bd822](https://github.com/sgrade/plan-manager/commit/f6bd822d24b68be0118b4e71bbee5d813ad81a02))
+* structured io of approve_task and streamlined changelog ([b70e298](https://github.com/sgrade/plan-manager/commit/b70e298aba0df157298b8b087c95dedf7392b28e))
+* structured JSON logs now emitted for critical actions (create, approve transitions) with fields like event, ids/titles, statuses, and corr_id. Works with correlation middleware for end-to-end tracing. ([90cd4cc](https://github.com/sgrade/plan-manager/commit/90cd4ccc53293e208210297997e98a3e90bed80d))
+* **tasks:** Implement proactive blocker detection ([4de24e5](https://github.com/sgrade/plan-manager/commit/4de24e50dc1bcb5bf3821208e7097b0b0df03d75))
+* triage dashboard and backlog view ([16f5c0c](https://github.com/sgrade/plan-manager/commit/16f5c0cfa2cf08c721338b9fe8ef14f6b1c88d8c))
+* **workflow:** Test and refine task execution workflow ([04cb2c0](https://github.com/sgrade/plan-manager/commit/04cb2c0cad5d002f4b34d1af79d27639c30414f1))
+
+
+### Bug Fixes
+
+* **__main__:** add return type annotation to main() ([acd4261](https://github.com/sgrade/plan-manager/commit/acd4261147ba2b59fb91bffe9d6e298356750f5a))
+* add factory=True to uvicorn.run() to suppress ASGI app factory warning ([785a8b0](https://github.com/sgrade/plan-manager/commit/785a8b000dd4a2fd685a0da37ad17f649e80ca59))
+* auto-init todo/plan.yaml and ensure dir on save; docs: host.docker.internal SSE url ([71a508f](https://github.com/sgrade/plan-manager/commit/71a508f622cfa998a17fea3e0287a64b66b3d428))
+* **ci:** ensure CI passes with professional standards ([d4f842a](https://github.com/sgrade/plan-manager/commit/d4f842a4ed9373c694dd9435e9bfd9fe8804a30b))
+* **ci:** fix coverage threshold and twine installation ([587c7d4](https://github.com/sgrade/plan-manager/commit/587c7d41b50f5564b5a432f8b9c6163399ebe524))
+* delete_plan not only removes it from the register, but removes the files ([3323835](https://github.com/sgrade/plan-manager/commit/3323835a2a796b93657d3c03844572946806b369))
+* enable PENDING_REVIEW → IN_PROGRESS transition for request_pr_changes ([a96e1bb](https://github.com/sgrade/plan-manager/commit/a96e1bb60a3e0e4b9f8a1656686c2f98baa3e023))
+* improve status rollup to show progress accurately ([153b99a](https://github.com/sgrade/plan-manager/commit/153b99a6f967cefc55caa32f003e124005b200d5))
+* **license:** correct copyright holder to sgrade ([58c1d09](https://github.com/sgrade/plan-manager/commit/58c1d09c8e166dcb2f4a0de0f80bddb094a642d6))
+* **logging:** add type annotation for handlers list ([f765296](https://github.com/sgrade/plan-manager/commit/f7652966b8da00b0c4643bc17d25ceda12071f18))
+* make browse endpoint work even if todo directory does not exist ([fb22899](https://github.com/sgrade/plan-manager/commit/fb22899ffd339f0bd5374926e9aa155356e4dc07))
+* missing plan status propagation logic. ([d5ef716](https://github.com/sgrade/plan-manager/commit/d5ef716043ffb0dcdc0b8184eabcc9ea8dab0aec))
+* **mypy:** fix pre-commit mypy config to use mypy.ini ([ee3dc07](https://github.com/sgrade/plan-manager/commit/ee3dc079e5ecfcde34d5911d50f0cff900c75ccb))
+* **outputs:** add type parameters to generic dict types ([def7dd3](https://github.com/sgrade/plan-manager/commit/def7dd397939c0145643b99a435bcf239018fc6a))
+* persistent error executing tool submit_for_review: An execution summary must be provided before submitting for review. ([2153582](https://github.com/sgrade/plan-manager/commit/21535822960074a568b3bbf6cd702146ec26c894))
+* **plan_repository:** add missing ValidationError import ([85d078b](https://github.com/sgrade/plan-manager/commit/85d078b98023972a5e103a82e2c66b8d715a8aa1))
+* **plan_service:** add type annotations to helper functions ([3c7acb6](https://github.com/sgrade/plan-manager/commit/3c7acb64ef017a6763fbbd4c8f28711e988441e3))
+* **prompt_register:** add type annotations and fix handler signature ([9e9a47c](https://github.com/sgrade/plan-manager/commit/9e9a47c71180fbbb733652936ee4b7c3c32538c7))
+* **report_service:** handle optional execution_summary properly ([42b5cb4](https://github.com/sgrade/plan-manager/commit/42b5cb4f97e37efd7c87117671470e50fa4bbbd8))
+* resolve mypy strict type checking issues (core services) ([eb27ee4](https://github.com/sgrade/plan-manager/commit/eb27ee4871df3ab627266a9492f05186f94f0078))
+* **server/browser:** add type annotations for browse_endpoint ([bf832c8](https://github.com/sgrade/plan-manager/commit/bf832c805c1994ab2f22a22f3ad40aa03611b51d))
+* **server:** add complete type annotations for app and browser ([ffa4ca1](https://github.com/sgrade/plan-manager/commit/ffa4ca1d17fc4f2b8e3ee0da9fec8588b520b2e9))
+* **story_tools:** add type annotations and fix completion_time check ([6e02594](https://github.com/sgrade/plan-manager/commit/6e025942cdf32b9c7a2e73b90f49718ee876db99))
+* **task_service:** fix type issues with datetime handling ([64c2cf5](https://github.com/sgrade/plan-manager/commit/64c2cf50e61145fe708ca5b9f9431fb8a9214261))
+* **task_tools:** add type annotations and fix imports ([45ea859](https://github.com/sgrade/plan-manager/commit/45ea85951863c93beafb98eeac183d6b4945496e))
+* **telemetry:** add type annotations for kwargs and return types ([9cf6fd7](https://github.com/sgrade/plan-manager/commit/9cf6fd7e319c05bea2600db6f5cd489489178485))
+* **tools:** add type annotations for MCP instance parameters ([f51cdae](https://github.com/sgrade/plan-manager/commit/f51cdaec594f7a59ae6738ffcc59c5fa700193ce))
+* update story was corrupting the list of task IDs in story.md ([3326621](https://github.com/sgrade/plan-manager/commit/33266215e63fe2c5bf4a7b6297f9a4382c5a8167))
+* **usage_resources:** add type annotation for mcp_instance ([e12bef0](https://github.com/sgrade/plan-manager/commit/e12bef05de5380171a8e406f56172bd2d7fb4722))
+* **workflow_prompts:** add return type annotation ([116bf24](https://github.com/sgrade/plan-manager/commit/116bf24fcdf54e6c1a0d80439191cce0931ff258))
+
+
+### Performance Improvements
+
+* **logging:** convert all logging to lazy % formatting ([7ff4f3e](https://github.com/sgrade/plan-manager/commit/7ff4f3e8d5b951cdf906615827936d7570eaa536))
+
+
+### Documentation
+
+* add branching strategy and branch protection guidelines ([d8f3c99](https://github.com/sgrade/plan-manager/commit/d8f3c998d8f8a77dafac8f415a4141c2cfc56d35))
+* add docs to uv config, fix budges ([c3e7951](https://github.com/sgrade/plan-manager/commit/c3e7951395817a6d59020888f92c3d1f3be0d49c))
+* add guardrails to usage guiede agents ([7adfc90](https://github.com/sgrade/plan-manager/commit/7adfc903780d63de2055b425f28e03b5c4d26718))
+* **changelog:** add Unreleased section for dev workflow and docs updates ([9ce8fff](https://github.com/sgrade/plan-manager/commit/9ce8fffc2feff099f6b49dce273d884bb4900a24))
+* **changelog:** update with CI fixes and code quality improvements ([5ac2961](https://github.com/sgrade/plan-manager/commit/5ac29619311d98e153ff21bd648b31a9317e084e))
+* documentation polish ([a0a7535](https://github.com/sgrade/plan-manager/commit/a0a753573a8084c37ff58f849aaa02fe0568c1fa))
+* documentation polish ([96aa11f](https://github.com/sgrade/plan-manager/commit/96aa11f24377813f601cfcba0b0f2b59d5e85945))
+* env-based configuration and documented stdout vs file sink in config_reference.md ([1c884c4](https://github.com/sgrade/plan-manager/commit/1c884c4d9be0721cc85bc35bdc9d92542614e80f))
+* how to connect to Plan Manager from another computer and related security considerations; minor corrections ([c27159d](https://github.com/sgrade/plan-manager/commit/c27159db7e27e7e8bcd652058515c6703d54335c))
+* modified task execution workflow; minor tweaks ([450eef1](https://github.com/sgrade/plan-manager/commit/450eef199ab6470a7972d0f0b1a4fb55b8867a85))
+* polished task execution workflow; removed duplications between project_workflow diagrams and usage_guide ([8909b62](https://github.com/sgrade/plan-manager/commit/8909b62aa5cd9ef90577dfa5ae96d3bf7c41028d))
+* preparation to streamline project management workflow ([f2ef898](https://github.com/sgrade/plan-manager/commit/f2ef89863112c9f14d3de7dd7dc17d48051440e6))
+* product maturity in the readme, polished project_workflow and summarized ideas for langgraph-based next step. ([fce8fbd](https://github.com/sgrade/plan-manager/commit/fce8fbd5f2e9b498ed138ec62f3b8ad02819a124))
+* release checklist ([fd10378](https://github.com/sgrade/plan-manager/commit/fd10378b531ed468fb24850b1efeaf1ed7c2a682))
+* remove the quickstart guide for agents ([e8fd9b5](https://github.com/sgrade/plan-manager/commit/e8fd9b5957d8a23afb94dd424d3b59fb6759a0d1))
+* structure readme links to other docs; cleanup ([04c21e7](https://github.com/sgrade/plan-manager/commit/04c21e72ef7d9b33973e6e7533ee7a7aa4aa36cf))
+* update release process for release-please automation ([37bbc98](https://github.com/sgrade/plan-manager/commit/37bbc986cd2c9a05daa402595f7da49ebb3b057b))
+
+
+### Code Refactoring
+
+* adopt PR-centric workflow terminology ([047a4c0](https://github.com/sgrade/plan-manager/commit/047a4c0447762f50f79627174157ddc1b69a0211))
+* **workflow:** split Gate 1 and Gate 2 approval tools ([40398c0](https://github.com/sgrade/plan-manager/commit/40398c0bb8db4a584100aebf8a4c073e09c6a051))
+
 ## [0.9.0] - 2025-10-24
 
 ### Added
