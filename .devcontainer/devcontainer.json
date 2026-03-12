@@ -14,7 +14,8 @@
             "version": "latest",
             "ppa": "false"
         },
-        "ghcr.io/devcontainers/features/node:1": {} // For mcp-inspector
+        "ghcr.io/devcontainers/features/node:1": {}, // For mcp-inspector
+        "ghcr.io/devcontainers/features/github-cli:1": {}
     },
     "customizations": {
         "vscode": {
@@ -59,7 +60,7 @@
         "PLAN_MANAGER_RELOAD": "true"
     },
     // Run commands
-    "postCreateCommand": "uv sync --all-extras --dev && uv run pre-commit install",
+    "postCreateCommand": "uv sync --all-extras --dev && uv run pre-commit install && git config --global credential.helper '!/usr/bin/gh auth git-credential'",
     "postStartCommand": "uv run pm",
     // Port forwarding
     "forwardPorts": [
