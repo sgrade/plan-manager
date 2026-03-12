@@ -80,6 +80,7 @@ select = [
 ]
 
 ignore = [
+    "ASYNC240", # pathlib in async — project uses standard asyncio, not trio/anyio
     "COM812",  # Missing trailing comma (conflicts with formatter)
     "ISC001",  # Single-line implicit string concatenation (conflicts with formatter)
     "E501",    # Line too long (86 remaining in prompts/docstrings; fix before 1.0)
