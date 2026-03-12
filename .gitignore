@@ -134,7 +134,7 @@ dmypy.json
 cython_debug/
 
 # IDEs
-.vscode/
+# .vscode/
 .idea/
 *.swp
 *.swo
@@ -150,7 +150,6 @@ tmp/
 
 # uv
 .uv/
-uv.lock
 
 # Archive directory for reference materials not needed in the repo
 .archive/

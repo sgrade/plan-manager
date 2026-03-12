@@ -52,6 +52,10 @@ def validate_title(title: str) -> str:
     if not SAFE_TEXT_PATTERN.match(title):
         raise ValueError("Title contains invalid characters")
 
+    # Prevent colon in titles as it's used as a separator in fully qualified IDs
+    if ":" in title:
+        raise ValueError("Title cannot contain ':' (reserved as ID separator)")
+
     return title.strip()
 
 

@@ -51,6 +51,11 @@ class TestValidateTitle:
         result = validate_title(max_title)
         assert result == max_title
 
+    def test_title_with_colon_raises_error(self):
+        """Test that title containing ':' raises ValueError (reserved as ID separator)."""
+        with pytest.raises(ValueError, match="cannot contain ':'"):
+            validate_title("Task: with colon")
+
 
 class TestValidateDescription:
     """Test description validation."""

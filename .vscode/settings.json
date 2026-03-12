@@ -1,0 +1,17 @@
+{
+  // Force use of the native Ruff server (not legacy ruff-lsp)
+  "ruff.nativeServer": true,
+
+  // Remove deprecated settings - these are handled by ruff.toml
+  // Do not use: ruff.lint.run, ruff.lint.args, ruff.format.args
+
+  // Ruff is the primary Python linter and formatter
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.fixAll.ruff": "explicit",
+      "source.organizeImports.ruff": "explicit"
+    }
+  }
+}
