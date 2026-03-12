@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0](https://github.com/sgrade/plan-manager/compare/plan-manager-v0.10.0...plan-manager-v0.11.0) (2026-03-12)
+
+
+### Features
+
+* add production Dockerfile and health endpoint for container deployment ([83af4f6](https://github.com/sgrade/plan-manager/commit/83af4f6999a1c0d2f0ef9b1561c7d033c6855173))
+
+
+### Bug Fixes
+
+* add ASYNC240 ignore to ruff.toml (not pyproject.toml) ([108009b](https://github.com/sgrade/plan-manager/commit/108009ba58f69e9eab8f33fc56d30eb07175d68f))
+* resolve CI lint failures and track uv.lock ([e601363](https://github.com/sgrade/plan-manager/commit/e601363a6c4033815e63179dee060fb735b2b831))
+
 ## [Unreleased]
 
 ### Added
