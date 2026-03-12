@@ -150,7 +150,6 @@ tmp/
 
 # uv
 .uv/
-uv.lock
 
 # Archive directory for reference materials not needed in the repo
 .archive/

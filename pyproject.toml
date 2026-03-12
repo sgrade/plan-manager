@@ -133,6 +133,12 @@ ignore_missing_imports = true
 module = "uvicorn.*"
 ignore_missing_imports = true
 
+# Ruff configuration
+[tool.ruff.lint]
+ignore = [
+    "ASYNC240",  # pathlib in async — project uses standard asyncio, not trio/anyio
+]
+
 # Bandit configuration
 [tool.bandit]
 exclude_dirs = ["tests", ".venv"]

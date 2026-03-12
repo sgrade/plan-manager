@@ -217,7 +217,7 @@ def _load_task(story_id: str, task_id: str, plan_id: str | None = None) -> Task 
     """Loads a single task from its file."""
     try:
         # task_id can be fully qualified, so extract local_id for path
-        local_id = task_id.split(":")[-1]
+        local_id = task_id.rsplit(":", maxsplit=1)[-1]
         task_path = task_file_path(story_id, local_id, plan_id)
         frontmatter, _ = read_item_file(task_path)
         if not frontmatter:
