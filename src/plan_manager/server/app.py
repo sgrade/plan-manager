@@ -12,7 +12,7 @@ from mcp.server.fastmcp import FastMCP
 from starlette.applications import Starlette
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
-from starlette.responses import RedirectResponse, Response
+from starlette.responses import JSONResponse, RedirectResponse, Response
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
@@ -57,6 +57,11 @@ def starlette_app() -> Starlette:
     register_usage_resources(mcp)
 
     app = mcp.streamable_http_app()
+
+    async def health_endpoint(_request: Request) -> JSONResponse:
+        return JSONResponse({"status": "ok"})
+
+    app.add_route("/health", health_endpoint, methods=["GET"], name="health")
 
     # Add routes for the file browser if enabled
     if ENABLE_BROWSER:
