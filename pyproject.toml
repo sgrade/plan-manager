@@ -21,7 +21,7 @@ classifiers = [
 ]
 requires-python = ">=3.13"
 dependencies = [
-    "PyYAML>=6.0",        # YAML file parsing for plan data
+    "PyYAML>=6.0.3",        # YAML file parsing for plan data
     "mcp[cli]>=1.17.0",   # MCP SDK for server functionality
     "starlette",          # ASGI framework used by FastMCP
     "uvicorn[standard]",  # ASGI server for running the MCP server
