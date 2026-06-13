@@ -12,10 +12,10 @@
 #   2. Write an OpenTimestamps proof for the tag under provenance/ and
 #      commit it on the current branch (run this from `develop`).
 #
-# Note: the tag ruleset protects tags from deletion but intentionally
-# permits the maintainer to update a tag, so this re-sign succeeds
-# without CI-side keys. Run from the repo root, on `develop`, with the
-# GPG agent unlocked.
+# Note: the tag ruleset protects tags from deletion and overwrite for
+# everyone except the repo admin (ruleset bypass), so the maintainer can
+# re-sign a release tag here without putting a signing key on CI. Run
+# from the repo root, on `develop`, with the GPG agent unlocked.
 #
 # Usage:   scripts/anchor-release.sh <VERSION>
 # Example: scripts/anchor-release.sh plan-manager-v0.12.0
