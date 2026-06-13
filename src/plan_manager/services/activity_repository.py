@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Roman Klyuev
+
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional

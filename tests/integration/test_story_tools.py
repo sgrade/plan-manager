@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Roman Klyuev
+
 """Integration tests for story tools, specifically testing parameter handling.
 
 These tests verify that the get_story tool correctly accepts and handles the

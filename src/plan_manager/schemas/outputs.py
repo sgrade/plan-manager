@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Roman Klyuev
+
 """Transport-facing output schemas for MCP tools.
 
 These Pydantic models define the structured shapes returned by the MCP

@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Roman Klyuev
+
 import logging
 
 from plan_manager.domain.models import Plan, Status, Task

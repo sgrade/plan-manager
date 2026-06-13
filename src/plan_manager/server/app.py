@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Roman Klyuev
+
 """MCP Server for the plan-manager (Streamable HTTP).
 
 Exposes story, plan, and archive tools over a single MCP endpoint using

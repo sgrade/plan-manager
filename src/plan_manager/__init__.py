@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Roman Klyuev
+
 """Plan Manager - AI-assisted planning (project management).
 
 This package provides tools for managing user stories through a YAML-based plan file,

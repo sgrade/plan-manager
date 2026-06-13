@@ -158,7 +158,23 @@ Want to contribute? See [docs/contributing.md](docs/contributing.md) for develop
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) file for details.
+This repository is dual-licensed:
+
+- **Code** — Apache License 2.0. See [`LICENSE`](LICENSE).
+- **Documentation** — Creative Commons Attribution 4.0 International
+  (CC-BY-4.0). See [`LICENSE-docs`](LICENSE-docs).
+
+If reusing the documentation, please credit:
+
+> `plan-manager` — © 2026 Roman Klyuev — licensed under CC-BY-4.0 —
+> `https://github.com/sgrade/plan-manager`
+
+Apache-2.0 §4(d) attribution for the code is provided in
+[`NOTICE`](NOTICE) and must be propagated by downstream consumers.
+
+Releases through `v0.11.0` were published under the MIT License; the
+relicense to Apache-2.0 + CC-BY-4.0 applies from the next release
+onward. Those earlier tagged versions remain available under MIT.
 
 ## Acknowledgments
 

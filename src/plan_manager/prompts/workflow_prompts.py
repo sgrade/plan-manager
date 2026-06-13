@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Roman Klyuev
+
 """Minimal workflow prompts for convenience only.
 
 These prompts provide small, composable templates to assist the user in

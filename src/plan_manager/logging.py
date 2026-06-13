@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Roman Klyuev
+
 """Centralized logging configuration for the Plan Manager application.
 
 This module should be imported once, as early as possible in the application's

@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Roman Klyuev
+
 """Unit tests for status utility functions."""
 
 from plan_manager.domain.models import Status
