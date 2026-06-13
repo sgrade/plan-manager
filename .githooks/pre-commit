@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+# pre-commit: two commit-time checks.
+#   1. The configured git author email is a UID of the configured
+#      signing key (else GitHub shows the commit as "Unverified").
+#   2. The staged diff matches no denied content-hygiene pattern
+#      (sensitive identifiers). See ip-protection core/content-hygiene.md.
+#
+# Activation (one-time per clone):
+#   git config core.hooksPath .githooks
+
+set -euo pipefail
+
+fail() {
+  echo "pre-commit: $1" >&2
+  exit 1
+}
+
+# --- 1. author email <-> signing-key UID consistency ----------------
+
+signingkey=$(git config --get user.signingkey || true)
+useremail=$(git config --get user.email || true)
+username=$(git config --get user.name || true)
+
+[ -n "$signingkey" ] || fail "user.signingkey is not set; refusing to commit."
+[ -n "$useremail" ]  || fail "user.email is not set; refusing to commit."
+[ -n "$username" ]   || fail "user.name is not set; refusing to commit."
+
+uid_emails=$(gpg --list-keys --with-colons "$signingkey" 2>/dev/null \
+  | awk -F: '/^uid/ {print $10}' \
+  | sed -n 's/.*<\([^>]*\)>.*/\1/p')
+
+if [ -z "$uid_emails" ]; then
+  fail "signing key '$signingkey' has no UID emails (or key not found in keyring)."
+fi
+
+if ! printf '%s\n' "$uid_emails" | grep -Fxq "$useremail"; then
+  {
+    echo "pre-commit: user.email '$useremail' is not a UID of signing key $signingkey."
+    echo "pre-commit: GitHub would show this commit as 'Unverified'."
+    echo "pre-commit: signing-key UID emails:"
+    printf '%s\n' "$uid_emails" | sed 's/^/  /'
+    echo "pre-commit: fix with:"
+    echo "  git config user.email <one-of-the-above>"
+  } >&2
+  exit 1
+fi
+
+# --- 2. content-hygiene denylist gate -------------------------------
+# The denylist holds the developer's real sensitive patterns and is
+# gitignored; this gate no-ops when it is absent or empty. Blank lines
+# and # comments in the denylist are ignored (so it can be
+# self-documenting); remaining lines are POSIX extended regexes.
+
+denylist=".git-hygiene-denylist"
+if [ -s "$denylist" ] \
+   && git diff --cached \
+      | grep -iEf <(grep -vE '^[[:space:]]*(#|$)' "$denylist") >/dev/null 2>&1; then
+  {
+    echo "pre-commit: staged diff matches a denied content-hygiene pattern; commit refused."
+    echo "pre-commit: review with:"
+    echo "  git diff --cached | grep -iEf <(grep -vE '^[[:space:]]*(#|\$)' $denylist)"
+  } >&2
+  exit 1
+fi

@@ -156,3 +156,6 @@ tmp/
 .workflow-terminology-recommendations.md
 
 ux_analysis.md
+
+# content-hygiene denylist — real sensitive patterns, never committed
+.git-hygiene-denylist

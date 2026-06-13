@@ -1,0 +1,45 @@
+name: DCO
+
+# Verifies every human-authored commit in a pull request carries a
+# Developer Certificate of Origin sign-off (`Signed-off-by:`). Automated
+# bot authors (e.g. dependabot, github-actions) are exempt. Self-contained
+# (no third-party action) to avoid supply-chain exposure.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  dco:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check Signed-off-by trailers
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          missing=0
+          while read -r sha; do
+            [ -n "$sha" ] || continue
+            name="$(git show -s --format=%an "$sha")"
+            case "$name" in
+              *'[bot]') continue ;;
+            esac
+            if ! git show -s --format=%B "$sha" \
+                 | grep -qiE '^Signed-off-by: .+ <.+@.+>'; then
+              echo "::error::commit $sha by '$name' is missing a Signed-off-by trailer"
+              missing=1
+            fi
+          done < <(git rev-list "$BASE_SHA..$HEAD_SHA")
+          if [ "$missing" -ne 0 ]; then
+            echo "DCO check failed — sign off every commit with 'git commit -s'."
+            exit 1
+          fi
+          echo "DCO: all human-authored commits are signed off."
