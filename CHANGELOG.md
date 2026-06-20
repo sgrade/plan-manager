@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.0](https://github.com/sgrade/plan-manager/compare/plan-manager-v0.11.0...plan-manager-v0.12.0) (2026-06-20)
+
+
+### Features
+
+* relicense to Apache-2.0 (code) + CC-BY-4.0 (docs) ([a1706c8](https://github.com/sgrade/plan-manager/commit/a1706c8f379e6a6cca332fb2e57db76402878aa6))
+
+
+### Bug Fixes
+
+* **ci:** exempt release-please PRs from DCO check ([fbd84f3](https://github.com/sgrade/plan-manager/commit/fbd84f37ab0dc9acd24f1e79eeed4df53886861b))
+* make Host/Origin allowlist configurable for devcontainer access ([4eea369](https://github.com/sgrade/plan-manager/commit/4eea3699e9164f773faa56943ade489388c77e09))
+
+
+### Documentation
+
+* clarify tag-protection bypass in anchor-release script ([0ad1cf7](https://github.com/sgrade/plan-manager/commit/0ad1cf71b4e6a3df64099db7ff8ea2b0585a40c5))
+* v1-target.md (obsolete - should be reworked with autonomous reasoning) ([ee8639a](https://github.com/sgrade/plan-manager/commit/ee8639a9ab0b0bb5bfedb83cf6173ef080adbb81))
+
 ## [0.11.0](https://github.com/sgrade/plan-manager/compare/plan-manager-v0.10.0...plan-manager-v0.11.0) (2026-03-12)
 
 
