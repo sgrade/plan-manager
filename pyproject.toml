@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "plan-manager"
-version = "0.10.0"
+version = "0.11.0"
 description = "AI-assisted planning (project management) with MCP interface"
 readme = "README.md"
 license = {text = "MIT"}
@@ -132,12 +132,6 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = "uvicorn.*"
 ignore_missing_imports = true
-
-# Ruff configuration
-[tool.ruff.lint]
-ignore = [
-    "ASYNC240",  # pathlib in async — project uses standard asyncio, not trio/anyio
-]
 
 # Bandit configuration
 [tool.bandit]

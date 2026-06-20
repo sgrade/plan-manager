@@ -12,6 +12,7 @@ Guides AI agents developing Plan Manager.
 - MCP protocol: core functionality, don't modify without reason
 - Test isolation: all tests use temp directories (see `tests/conftest.py`)
 - YAGNI strictly: don't add features "just in case"
+- Single active project: `current` plan is global, no per-session scoping (see `docs/architecture.md`)
 
 ## Architecture
 - Domain models: `src/plan_manager/domain/`
