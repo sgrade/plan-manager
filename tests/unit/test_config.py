@@ -46,3 +46,23 @@ class TestConfig:
         from plan_manager.config import HOST
 
         assert isinstance(HOST, str)
+
+    def test_allowed_hosts_include_docker_host(self):
+        """Sibling containers reach the server via host.docker.internal by default."""
+        from plan_manager.config import ALLOWED_HOSTS
+
+        assert "host.docker.internal:*" in ALLOWED_HOSTS
+
+    def test_env_list_parsing(self, monkeypatch):
+        """_env_list splits on commas, trims, and drops empties."""
+        from plan_manager.config import _env_list
+
+        monkeypatch.setenv("PM_TEST_LIST", " a:* , b ,, c ")
+        assert _env_list("PM_TEST_LIST", ["x"]) == ["a:*", "b", "c"]
+
+    def test_env_list_default_when_unset(self, monkeypatch):
+        """_env_list returns the default when the variable is unset."""
+        from plan_manager.config import _env_list
+
+        monkeypatch.delenv("PM_TEST_LIST_MISSING", raising=False)
+        assert _env_list("PM_TEST_LIST_MISSING", ["d"]) == ["d"]

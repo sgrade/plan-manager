@@ -12,6 +12,7 @@ import uuid
 from typing import TYPE_CHECKING
 
 from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 from starlette.applications import Starlette
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
@@ -20,7 +21,12 @@ from starlette.responses import JSONResponse, RedirectResponse, Response
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
 
-from plan_manager.config import ENABLE_BROWSER
+from plan_manager.config import (
+    ALLOWED_HOSTS,
+    ALLOWED_ORIGINS,
+    ENABLE_BROWSER,
+    ENABLE_DNS_REBINDING_PROTECTION,
+)
 from plan_manager.logging_context import set_correlation_id
 from plan_manager.prompts.prompt_register import register_prompts
 from plan_manager.resources.usage_resources import register_usage_resources
@@ -45,9 +51,19 @@ def starlette_app() -> Starlette:
 
     logger.info("Initializing FastMCP.")
 
+    # Explicitly configure DNS rebinding protection. FastMCP only auto-enables it
+    # for loopback binds and allowlists loopback hosts, which rejects sibling
+    # containers connecting via `host.docker.internal` (HTTP 421). See config.py.
+    transport_security = TransportSecuritySettings(
+        enable_dns_rebinding_protection=ENABLE_DNS_REBINDING_PROTECTION,
+        allowed_hosts=ALLOWED_HOSTS,
+        allowed_origins=ALLOWED_ORIGINS,
+    )
+
     mcp = FastMCP(
         name="Plan Manager",
         instructions=_read_quickstart_instructions(),
+        transport_security=transport_security,
     )
 
     register_context_tools(mcp)

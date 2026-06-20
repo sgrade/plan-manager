@@ -26,6 +26,25 @@ def _env_bool(name: str, default: bool = False) -> bool:
     return val.strip().lower() in ("1", "true", "yes", "on")
 
 
+def _env_list(name: str, default: list[str]) -> list[str]:
+    """Parse a comma-separated environment variable into a list of strings.
+
+    Empty/whitespace entries are dropped. Returns ``default`` if the variable
+    is unset; an explicitly empty value yields an empty list.
+
+    Args:
+        name: Environment variable name
+        default: Default value if variable is not set
+
+    Returns:
+        list[str]: The parsed list of values
+    """
+    val = os.getenv(name)
+    if val is None:
+        return default
+    return [item.strip() for item in val.split(",") if item.strip()]
+
+
 def _env_float(name: str, default: float = 1.0) -> float:
     """Parse a float environment variable.
 
@@ -83,6 +102,31 @@ RELOAD_INCLUDES = os.getenv("RELOAD_INCLUDE", "*.py").split(",")
 RELOAD_EXCLUDES = os.getenv("RELOAD_EXCLUDE", "logs/*").split(",")
 TIMEOUT_GRACEFUL_SHUTDOWN = int(os.getenv("TIMEOUT_GRACEFUL_SHUTDOWN", "3"))
 TIMEOUT_KEEP_ALIVE = int(os.getenv("TIMEOUT_KEEP_ALIVE", "5"))
+
+# --- Transport Security (DNS rebinding protection) ---
+# FastMCP rejects requests whose Host/Origin headers are not allowlisted (HTTP
+# 421/403). The defaults cover loopback plus `host.docker.internal` so the server
+# is reachable from sibling containers (e.g. devcontainers) out of the box.
+# Entries support exact values and a trailing `:*` port wildcard.
+ENABLE_DNS_REBINDING_PROTECTION = _env_bool("MCP_ENABLE_DNS_REBINDING_PROTECTION", True)
+ALLOWED_HOSTS = _env_list(
+    "MCP_ALLOWED_HOSTS",
+    [
+        "127.0.0.1:*",
+        "localhost:*",
+        "[::1]:*",
+        "host.docker.internal:*",
+    ],
+)
+ALLOWED_ORIGINS = _env_list(
+    "MCP_ALLOWED_ORIGINS",
+    [
+        "http://127.0.0.1:*",
+        "http://localhost:*",
+        "http://[::1]:*",
+        "http://host.docker.internal:*",
+    ],
+)
 
 # --- Docs / Agent Guides ---
 # Workspace-relative paths to agent-facing docs so deployments can override.

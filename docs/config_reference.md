@@ -43,6 +43,14 @@ Note: The server prints structured logs to stdout by default; file log is option
 Client reconnect tip:
 - After a reload, Cursor may not reconnect automatically. Toggle the MCP server in Cursor settings off → on to reconnect.
 
+## Transport security (DNS rebinding protection)
+FastMCP validates the `Host` and `Origin` headers and returns HTTP 421/403 for values not on the allowlist. Each entry supports an exact match or a trailing `:*` port wildcard (e.g. `host.docker.internal:*`).
+- MCP_ENABLE_DNS_REBINDING_PROTECTION (default: `true`) — set `false` only in trusted networks
+- MCP_ALLOWED_HOSTS (default: `127.0.0.1:*,localhost:*,[::1]:*,host.docker.internal:*`) — comma-separated allowed `Host` values
+- MCP_ALLOWED_ORIGINS (default: `http://127.0.0.1:*,http://localhost:*,http://[::1]:*,http://host.docker.internal:*`) — comma-separated allowed `Origin` values
+
+The `host.docker.internal:*` defaults let sibling containers (e.g. devcontainers) reach the server. Add custom hostnames here when reaching the server under a different name.
+
 ## Docs / Agent guides
 - USAGE_GUIDE_REL_PATH (default: `docs/usage_guide_agents.md`)
 - PROJECT_WORKFLOW_REL_PATH (default: `docs/project_workflow.md`)
