@@ -2,8 +2,10 @@ name: DCO
 
 # Verifies every human-authored commit in a pull request carries a
 # Developer Certificate of Origin sign-off (`Signed-off-by:`). Automated
-# bot authors (e.g. dependabot, github-actions) are exempt. Self-contained
-# (no third-party action) to avoid supply-chain exposure.
+# bot authors (e.g. dependabot, github-actions) are exempt. release-please
+# release PRs are also exempt: their commits are authored via a PAT (so the
+# author is a human name, not `*[bot]`) but are still machine-generated.
+# Self-contained (no third-party action) to avoid supply-chain exposure.
 
 on:
   pull_request:
@@ -23,8 +25,17 @@ jobs:
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_REF: ${{ github.head_ref }}
         run: |
           set -euo pipefail
+          # Exempt machine-generated release-please PRs (commits are authored
+          # via PAT, so the author is not `*[bot]` and would otherwise fail).
+          case "$HEAD_REF" in
+            release-please--*)
+              echo "DCO: skipping automated release-please PR ($HEAD_REF)."
+              exit 0
+              ;;
+          esac
           missing=0
           while read -r sha; do
             [ -n "$sha" ] || continue
