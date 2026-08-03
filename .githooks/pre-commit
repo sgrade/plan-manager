@@ -62,3 +62,9 @@ if [ -s "$denylist" ] \
   } >&2
   exit 1
 fi
+
+# --- 3. pre-commit framework checks (ruff, mypy, etc.) --------------
+# `pre-commit install` is incompatible with core.hooksPath, so this
+# hook is the single entry point and chains the framework explicitly.
+# Runs the hooks from .pre-commit-config.yaml against staged files.
+uv run pre-commit run

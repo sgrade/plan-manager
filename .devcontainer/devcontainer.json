@@ -59,8 +59,11 @@
         "PLAN_MANAGER_ENABLE_FILE_LOG": "false",
         "PLAN_MANAGER_RELOAD": "true"
     },
+    "mounts": [
+        "source=${localEnv:HOME}${localEnv:USERPROFILE}/.agents/skills,target=/root/.agents/skills,type=bind,consistency=cached,readonly"
+    ],
     // Run commands
-    "postCreateCommand": "uv sync --all-extras --dev && uv run pre-commit install && git config --global credential.helper '!/usr/bin/gh auth git-credential'",
+    "postCreateCommand": "uv sync --all-extras --dev && uv run pre-commit install-hooks && git config --global credential.helper '!/usr/bin/gh auth git-credential'",
     "postStartCommand": "uv run pm",
     // Port forwarding
     "forwardPorts": [
