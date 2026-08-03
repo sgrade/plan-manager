@@ -11,10 +11,20 @@ from pydantic import ValidationError
 
 from plan_manager.config import PLANS_INDEX_FILE_PATH, TODO_DIR
 from plan_manager.domain.models import Plan, Story, Task
-from plan_manager.io.file_mirror import read_item_file, save_item_to_file
+from plan_manager.io.file_mirror import (
+    YAML_WRITE_LOCK,
+    atomic_write,
+    read_item_file,
+    save_item_to_file,
+)
 from plan_manager.io.paths import story_file_path, task_file_path
 
 logger = logging.getLogger(__name__)
+
+
+def _yaml_dump(data: dict[str, Any]) -> str:
+    """Render YAML text with stable repository formatting."""
+    return yaml.safe_dump(data, default_flow_style=False, sort_keys=False)
 
 
 def _plan_file_path(plan_id: str) -> str:
@@ -24,37 +34,41 @@ def _plan_file_path(plan_id: str) -> str:
 
 def _ensure_plans_index_exists() -> None:
     """Ensure the plans index file exists."""
-    index_path = Path(PLANS_INDEX_FILE_PATH)
-    index_path.parent.mkdir(parents=True, exist_ok=True)
-    if not index_path.exists():
-        with index_path.open("w", encoding="utf-8") as f:
-            yaml.safe_dump(
-                {
-                    "current": "default",
-                    "plans": [{"id": "default", "title": "default", "status": "TODO"}],
-                },
-                f,
-                default_flow_style=False,
-                sort_keys=False,
+    with YAML_WRITE_LOCK:
+        index_path = Path(PLANS_INDEX_FILE_PATH)
+        index_path.parent.mkdir(parents=True, exist_ok=True)
+        if not index_path.exists():
+            atomic_write(
+                str(index_path),
+                _yaml_dump(
+                    {
+                        "current": "default",
+                        "plans": [
+                            {"id": "default", "title": "default", "status": "TODO"}
+                        ],
+                    }
+                ),
             )
 
 
 def save(plan: Plan, plan_id: str = "default") -> None:
     """Persist a validated Plan model to todo/<plan_id>/plan.yaml and ensure it's in the index."""
-    # 1. Save the main plan file (manifest)
-    plan_path = Path(_plan_file_path(plan_id))
-    plan_path.parent.mkdir(parents=True, exist_ok=True)
-    plan_manifest = plan.model_dump(mode="json", exclude={"stories"}, exclude_none=True)
-    plan_manifest["stories"] = [s.id for s in plan.stories]
-    with plan_path.open("w", encoding="utf-8") as f:
-        yaml.safe_dump(plan_manifest, f, default_flow_style=False, sort_keys=False)
+    with YAML_WRITE_LOCK:
+        # 1. Save the main plan file (manifest)
+        plan_path = Path(_plan_file_path(plan_id))
+        plan_path.parent.mkdir(parents=True, exist_ok=True)
+        plan_manifest = plan.model_dump(
+            mode="json", exclude={"stories"}, exclude_none=True
+        )
+        plan_manifest["stories"] = [s.id for s in plan.stories]
+        atomic_write(str(plan_path), _yaml_dump(plan_manifest))
 
-    # 2. Save each story to its own file
-    for story in plan.stories:
-        _save_story(story)
+        # 2. Save each story to its own file
+        for story in plan.stories:
+            _save_story(story)
 
-    # 3. Update the global plans index
-    _update_plan_in_index(plan)
+        # 3. Update the global plans index
+        _update_plan_in_index(plan)
 
 
 def _save_story(story: Story) -> None:
@@ -88,56 +102,56 @@ def _save_story(story: Story) -> None:
 
 def _update_plan_in_index(plan: Plan) -> None:
     """Ensure the plan is in the index and its status is up-to-date."""
-    _ensure_plans_index_exists()
-    index_path = Path(PLANS_INDEX_FILE_PATH)
-    with index_path.open(encoding="utf-8") as f:
-        idx = yaml.safe_load(f) or {}
+    with YAML_WRITE_LOCK:
+        _ensure_plans_index_exists()
+        index_path = Path(PLANS_INDEX_FILE_PATH)
+        with index_path.open(encoding="utf-8") as f:
+            idx = yaml.safe_load(f) or {}
 
-    plans_list = idx.get("plans", [])
-    plan_found = False
-    for p in plans_list:
-        if p.get("id") == plan.id:
-            p["status"] = plan.status.value
-            p["title"] = plan.title
-            plan_found = True
-            break
+        plans_list = idx.get("plans", [])
+        plan_found = False
+        for p in plans_list:
+            if p.get("id") == plan.id:
+                p["status"] = plan.status.value
+                p["title"] = plan.title
+                plan_found = True
+                break
 
-    if not plan_found:
-        plans_list.append(
-            {"id": plan.id, "title": plan.title, "status": plan.status.value}
-        )
+        if not plan_found:
+            plans_list.append(
+                {"id": plan.id, "title": plan.title, "status": plan.status.value}
+            )
 
-    idx["plans"] = plans_list
-    with index_path.open("w", encoding="utf-8") as f:
-        yaml.safe_dump(idx, f, default_flow_style=False, sort_keys=False)
+        idx["plans"] = plans_list
+        atomic_write(str(index_path), _yaml_dump(idx))
 
 
 def delete(plan_id: str) -> None:
     """Delete a plan by ID from the index and remove its directory."""
-    _ensure_plans_index_exists()
+    with YAML_WRITE_LOCK:
+        _ensure_plans_index_exists()
 
-    # Remove from index
-    index_path = Path(PLANS_INDEX_FILE_PATH)
-    with index_path.open(encoding="utf-8") as f:
-        idx = yaml.safe_load(f) or {}
+        # Remove from index
+        index_path = Path(PLANS_INDEX_FILE_PATH)
+        with index_path.open(encoding="utf-8") as f:
+            idx = yaml.safe_load(f) or {}
 
-    plans_list = idx.get("plans", [])
-    if plan_id not in [p.get("id") for p in plans_list]:
-        raise FileNotFoundError(f"Plan '{plan_id}' not found in index.")
+        plans_list = idx.get("plans", [])
+        if plan_id not in [p.get("id") for p in plans_list]:
+            raise FileNotFoundError(f"Plan '{plan_id}' not found in index.")
 
-    idx["plans"] = [p for p in plans_list if p.get("id") != plan_id]
+        idx["plans"] = [p for p in plans_list if p.get("id") != plan_id]
 
-    # If the deleted plan was the current one, reset it
-    if idx.get("current") == plan_id:
-        if idx["plans"]:
-            idx["current"] = idx["plans"][0].get("id")
-        else:
-            # No plans left, so create a default one
-            idx["current"] = "default"
-            idx["plans"] = [{"id": "default", "title": "default", "status": "TODO"}]
+        # If the deleted plan was the current one, reset it
+        if idx.get("current") == plan_id:
+            if idx["plans"]:
+                idx["current"] = idx["plans"][0].get("id")
+            else:
+                # No plans left, so create a default one
+                idx["current"] = "default"
+                idx["plans"] = [{"id": "default", "title": "default", "status": "TODO"}]
 
-    with index_path.open("w", encoding="utf-8") as f:
-        yaml.safe_dump(idx, f, default_flow_style=False, sort_keys=False)
+        atomic_write(str(index_path), _yaml_dump(idx))
 
     # Remove directory
     plan_dir = Path(TODO_DIR) / plan_id
@@ -257,15 +271,15 @@ def get_current_plan_id() -> str:
 
 def set_current_plan_id(plan_id: str) -> None:
     """Set the current plan ID."""
-    _ensure_plans_index_exists()
-    index_path = Path(PLANS_INDEX_FILE_PATH)
-    with index_path.open(encoding="utf-8") as f:
-        idx = yaml.safe_load(f) or {}
-    plans_list = idx.get("plans") or []
-    if plan_id not in [p.get("id") for p in plans_list]:
-        raise ValueError(
-            f"Plan '{plan_id}' not present in index {PLANS_INDEX_FILE_PATH}"
-        )
-    idx["current"] = plan_id
-    with index_path.open("w", encoding="utf-8") as f:
-        yaml.safe_dump(idx, f, default_flow_style=False, sort_keys=False)
+    with YAML_WRITE_LOCK:
+        _ensure_plans_index_exists()
+        index_path = Path(PLANS_INDEX_FILE_PATH)
+        with index_path.open(encoding="utf-8") as f:
+            idx = yaml.safe_load(f) or {}
+        plans_list = idx.get("plans") or []
+        if plan_id not in [p.get("id") for p in plans_list]:
+            raise ValueError(
+                f"Plan '{plan_id}' not present in index {PLANS_INDEX_FILE_PATH}"
+            )
+        idx["current"] = plan_id
+        atomic_write(str(index_path), _yaml_dump(idx))

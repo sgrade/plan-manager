@@ -7,6 +7,7 @@ from typing import Any, Optional
 import yaml
 
 from plan_manager.config import TODO_DIR
+from plan_manager.io.file_mirror import YAML_WRITE_LOCK, atomic_write
 from plan_manager.services.plan_repository import get_current_plan_id
 
 __all__ = [
@@ -36,8 +37,10 @@ def _write_state(plan_id: str, data: dict[str, Any]) -> None:
     """Write the state file for a given plan ID."""
     path = Path(_state_file_path(plan_id))
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8") as f:
-        yaml.safe_dump(data, f, default_flow_style=False, sort_keys=False)
+    atomic_write(
+        str(path),
+        yaml.safe_dump(data, default_flow_style=False, sort_keys=False),
+    )
 
 
 def get_current_story_id(plan_id: Optional[str] = None) -> Optional[str]:
@@ -51,13 +54,14 @@ def set_current_story_id(
     story_id: Optional[str], plan_id: Optional[str] = None
 ) -> None:
     """Set the current story ID for a given plan ID."""
-    pid = plan_id or get_current_plan_id()
-    state = _read_state(pid)
-    if story_id is None:
-        state.pop("current_story_id", None)
-    else:
-        state["current_story_id"] = story_id
-    _write_state(pid, state)
+    with YAML_WRITE_LOCK:
+        pid = plan_id or get_current_plan_id()
+        state = _read_state(pid)
+        if story_id is None:
+            state.pop("current_story_id", None)
+        else:
+            state["current_story_id"] = story_id
+        _write_state(pid, state)
 
 
 def get_current_task_id(plan_id: Optional[str] = None) -> Optional[str]:
@@ -69,10 +73,11 @@ def get_current_task_id(plan_id: Optional[str] = None) -> Optional[str]:
 
 def set_current_task_id(task_id: Optional[str], plan_id: Optional[str] = None) -> None:
     """Set the current task ID for a given plan ID."""
-    pid = plan_id or get_current_plan_id()
-    state = _read_state(pid)
-    if task_id is None:
-        state.pop("current_task_id", None)
-    else:
-        state["current_task_id"] = task_id
-    _write_state(pid, state)
+    with YAML_WRITE_LOCK:
+        pid = plan_id or get_current_plan_id()
+        state = _read_state(pid)
+        if task_id is None:
+            state.pop("current_task_id", None)
+        else:
+            state["current_task_id"] = task_id
+        _write_state(pid, state)

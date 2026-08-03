@@ -2,6 +2,7 @@
 # Copyright (c) 2026 Roman Klyuev
 
 import logging
+import threading
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
@@ -11,6 +12,7 @@ import yaml
 from plan_manager.config import WORKSPACE_ROOT
 
 logger = logging.getLogger(__name__)
+YAML_WRITE_LOCK = threading.RLock()
 
 
 def split_front_matter(raw_text: str) -> tuple[dict[str, Any], str]:
@@ -117,36 +119,37 @@ def save_item_to_file(
     """
     abs_path = Path(WORKSPACE_ROOT) / details_path
     try:
-        existing_front: dict[str, Any]
-        existing_body: str
-        existing_front, existing_body = ({}, "")
-        if abs_path.exists():
-            existing_front, existing_body = read_item_file(details_path)
+        with YAML_WRITE_LOCK:
+            existing_front: dict[str, Any]
+            existing_body: str
+            existing_front, existing_body = ({}, "")
+            if abs_path.exists():
+                existing_front, existing_body = read_item_file(details_path)
 
-        if hasattr(front_source, "model_dump"):
-            # Use JSON mode to serialize Enums (e.g., Status) as strings
-            front = front_source.model_dump(mode="json", exclude_none=True)
-        elif isinstance(front_source, dict):
-            front = {k: v for k, v in front_source.items() if v is not None}
-        else:
-            front = {k: v for k, v in vars(front_source).items() if v is not None}
+            if hasattr(front_source, "model_dump"):
+                # Use JSON mode to serialize Enums (e.g., Status) as strings
+                front = front_source.model_dump(mode="json", exclude_none=True)
+            elif isinstance(front_source, dict):
+                front = {k: v for k, v in front_source.items() if v is not None}
+            else:
+                front = {k: v for k, v in vars(front_source).items() if v is not None}
 
-        # Normalize datetimes
-        for key in ("creation_time", "completion_time"):
-            if key in front and front[key] is not None:
-                front[key] = _to_iso_z(front[key])
+            # Normalize datetimes
+            for key in ("creation_time", "completion_time"):
+                if key in front and front[key] is not None:
+                    front[key] = _to_iso_z(front[key])
 
-        merged: dict[str, Any] = (
-            dict(existing_front) if (abs_path.exists() and not overwrite) else {}
-        )
-        merged.update(front)
-        merged.setdefault("schema_version", 1)
+            merged: dict[str, Any] = (
+                dict(existing_front) if (abs_path.exists() and not overwrite) else {}
+            )
+            merged.update(front)
+            merged.setdefault("schema_version", 1)
 
-        rendered = render_with_front_matter(
-            merged, existing_body if content is None else content
-        )
-        atomic_write(str(abs_path), rendered)
-        logger.info("Wrote file_path file: %s", abs_path)
+            rendered = render_with_front_matter(
+                merged, existing_body if content is None else content
+            )
+            atomic_write(str(abs_path), rendered)
+            logger.info("Wrote file_path file: %s", abs_path)
     except (OSError, yaml.YAMLError) as e:
         # Best-effort: log but don't fail on file write errors
         logger.warning("Best-effort write failed for '%s': %s", abs_path, e)

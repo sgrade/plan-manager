@@ -8,6 +8,7 @@ from typing import Any, Optional
 import yaml
 
 from plan_manager.config import TODO_DIR
+from plan_manager.io.file_mirror import YAML_WRITE_LOCK, atomic_write
 
 
 def _activity_file_path(plan_id: str) -> str:
@@ -50,8 +51,10 @@ def _write_events(plan_id: str, events: list[dict[str, Any]]) -> None:
     """
     path = Path(_activity_file_path(plan_id))
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8") as f:
-        yaml.safe_dump(events, f, default_flow_style=False, sort_keys=False)
+    atomic_write(
+        str(path),
+        yaml.safe_dump(events, default_flow_style=False, sort_keys=False),
+    )
 
 
 def append_event(
@@ -71,19 +74,20 @@ def append_event(
     Returns:
         Dict[str, Any]: The created event record
     """
-    events = _read_events(plan_id)
-    eid = str(len(events) + 1)
-    event = {
-        "id": eid,
-        "ts": datetime.now(timezone.utc).isoformat(),
-        "type": event_type,
-        "scope": scope,
-    }
-    if data:
-        event["data"] = data
-    events.append(event)
-    _write_events(plan_id, events)
-    return event
+    with YAML_WRITE_LOCK:
+        events = _read_events(plan_id)
+        eid = str(len(events) + 1)
+        event = {
+            "id": eid,
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "type": event_type,
+            "scope": scope,
+        }
+        if data:
+            event["data"] = data
+        events.append(event)
+        _write_events(plan_id, events)
+        return event
 
 
 def list_events(plan_id: str) -> list[dict[str, Any]]:
