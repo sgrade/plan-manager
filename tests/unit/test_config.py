@@ -3,6 +3,8 @@
 
 """Unit tests for configuration module."""
 
+import importlib
+
 
 class TestConfig:
     """Test configuration loading and defaults."""
@@ -66,3 +68,12 @@ class TestConfig:
 
         monkeypatch.delenv("PM_TEST_LIST_MISSING", raising=False)
         assert _env_list("PM_TEST_LIST_MISSING", ["d"]) == ["d"]
+
+    def test_plan_manager_db_dir_env_override(self, monkeypatch):
+        """PLAN_MANAGER_DB_DIR should support explicit override."""
+        monkeypatch.setenv("PLAN_MANAGER_DB_DIR", "/var/lib/pm-db")
+        from plan_manager import config
+
+        config = importlib.reload(config)
+        assert config.PLAN_MANAGER_DB_DIR == "/var/lib/pm-db"
+        assert config.PLAN_MANAGER_DB_PATH == "/var/lib/pm-db/plan_manager.sqlite3"

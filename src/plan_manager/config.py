@@ -71,6 +71,10 @@ WORKSPACE_ROOT = str(Path.cwd())
 # Multi-plan support (plans are stored under todo/<plan_id>/plan.yaml)
 TODO_DIR = os.getenv("TODO_DIR") or str(Path(WORKSPACE_ROOT) / "todo")
 PLANS_INDEX_FILE_PATH = str(Path(TODO_DIR) / "plans" / "index.yaml")
+PLAN_MANAGER_DB_DIR = os.getenv("PLAN_MANAGER_DB_DIR") or str(
+    Path(WORKSPACE_ROOT) / ".plan-manager" / "db"
+)
+PLAN_MANAGER_DB_PATH = str(Path(PLAN_MANAGER_DB_DIR) / "plan_manager.sqlite3")
 
 # --- Logging Configuration ---
 LOG_DIR = os.getenv("LOG_DIR") or str(Path(WORKSPACE_ROOT) / "logs")
