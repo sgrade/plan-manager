@@ -6,6 +6,9 @@
 import sqlite3
 
 LATEST_USER_VERSION = 1
+IMPORT_STATE_KEY = "import_state"
+IMPORT_STATE_PENDING = "pending"
+IMPORT_STATE_DONE = "done"
 
 STATUS_CHECK = (
     "CHECK(status IN ("
@@ -124,6 +127,7 @@ def _apply_migration_1(conn: sqlite3.Connection) -> None:
             conn.execute(statement)
         conn.execute("PRAGMA user_version = 1")
         conn.execute(
-            "INSERT INTO meta(key, value) VALUES('import_state', 'done') "
-            "ON CONFLICT(key) DO UPDATE SET value=excluded.value"
+            "INSERT INTO meta(key, value) VALUES(?, ?) "
+            "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+            (IMPORT_STATE_KEY, IMPORT_STATE_PENDING),
         )

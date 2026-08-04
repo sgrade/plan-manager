@@ -7,15 +7,35 @@ from __future__ import annotations
 
 import sqlite3
 import uuid
+from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
 
-from plan_manager.storage.schema import apply_migrations
+from plan_manager.storage.schema import (
+    IMPORT_STATE_DONE,
+    IMPORT_STATE_KEY,
+    apply_migrations,
+)
 
 DB_FILENAME = "plan_manager.sqlite3"
 
 
 class StorageBootstrapError(RuntimeError):
     """Raised when storage bootstrap or WAL verification fails."""
+
+
+class StartupAction(str, Enum):
+    INITIALIZE_EMPTY = "initialize_empty"
+    IMPORT_LEGACY = "import_legacy"
+    SERVE_DB = "serve_db"
+
+
+@dataclass(frozen=True)
+class StartupDecision:
+    action: StartupAction
+    db_path: Path
+    has_published_db: bool
+    has_legacy_yaml: bool
 
 
 def bootstrap(db_dir: str | Path) -> Path:
@@ -38,6 +58,50 @@ def bootstrap(db_dir: str | Path) -> Path:
         conn.close()
 
     return db_path
+
+
+def decide_startup_action(todo_dir: str | Path, db_dir: str | Path) -> StartupDecision:
+    """Decide startup flow based on published DB marker and legacy YAML presence."""
+    _sweep_orphaned_import_temp_dbs(Path(db_dir))
+    db_path = Path(db_dir) / DB_FILENAME
+    has_done_db = _has_published_db(db_path)
+    has_legacy_yaml = (Path(todo_dir) / "plans" / "index.yaml").exists()
+
+    if has_done_db:
+        return StartupDecision(
+            action=StartupAction.SERVE_DB,
+            db_path=db_path,
+            has_published_db=True,
+            has_legacy_yaml=has_legacy_yaml,
+        )
+    if has_legacy_yaml:
+        return StartupDecision(
+            action=StartupAction.IMPORT_LEGACY,
+            db_path=db_path,
+            has_published_db=False,
+            has_legacy_yaml=True,
+        )
+    return StartupDecision(
+        action=StartupAction.INITIALIZE_EMPTY,
+        db_path=db_path,
+        has_published_db=False,
+        has_legacy_yaml=False,
+    )
+
+
+def startup_storage(todo_dir: str | Path, db_dir: str | Path) -> StartupDecision:
+    """Execute startup decision and return the selected action."""
+    decision = decide_startup_action(todo_dir, db_dir)
+    if decision.action == StartupAction.SERVE_DB:
+        return decision
+    if decision.action == StartupAction.INITIALIZE_EMPTY:
+        db_path = bootstrap(db_dir)
+        _mark_import_done(db_path)
+        return decision
+    from plan_manager.storage.importer import import_legacy_tree
+
+    import_legacy_tree(todo_dir=todo_dir, db_dir=db_dir, dry_run=False)
+    return decision
 
 
 def _verify_wal_with_disposable_db(db_dir: Path) -> None:
@@ -85,8 +149,52 @@ def _set_journal_mode_wal(conn: sqlite3.Connection) -> str:
     return str(row[0]).lower()
 
 
+def _has_published_db(db_path: Path) -> bool:
+    if not db_path.exists():
+        return False
+    try:
+        conn = sqlite3.connect(db_path)
+        try:
+            row = conn.execute(
+                "SELECT value FROM meta WHERE key = ?",
+                (IMPORT_STATE_KEY,),
+            ).fetchone()
+        finally:
+            conn.close()
+    except sqlite3.DatabaseError:
+        return False
+    if row is None:
+        return False
+    return str(row[0]) == IMPORT_STATE_DONE
+
+
+def _mark_import_done(db_path: Path) -> None:
+    conn = sqlite3.connect(db_path)
+    try:
+        with conn:
+            conn.execute(
+                "INSERT INTO meta(key, value) VALUES(?, ?) "
+                "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                (IMPORT_STATE_KEY, IMPORT_STATE_DONE),
+            )
+    finally:
+        conn.close()
+
+
 def _cleanup_sqlite_artifacts(db_path: Path) -> None:
     candidates = [db_path, Path(f"{db_path}-wal"), Path(f"{db_path}-shm")]
     for candidate in candidates:
         if candidate.exists():
             candidate.unlink()
+
+
+def _sweep_orphaned_import_temp_dbs(db_dir: Path) -> None:
+    for temp_file in db_dir.glob(f"{DB_FILENAME}.import.*.tmp"):
+        _safe_unlink(temp_file)
+
+
+def _safe_unlink(path: Path) -> None:
+    try:
+        path.unlink()
+    except OSError:
+        return
