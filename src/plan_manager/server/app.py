@@ -1,25 +1,24 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Roman Klyuev
 
-"""MCP Server for the plan-manager (Streamable HTTP).
+"""MCP Server for the plan-manager (Streamable HTTP, stateless).
 
 Exposes story, plan, and archive tools over a single MCP endpoint using
-Streamable HTTP. Supports server-initiated streaming via SSE per spec.
+Streamable HTTP in stateless mode with JSON responses: each request gets a
+fresh transport, no session state is held between requests, and no SSE
+streams are opened (no tool relies on server-initiated streaming).
 """
 
 import logging
 import uuid
-from typing import TYPE_CHECKING
 
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
 from starlette.applications import Starlette
-from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.datastructures import Headers, MutableHeaders
 from starlette.requests import Request
-from starlette.responses import JSONResponse, RedirectResponse, Response
-
-if TYPE_CHECKING:
-    from collections.abc import Awaitable, Callable
+from starlette.responses import JSONResponse, RedirectResponse
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from plan_manager.config import (
     ALLOWED_HOSTS,
@@ -39,6 +38,35 @@ from plan_manager.tools.story_tools import register_story_tools
 from plan_manager.tools.task_tools import register_task_tools
 
 logger = logging.getLogger(__name__)
+
+
+class CorrelationIdASGIMiddleware:
+    """ASGI middleware adding/propagating x-correlation-id per request."""
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        incoming = Headers(scope=scope).get("x-correlation-id")
+        corr_id = incoming or str(uuid.uuid4())
+        set_correlation_id(corr_id)
+
+        async def send_with_correlation_id(message: Message) -> None:
+            if message["type"] == "http.response.start":
+                headers = MutableHeaders(scope=message)
+                # Reflect header for downstream debugging.
+                headers["x-correlation-id"] = corr_id
+            await send(message)
+
+        try:
+            await self.app(scope, receive, send_with_correlation_id)
+        finally:
+            # Clear at end of request.
+            set_correlation_id(None)
 
 
 def _read_quickstart_instructions() -> str:
@@ -64,6 +92,8 @@ def starlette_app() -> Starlette:
         name="Plan Manager",
         instructions=_read_quickstart_instructions(),
         transport_security=transport_security,
+        stateless_http=True,
+        json_response=True,
     )
 
     register_context_tools(mcp)
@@ -98,24 +128,6 @@ def starlette_app() -> Starlette:
         app.add_route("/browse/", browse_endpoint, name="browse_root")
         app.add_route("/browse/{path:path}", browse_endpoint, name="browse")
 
-    class CorrelationIdMiddleware(BaseHTTPMiddleware):
-        async def dispatch(
-            self,
-            request: Request,
-            call_next: "Callable[[Request], Awaitable[Response]]",
-        ) -> Response:
-            try:
-                incoming = request.headers.get("x-correlation-id")
-                corr_id = incoming or str(uuid.uuid4())
-                set_correlation_id(corr_id)
-                response = await call_next(request)
-                # reflect header for downstream debugging
-                response.headers["x-correlation-id"] = corr_id
-                return response
-            finally:
-                # Clear at end of request
-                set_correlation_id(None)
-
-    app.add_middleware(CorrelationIdMiddleware)
+    app.add_middleware(CorrelationIdASGIMiddleware)
 
     return app
