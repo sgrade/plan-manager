@@ -17,6 +17,12 @@ Notes:
 - LOG_LEVEL (default: `INFO`) — e.g., DEBUG, INFO, WARNING, ERROR
 - PLAN_MANAGER_ENABLE_FILE_LOG (default: `false`) — enable file logging
 Note: The server prints structured logs to stdout by default; file log is optional.
+File logging is an opt-in for development or incident investigation (e.g. set
+`PLAN_MANAGER_ENABLE_FILE_LOG=true` and `LOG_DIR=/data/logs` to persist logs onto
+a mounted volume across container recreation). There is no log rotation; don't
+leave it enabled unattended.
+If `LOG_DIR` cannot be created or written, the server keeps running with stdout-only
+logging and emits a warning.
 
 ## Workflow guardrails
 - REQUIRE_APPROVAL_BEFORE_PROGRESS (default: `true`)

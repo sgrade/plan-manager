@@ -106,6 +106,12 @@ Change `localhost` to `host.docker.internal` in the MCP configuration. For examp
 }
 ```
 
+Logs go to stdout (12-factor); use `docker logs` / `docker compose logs` to read
+them. Note that recreating a container discards its logs — capture them first
+when investigating an incident, or temporarily set
+`PLAN_MANAGER_ENABLE_FILE_LOG=true` and `LOG_DIR=/data/logs` to persist logs
+onto the mounted volume during an investigation window.
+
 #### Connect from another host
 
 Set environment variable `HOST=0.0.0.0` when starting the server, then connect using the host's IP address instead of `localhost`.
