@@ -30,7 +30,18 @@ types() {
 }
 
 security() {
-    uv run bandit -c pyproject.toml -r src/plan_manager -q
+    # bandit emits a false "nosec encountered ... but no failed test" line for
+    # every f-string interpolation under a `# nosec Bxxx` (PyCQA/bandit#1204,
+    # still unfixed in 1.9.4, the latest release). Drop only that message.
+    # REMOVE THIS FILTER once the upstream fix ships: the message then becomes a
+    # real signal that a suppression has gone stale.
+    # Output is captured rather than piped so bandit's exit code survives, and
+    # `|| status=$?` is required: under `set -e` a bare assignment from a failing
+    # command substitution aborts the function before the findings are printed.
+    local output status=0
+    output=$(uv run bandit -c pyproject.toml -r src/plan_manager -q 2>&1) || status=$?
+    printf '%s' "$output" | grep -v "nosec encountered" || true
+    return "$status"
 }
 
 tests() {
@@ -40,7 +51,6 @@ tests() {
         --cov=src/plan_manager \
         --cov-report=xml \
         --cov-report=html \
-        --cov-report=term-missing \
         --cov-fail-under=40
 }
 
