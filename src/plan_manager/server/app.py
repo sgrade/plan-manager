@@ -15,13 +15,13 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from jinja2 import (  # type: ignore[import-not-found]
+from jinja2 import (
     Environment,
     FileSystemLoader,
     select_autoescape,
 )
-from markdown_it import MarkdownIt  # type: ignore[import-not-found]
-from markupsafe import Markup  # type: ignore[import-not-found]
+from markdown_it import MarkdownIt
+from markupsafe import Markup
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
 from starlette.applications import Starlette
@@ -54,24 +54,25 @@ from plan_manager.tools.task_tools import register_task_tools
 logger = logging.getLogger(__name__)
 CORRELATION_ID_PATTERN = re.compile(r"^[A-Za-z0-9._-]{1,128}$")
 UI_CSP = "default-src 'none'; style-src 'self'"
-_MARKDOWN = MarkdownIt("commonmark", {"html": False})
-
 _ALLOWED_LINK_SCHEMES = ("http://", "https://", "mailto:")
 
 
-def _validate_link(url: str) -> bool:
-    """Allowlist link schemes (defense in depth beyond CSP).
+class _SafeLinkMarkdown(MarkdownIt):
+    """Renderer that allowlists link schemes on top of raw-HTML suppression."""
 
-    markdown-it can emit entity-obfuscated schemes (e.g. jav&#x09;ascript:)
-    as live hrefs (U8 review, finding L-1); relative links stay allowed.
-    """
-    lowered = url.strip().lower()
-    if ":" not in lowered.split("/", 1)[0] and not lowered.startswith("//"):
-        return True  # relative link, no scheme
-    return lowered.startswith(_ALLOWED_LINK_SCHEMES)
+    def validateLink(self, url: str) -> bool:  # noqa: N802 - upstream API name
+        """Allowlist link schemes (defense in depth beyond CSP).
+
+        markdown-it can emit entity-obfuscated schemes (e.g. jav&#x09;ascript:)
+        as live hrefs (U8 review, finding L-1); relative links stay allowed.
+        """
+        lowered = url.strip().lower()
+        if ":" not in lowered.split("/", 1)[0] and not lowered.startswith("//"):
+            return True  # relative link, no scheme
+        return lowered.startswith(_ALLOWED_LINK_SCHEMES)
 
 
-_MARKDOWN.validateLink = _validate_link
+_MARKDOWN = _SafeLinkMarkdown("commonmark", {"html": False})
 
 
 class CorrelationIdASGIMiddleware:
