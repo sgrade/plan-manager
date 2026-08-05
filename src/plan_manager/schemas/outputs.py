@@ -182,7 +182,9 @@ class ActionType(str, Enum):
     NONE = "NONE"
     SET_CURRENT_TASK = "SET_CURRENT_TASK"
     CREATE_STEPS = "CREATE_STEPS"
+    START_TASK = "START_TASK"
     APPROVE_PR = "APPROVE_PR"
+    MERGE_PR = "MERGE_PR"
     SUBMIT_PR = "SUBMIT_PR"
     REQUEST_PR_CHANGES = "REQUEST_PR_CHANGES"
 
@@ -208,6 +210,7 @@ class NextAction(BaseModel):
     recommended: bool = False
     blocked_reason: Optional[str] = None
     arguments: Optional[dict[str, Any]] = None
+    pending_arguments: Optional[list[str]] = None
 
 
 # Intentionally no separate agent policy type: agents derive behavior from
@@ -253,6 +256,7 @@ class CommitMessageOut(BaseModel):
 class TaskFinalizationOut(BaseModel):
     """Output schema for finalize_task convenience tool."""
 
+    action: ActionType = ActionType.MERGE_PR
     plan_id: str
     task_id: str
     task_title: str

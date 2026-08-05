@@ -33,12 +33,14 @@ Plan Manager coordinates one or more AI agents around explicit plan scope.
 ### Status and Context Tools
 - **report(plan_id, scope)** and **get_current(plan_id)** — status and context helpers
 
-All tools return structured results. Failures are structured, but message quality varies by path (some are contract-specific, some are generic validation/tool errors).
+All tools return structured results on success. Mutation failures now raise errors (MCP `isError=true`) and include a `structured_recovery=` JSON payload in the error text.
 
 Result shape essentials (for agents):
 - `start_task`, `submit_pr`, `approve_pr`, and `request_pr_changes` return `TaskWorkflowResult` with `next_actions`.
 - `merge_pr` returns `TaskFinalizationOut` (no `next_actions` field).
 - `next_actions.arguments` includes `plan_id` and full `task_id` values so scope can be forwarded mechanically.
+- `next_actions.pending_arguments` lists required tool arguments the server cannot infer; the agent must supply them from real context before execution.
+- Gate-crossing mutation actions are marked `AGENT_AFTER_USER_APPROVAL` until the user approves at that gate.
 - Scope mismatch errors name both the supplied `plan_id` and the mismatched id.
 
 ## Compatibility map (v2 explicit scope)
@@ -59,7 +61,8 @@ NextAction {
   who: "USER" | "AGENT" | "AGENT_AFTER_USER_APPROVAL" | "EITHER",
   recommended: boolean,
   blocked_reason?: string,
-  arguments?: object       // tool/prompt arguments when applicable
+  arguments?: object,      // tool/prompt arguments the server can provide
+  pending_arguments?: string[] // required argument names the agent must provide
 }
 
 TaskWorkflowResult {

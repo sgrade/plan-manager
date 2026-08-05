@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Roman Klyuev
 
-from typing import TYPE_CHECKING, Any, Optional
+import json
+from typing import TYPE_CHECKING, Any, NoReturn, Optional
 
 if TYPE_CHECKING:
     from mcp.server.fastmcp import FastMCP
@@ -64,6 +65,24 @@ def _create_task_out(data: dict[str, Any]) -> TaskOut:
     if "id" in data and ":" in data["id"]:
         data["local_id"] = data["id"].split(":", 1)[1]
     return TaskOut(**data)
+
+
+def _raise_workflow_error(
+    *,
+    plan_id: str,
+    message: str,
+    recovery: list[str],
+) -> NoReturn:
+    """Raise a contract-friendly workflow error with structured guidance."""
+    payload = TaskWorkflowResult(
+        success=False,
+        message=message,
+        plan_id=plan_id,
+        action=ActionType.NONE,
+        next_actions=[],
+    ).model_dump(mode="json")
+    payload["recovery"] = recovery
+    raise ValueError(f"{message}\nstructured_recovery={json.dumps(payload)}")
 
 
 def register_task_tools(mcp_instance: "FastMCP") -> None:
@@ -139,7 +158,9 @@ def get_task(
     effective_task_id = task_id
     if not effective_task_id:
         raise ValueError(
-            "Missing required parameter 'task_id'. Provide task_id, for example 'task_orchestration:fix_yaml_races_add_write_lock'."
+            "Missing required parameter 'task_id'. "
+            "Obtain task_id from `list_tasks(plan_id=...)` or from a `create_task` result, "
+            "then retry with a fully-qualified value like 'story_id:task_id'."
         )
 
     resolved_story_id, local_task_id = resolve_task_id(
@@ -226,14 +247,11 @@ def delete_task(
         task_id: Task identifier, for example `task_orchestration:fix_yaml_races_add_write_lock`.
         story_id: Optional story ID when task_id is local.
     """
-    try:
-        resolved_story_id, local_task_id = resolve_task_id(
-            task_id, story_id=story_id, plan_id=plan_id
-        )
-        data = svc_delete_task(plan_id, resolved_story_id, local_task_id)
-        return OperationResult(**data)
-    except (ValueError, KeyError) as e:
-        return OperationResult(success=False, message=str(e))
+    resolved_story_id, local_task_id = resolve_task_id(
+        task_id, story_id=story_id, plan_id=plan_id
+    )
+    data = svc_delete_task(plan_id, resolved_story_id, local_task_id)
+    return OperationResult(**data)
 
 
 def list_tasks(
@@ -321,15 +339,6 @@ def _compute_next_actions_for_task(
                     label="Ask: Would you like assisted steps or fast-track?",
                     who=WhoRuns.AGENT,
                     recommended=True,
-                    arguments={
-                        "then": [
-                            {
-                                "prompt": "/create_steps",
-                                "arguments": {"plan_id": plan_id, "task_id": task.id},
-                            },
-                            {"instruction": "user_approval_fast_track"},
-                        ]
-                    },
                 )
             )
             # Only user instructions at this point; the agent must wait for the user's
@@ -348,35 +357,37 @@ def _compute_next_actions_for_task(
                 NextAction(
                     kind="instruction",
                     name="user_approval_fast_track",
-                    label="Fast-track: User says 'approve steps' in chat",
+                    label="Fast-track: User says 'approve steps' with concrete steps",
                     who=WhoRuns.USER,
                     recommended=False,
-                    arguments={
-                        "then": [
-                            {
-                                "tool": "create_task_steps",
-                                "arguments": {
-                                    "plan_id": plan_id,
-                                    "task_id": task.id,
-                                    "steps": [],
-                                },
-                            },
-                            {
-                                "tool": "start_task",
-                                "arguments": {"plan_id": plan_id, "task_id": task.id},
-                            },
-                        ]
-                    },
                 )
             )
         else:
             actions.append(
                 NextAction(
+                    kind="instruction",
+                    name="user_approves_steps",
+                    label="User says 'approve steps' in chat",
+                    who=WhoRuns.USER,
+                    recommended=True,
+                    arguments={
+                        "then": [
+                            {
+                                "tool": "start_task",
+                                "arguments": {"plan_id": plan_id, "task_id": task.id},
+                            }
+                        ]
+                    },
+                )
+            )
+            actions.append(
+                NextAction(
                     kind="tool",
                     name="start_task",
-                    label="Gate 1: Agent runs start_task to begin work (Pre-Execution Approval)",
-                    who=WhoRuns.AGENT,
-                    recommended=True,
+                    label="Agent runs start_task after user approval",
+                    who=WhoRuns.AGENT_AFTER_USER_APPROVAL,
+                    recommended=False,
+                    blocked_reason="Waiting for user approval at Gate 1.",
                     arguments={"plan_id": plan_id, "task_id": task.id},
                 )
             )
@@ -407,10 +418,14 @@ def _compute_next_actions_for_task(
             NextAction(
                 kind="tool",
                 name="submit_pr",
-                label="Agent runs submit_pr (changes list)",
+                label=(
+                    "Agent runs submit_pr when the work is complete, supplying "
+                    "'changes' as a list of change summaries"
+                ),
                 who=WhoRuns.AGENT,
                 recommended=False,
-                arguments={"plan_id": plan_id, "task_id": task.id, "changes": []},
+                arguments={"plan_id": plan_id, "task_id": task.id},
+                pending_arguments=["changes"],
             )
         )
         return actions
@@ -439,9 +454,17 @@ def _compute_next_actions_for_task(
                 arguments={
                     "then": [
                         {
-                            "tool": "merge_pr",
+                            "tool": "approve_pr",
                             "arguments": {"plan_id": plan_id, "task_id": task.id},
-                        }
+                        },
+                        {
+                            "tool": "merge_pr",
+                            "arguments": {
+                                "plan_id": plan_id,
+                                "task_id": task.id,
+                            },
+                            "pending_arguments": ["changelog_category", "commit_type"],
+                        },
                     ]
                 },
             )
@@ -450,15 +473,15 @@ def _compute_next_actions_for_task(
             NextAction(
                 kind="tool",
                 name="merge_pr",
-                label="Agent runs merge_pr (approve + generate changelog/commit) - RECOMMENDED",
-                who=WhoRuns.AGENT,
-                recommended=True,
+                label="Agent runs merge_pr after user approval (choose changelog_category and commit_type to reflect the actual change)",
+                who=WhoRuns.AGENT_AFTER_USER_APPROVAL,
+                recommended=False,
+                blocked_reason="Waiting for user approval at Gate 2.",
                 arguments={
                     "plan_id": plan_id,
                     "task_id": task.id,
-                    "changelog_category": "Added",  # Example - agent should determine
-                    "commit_type": "feat",  # Example - agent should determine
                 },
+                pending_arguments=["changelog_category", "commit_type"],
             )
         )
         # 2b) FALLBACK: Manual approval + artifact generation
@@ -467,8 +490,9 @@ def _compute_next_actions_for_task(
                 kind="tool",
                 name="approve_pr",
                 label="Agent runs approve_pr (Gate 2: Code Review Approval) - then generate artifacts separately",
-                who=WhoRuns.AGENT,
+                who=WhoRuns.AGENT_AFTER_USER_APPROVAL,
                 recommended=False,
+                blocked_reason="Waiting for user approval at Gate 2.",
                 arguments={"plan_id": plan_id, "task_id": task.id},
             )
         )
@@ -485,22 +509,9 @@ def _compute_next_actions_for_task(
                         {
                             "tool": "request_pr_changes",
                             "arguments": {"plan_id": plan_id, "task_id": task.id},
+                            "pending_arguments": ["feedback"],
                         }
                     ]
-                },
-            )
-        )
-        actions.append(
-            NextAction(
-                kind="tool",
-                name="request_pr_changes",
-                label="Agent runs request_pr_changes to return task to IN_PROGRESS",
-                who=WhoRuns.AGENT,
-                recommended=False,
-                arguments={
-                    "plan_id": plan_id,
-                    "feedback": "",
-                    "task_id": task.id,
                 },
             )
         )
@@ -583,21 +594,32 @@ def create_task_steps(
     Returns:
         TaskWorkflowResult: Result containing the updated task and next actions
     """
-    resolved_story_id, local_task_id = resolve_task_id(
-        task_id, story_id=story_id, plan_id=plan_id
-    )
-    data = svc_create_steps(
-        plan_id=plan_id,
-        story_id=resolved_story_id,
-        task_id=local_task_id,
-        steps=steps,
-    )
+    try:
+        resolved_story_id, local_task_id = resolve_task_id(
+            task_id, story_id=story_id, plan_id=plan_id
+        )
+        data = svc_create_steps(
+            plan_id=plan_id,
+            story_id=resolved_story_id,
+            task_id=local_task_id,
+            steps=steps,
+        )
+    except (ValueError, KeyError, RuntimeError, OSError) as exc:
+        _raise_workflow_error(
+            plan_id=plan_id,
+            message=str(exc),
+            recovery=[
+                "Confirm task_id and plan_id belong together (prefer fully qualified task_id).",
+                "If task_id is local, provide story_id explicitly.",
+                "Provide a non-empty steps list with required step fields.",
+            ],
+        )
     task = _create_task_out(data)
     gate = _status_to_gate(task.status, task.steps)
     next_actions = _compute_next_actions_for_task(plan_id, task, gate)
     message_lines = [
         f"Gate 1: Pre-Execution — steps attached for task '{task.title}'.",
-        "Run start_task to start work.",
+        "Ask the user to approve the steps before running start_task.",
     ]
     return TaskWorkflowResult(
         success=True,
@@ -620,27 +642,34 @@ def set_current_task(plan_id: str, task_id: Optional[str] = None) -> TaskWorkflo
     # Ensure a story is selected
     story_id = get_current_story_id(plan_id)
     if not story_id:
-        return TaskWorkflowResult(
-            success=False,
-            message="No current story set. Run `set_current_story` first.",
+        _raise_workflow_error(
             plan_id=plan_id,
-            action=ActionType.SET_CURRENT_TASK,
+            message=(
+                "Missing required scope for parameter 'story_id': no current story is set "
+                "for the supplied plan_id."
+            ),
+            recovery=[
+                "Obtain story_id from list_stories(plan_id=...) or a create_story result.",
+                "Retry with set_current_story(plan_id=..., story_id=...).",
+            ],
         )
 
     # Require a task identifier
     if not task_id:
-        return TaskWorkflowResult(
-            success=False,
-            message="No task specified. Run `list_tasks` to view tasks, then `set_current_task <id>`.",
+        _raise_workflow_error(
             plan_id=plan_id,
-            action=ActionType.SET_CURRENT_TASK,
+            message="Missing required parameter 'task_id'.",
+            recovery=[
+                "Obtain task_id from list_tasks(plan_id=..., story_id=...) or a create_task result.",
+                "Retry with set_current_task(plan_id=..., task_id='story_id:task_id').",
+            ],
         )
 
     s_id, local_task_id = resolve_task_id(task_id, story_id, plan_id=plan_id)
     fq_task_id = f"{s_id}:{local_task_id}"
 
     set_current_task_id(fq_task_id, plan_id)
-    data = svc_get_task(plan_id, s_id, fq_task_id)
+    data = svc_get_task(plan_id, s_id, local_task_id)
     task = _create_task_out(data)
     gate = _status_to_gate(task.status, task.steps)
     next_actions = _compute_next_actions_for_task(plan_id, task, gate)
@@ -696,41 +725,35 @@ def start_task(
             task_id=f"{resolved_story_id}:{local_task_id}",
             story_id=resolved_story_id,
         )
-        task = _create_task_out(
-            {
-                k: v
-                for k, v in result.items()
-                if k not in ("success", "message", "changelog_snippet")
-            }
-        )
-        gate = _status_to_gate(task.status, task.steps)
-        next_actions = _compute_next_actions_for_task(plan_id, task, gate)
-        return TaskWorkflowResult(
-            success=result.get("success", False),
-            message=result.get("message", ""),
-            task=task,
+    except (ValueError, KeyError, RuntimeError, OSError) as exc:
+        _raise_workflow_error(
             plan_id=plan_id,
-            gate=gate,
-            action=ActionType.APPROVE_PR,
-            next_actions=next_actions,
-            changelog_snippet=result.get("changelog_snippet"),
+            message=str(exc),
+            recovery=[
+                "Confirm task_id and plan_id belong together (prefer fully qualified task_id).",
+                "If task_id is local, provide story_id explicitly.",
+                "Run create_task_steps(plan_id, task_id, steps) before start_task.",
+            ],
         )
-
-    except ValueError as e:
-        return TaskWorkflowResult(
-            success=False,
-            message=str(e),
-            plan_id=plan_id,
-            action=ActionType.APPROVE_PR,
-        )
-
-    except KeyError as e:
-        return TaskWorkflowResult(
-            success=False,
-            message=f"Error: Could not find the specified item. {e}",
-            plan_id=plan_id,
-            action=ActionType.APPROVE_PR,
-        )
+    task = _create_task_out(
+        {
+            k: v
+            for k, v in result.items()
+            if k not in ("success", "message", "changelog_snippet")
+        }
+    )
+    gate = _status_to_gate(task.status, task.steps)
+    next_actions = _compute_next_actions_for_task(plan_id, task, gate)
+    return TaskWorkflowResult(
+        success=result.get("success", False),
+        message=result.get("message", ""),
+        task=task,
+        plan_id=plan_id,
+        gate=gate,
+        action=ActionType.START_TASK,
+        next_actions=next_actions,
+        changelog_snippet=result.get("changelog_snippet"),
+    )
 
 
 def approve_pr(
@@ -771,69 +794,34 @@ def approve_pr(
             task_id=f"{resolved_story_id}:{local_task_id}",
             story_id=resolved_story_id,
         )
-        task = _create_task_out(
-            {
-                k: v
-                for k, v in result.items()
-                if k not in ("success", "message", "changelog_snippet")
-            }
-        )
-        gate = _status_to_gate(task.status, task.steps)
-        next_actions = _compute_next_actions_for_task(plan_id, task, gate)
-        return TaskWorkflowResult(
-            success=result.get("success", False),
-            message=result.get("message", ""),
-            task=task,
+    except (ValueError, KeyError, RuntimeError, OSError) as exc:
+        _raise_workflow_error(
             plan_id=plan_id,
-            gate=gate,
-            action=ActionType.APPROVE_PR,
-            next_actions=next_actions,
-            changelog_snippet=result.get("changelog_snippet"),
+            message=str(exc),
+            recovery=[
+                "Confirm task_id points to a PENDING_REVIEW task in the supplied plan_id.",
+                "Run submit_pr(plan_id, task_id, changes) before approving.",
+            ],
         )
-
-    except ValueError as e:
-        return TaskWorkflowResult(
-            success=False,
-            message=str(e),
-            plan_id=plan_id,
-            action=ActionType.APPROVE_PR,
-        )
-
-    except KeyError as e:
-        return TaskWorkflowResult(
-            success=False,
-            message=f"Error: Could not find the specified item. {e}",
-            plan_id=plan_id,
-            action=ActionType.APPROVE_PR,
-        )
-    except RuntimeError as e:
-        # Handle data inconsistencies or other specific errors
-        return TaskWorkflowResult(
-            success=False,
-            message=f"Error: {e}",
-            plan_id=plan_id,
-            action=ActionType.APPROVE_PR,
-        )
-
-    except OSError as e:
-        # Handle file system errors
-        logger.warning("Approval failed due to OS error: %s", e)
-        return TaskWorkflowResult(
-            success=False,
-            message=str(e),
-            plan_id=plan_id,
-            action=ActionType.APPROVE_PR,
-        )
-    except Exception as e:  # noqa: BLE001
-        # Intentional catch-all to prevent workflow tool from crashing
-        # Log unexpected errors for debugging
-        logger.exception(f"An unexpected error occurred during approval: {e}")
-        return TaskWorkflowResult(
-            success=False,
-            message="An unexpected error occurred during approval",
-            plan_id=plan_id,
-            action=ActionType.APPROVE_PR,
-        )
+    task = _create_task_out(
+        {
+            k: v
+            for k, v in result.items()
+            if k not in ("success", "message", "changelog_snippet")
+        }
+    )
+    gate = _status_to_gate(task.status, task.steps)
+    next_actions = _compute_next_actions_for_task(plan_id, task, gate)
+    return TaskWorkflowResult(
+        success=result.get("success", False),
+        message=result.get("message", ""),
+        task=task,
+        plan_id=plan_id,
+        gate=gate,
+        action=ActionType.APPROVE_PR,
+        next_actions=next_actions,
+        changelog_snippet=result.get("changelog_snippet"),
+    )
 
 
 def request_pr_changes(
@@ -861,48 +849,38 @@ def request_pr_changes(
             task_id=local_task_id,
             feedback=feedback,
         )
-        # Fetch the now-current task to include snapshot and next actions
-        cur_task_id = f"{s_id}:{local_task_id}"
-        task: Optional[TaskOut] = None
-        gate: Optional[WorkflowGate] = None
-        next_actions: list[NextAction] = []
-        if cur_task_id:
-            try:
-                data = svc_get_task(plan_id, s_id, cur_task_id)
-                task = _create_task_out(data)
-                gate = _status_to_gate(task.status, task.steps)
-                next_actions = _compute_next_actions_for_task(plan_id, task, gate)
-            except (ValueError, KeyError, OSError):
-                # Handle service call failures gracefully
-                pass
-        return TaskWorkflowResult(
-            success=result.get("success", False),
-            message=result.get("message", ""),
-            task=task,
+    except (ValueError, KeyError, OSError, RuntimeError) as exc:
+        logger.warning("Request changes failed due to business logic error: %s", exc)
+        _raise_workflow_error(
             plan_id=plan_id,
-            gate=gate,
-            action=ActionType.REQUEST_PR_CHANGES,
-            next_actions=next_actions,
+            message=str(exc),
+            recovery=[
+                "Provide non-empty review feedback in the feedback parameter.",
+                "Confirm task_id points to a PENDING_REVIEW task in the supplied plan_id.",
+            ],
         )
-    except (ValueError, KeyError, OSError, RuntimeError) as e:
-        # Handle expected business logic errors
-        logger.warning(f"Request changes failed due to business logic error: {e}")
-        return TaskWorkflowResult(
-            success=False,
-            message=str(e),
-            plan_id=plan_id,
-            action=ActionType.REQUEST_PR_CHANGES,
-        )
-    except Exception as e:  # noqa: BLE001
-        # Intentional catch-all to prevent workflow tool from crashing
-        # Log unexpected errors for debugging
-        logger.exception(f"An unexpected error occurred during request_changes: {e}")
-        return TaskWorkflowResult(
-            success=False,
-            message=f"An unexpected error occurred during request changes: {e}",
-            plan_id=plan_id,
-            action=ActionType.REQUEST_PR_CHANGES,
-        )
+    cur_task_id = f"{s_id}:{local_task_id}"
+    task: Optional[TaskOut] = None
+    gate: Optional[WorkflowGate] = None
+    next_actions: list[NextAction] = []
+    if cur_task_id:
+        try:
+            data = svc_get_task(plan_id, s_id, cur_task_id)
+            task = _create_task_out(data)
+            gate = _status_to_gate(task.status, task.steps)
+            next_actions = _compute_next_actions_for_task(plan_id, task, gate)
+        except (ValueError, KeyError, OSError):
+            # Preserve primary success result even if a follow-up read fails.
+            pass
+    return TaskWorkflowResult(
+        success=result.get("success", False),
+        message=result.get("message", ""),
+        task=task,
+        plan_id=plan_id,
+        gate=gate,
+        action=ActionType.REQUEST_PR_CHANGES,
+        next_actions=next_actions,
+    )
 
 
 def submit_pr(
@@ -922,15 +900,25 @@ def submit_pr(
     Returns:
         TaskWorkflowResult: Result containing the updated task and next actions for review
     """
-    resolved_story_id, local_task_id = resolve_task_id(
-        task_id, story_id=story_id, plan_id=plan_id
-    )
-    with timer("submit_for_review.duration_ms", task_id=local_task_id):
-        data = svc_submit_pr(
+    try:
+        resolved_story_id, local_task_id = resolve_task_id(
+            task_id, story_id=story_id, plan_id=plan_id
+        )
+        with timer("submit_for_review.duration_ms", task_id=local_task_id):
+            data = svc_submit_pr(
+                plan_id=plan_id,
+                story_id=resolved_story_id,
+                task_id=local_task_id,
+                changes=changes,
+            )
+    except (ValueError, KeyError, RuntimeError, OSError) as exc:
+        _raise_workflow_error(
             plan_id=plan_id,
-            story_id=resolved_story_id,
-            task_id=local_task_id,
-            changes=changes,
+            message=str(exc),
+            recovery=[
+                "Confirm task_id points to an IN_PROGRESS task in the supplied plan_id.",
+                "Provide a non-empty changes list describing the implemented work.",
+            ],
         )
     incr("submit_for_review.count")
     task = _create_task_out(data)
@@ -983,17 +971,28 @@ def merge_pr(
     Returns:
         TaskFinalizationOut: Contains approved task details, changelog entry, and commit message
     """
-    # 1. Approve task review (will fail if not in PENDING_REVIEW)
-    resolved_story_id, local_task_id = resolve_task_id(task_id, plan_id=plan_id)
-    svc_approve_pr(
-        plan_id=plan_id,
-        task_id=f"{resolved_story_id}:{local_task_id}",
-        story_id=resolved_story_id,
-    )
+    try:
+        # 1. Approve task review (will fail if not in PENDING_REVIEW)
+        resolved_story_id, local_task_id = resolve_task_id(task_id, plan_id=plan_id)
+        svc_approve_pr(
+            plan_id=plan_id,
+            task_id=f"{resolved_story_id}:{local_task_id}",
+            story_id=resolved_story_id,
+        )
 
-    # 2. Get the updated task
-    task_data = svc_get_task(plan_id, resolved_story_id, local_task_id)
-    task_out = _create_task_out(task_data)
+        # 2. Get the updated task
+        task_data = svc_get_task(plan_id, resolved_story_id, local_task_id)
+        task_out = _create_task_out(task_data)
+    except (ValueError, KeyError, RuntimeError, OSError) as exc:
+        _raise_workflow_error(
+            plan_id=plan_id,
+            message=str(exc),
+            recovery=[
+                "Call this tool only after user review approval at Gate 2.",
+                "Confirm task_id points to a PENDING_REVIEW task in the supplied plan_id.",
+                "Provide changelog_category and commit_type explicitly.",
+            ],
+        )
 
     # Convert TaskOut to Task for changelog generation
     from plan_manager.domain.models import Task as TaskModel
