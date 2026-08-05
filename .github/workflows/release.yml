@@ -37,18 +37,9 @@ jobs:
       - name: Install dependencies
         run: uv sync --all-extras --dev
 
-      - name: Run tests
-        run: |
-          uv run pytest \
-            --cov=src/plan_manager \
-            --cov-report=term-missing \
-            -v
-
-      - name: Build package
-        run: uv build
-
-      - name: Check distribution
-        run: uv run twine check dist/*
+      # Same gate as CI, including the build and twine check that produce dist/.
+      - name: Verify the released commit
+        run: ./scripts/verify.sh
 
       - name: Attach artifacts to the release
         env:

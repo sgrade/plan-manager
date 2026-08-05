@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+#
+# verify.sh — the canonical verification gate.
+#
+# One definition of every check, three callers:
+#
+#   .githooks/pre-push       ./scripts/verify.sh          (everything, ~5s)
+#   .github/workflows/*.yml  ./scripts/verify.sh <stage>  (one stage per job)
+#   you, any time            ./scripts/verify.sh
+#
+# Local hooks are a convenience and are bypassable (`git push --no-verify`);
+# CI is the enforceable gate. They run the same commands from this file so the
+# two can never disagree — a past incident had local mypy and CI mypy reaching
+# opposite conclusions about the same code.
+#
+# Stages exist so the CI jobs keep their own names (they are required status
+# checks on main) without CI restating the commands.
+
+set -euo pipefail
+
+cd "$(git rev-parse --show-toplevel)"
+
+lint() {
+    uv run ruff check src/ tests/
+    uv run ruff format --check src/ tests/
+}
+
+types() {
+    uv run mypy src/plan_manager --config-file=mypy.ini --no-error-summary
+}
+
+security() {
+    uv run bandit -c pyproject.toml -r src/plan_manager -q
+}
+
+tests() {
+    # Coverage reports are written unconditionally: xml feeds Codecov and html
+    # is uploaded as an artifact in CI, and both are gitignored locally.
+    uv run pytest \
+        --cov=src/plan_manager \
+        --cov-report=xml \
+        --cov-report=html \
+        --cov-report=term-missing \
+        --cov-fail-under=40
+}
+
+build() {
+    uv build
+    uv run twine check dist/*
+}
+
+case "${1:-all}" in
+    lint | types | security | tests | build) "$1" ;;
+    # Sequenced with `;`, never `&&`: bash suspends `set -e` inside a function
+    # that is part of an && list, so a failing first command in any stage would
+    # be masked by a passing last one.
+    all)
+        lint
+        types
+        security
+        tests
+        build
+        ;;
+    *)
+        echo "usage: ${0##*/} [lint|types|security|tests|build|all]" >&2
+        exit 2
+        ;;
+esac

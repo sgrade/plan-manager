@@ -127,7 +127,7 @@ def _begin_immediate_attempt(
         # Exponential backoff with bounded jitter keeps retries deterministic enough for tests.
         lower = 0.005 * (2 ** (attempt - 1))
         upper = 0.020 * (2 ** (attempt - 1))
-        time.sleep(random.uniform(lower, upper))  # nosec B311 - retry jitter
+        time.sleep(random.uniform(lower, upper))  # nosec B311  # Retry jitter
         _begin_immediate_attempt(conn, attempt=attempt + 1, attempts=attempts)
 
 

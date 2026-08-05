@@ -23,29 +23,8 @@ repos:
       # Run the formatter
       - id: ruff-format
 
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v2.3.0
-    hooks:
-      - id: mypy
-        additional_dependencies:
-          - types-PyYAML
-          - pydantic>=2.0
-        args: [--config-file=mypy.ini, --no-error-summary]
-        exclude: ^tests/
-
-  - repo: https://github.com/PyCQA/bandit
-    rev: 1.9.4
-    hooks:
-      - id: bandit
-        args: ["-c", "pyproject.toml"]
-        additional_dependencies: ["bandit[toml]"]
-
-  - repo: local
-    hooks:
-      - id: pytest-check
-        name: pytest-check
-        entry: uv run pytest
-        language: system
-        pass_filenames: false
-        always_run: true
-        stages: [pre-push]
+# mypy, bandit and pytest deliberately do NOT run here. This stage is for fast,
+# staged-file checks only; the semantic checks need the real project
+# environment and the whole tree, so `.githooks/pre-push` runs them via
+# scripts/verify.sh. A mypy hook in pre-commit's isolated venv cannot see the
+# project's dependencies and reaches different conclusions than CI does.

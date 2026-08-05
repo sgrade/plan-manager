@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+#
+# pre-push: run the canonical gate before anything leaves the machine.
+#
+# `pre-commit install --hook-type pre-push` is incompatible with
+# core.hooksPath, so the framework's pre-push stage never fires; this hook
+# calls the verifier directly instead. Bypass with `git push --no-verify`.
+#
+# Activation (one-time per clone):
+#   git config core.hooksPath .githooks
+
+set -euo pipefail
+
+exec "$(git rev-parse --show-toplevel)/scripts/verify.sh"

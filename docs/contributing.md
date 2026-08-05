@@ -20,19 +20,28 @@ This project follows a simplified Git Flow:
 
 ### Normal Development
 
+Granularity mirrors the plan vocabulary: **a task is a commit, a story is a
+push, an epic is a merge to `main`.** Commit small conventional commits and do
+not squash them before pushing — release-please builds the changelog from them.
+Individual commits need not be green (the gate runs at push time), so prefer
+`git bisect --first-parent` when hunting a regression.
+
 **Work on `develop` branch:**
 ```bash
 git checkout develop
 git commit -m "feat: add new feature"
 git commit -m "fix: resolve bug"
-git push origin develop
+git push origin develop   # pre-push runs the full gate
 ```
 
 **When ready to release:**
 ```bash
-# Merge develop to main
+# Merge develop to main. --ff-only is what makes main trustworthy: the commit
+# landing on main is the identical SHA CI already verified on develop, so it
+# arrives carrying green checks. A squash or merge commit would be a new,
+# never-verified SHA and would collapse the conventional commits.
 git checkout main
-git merge develop
+git merge --ff-only develop
 git push origin main
 
 # Release-please will automatically:
@@ -176,6 +185,25 @@ curl -sN \
 ```
 
 To test with MCP-Inspector, check [../dev/mcp-inspector/README.md](../dev/mcp-inspector/README.md)
+
+### Verification gates
+
+`scripts/verify.sh` is the single definition of every check. It runs in about
+seven seconds and is invoked from three places, so they cannot drift apart:
+
+```bash
+./scripts/verify.sh          # everything: lint, types, security, tests, build
+./scripts/verify.sh types    # one stage; CI jobs call it this way
+```
+
+- **Commit** (`.githooks/pre-commit`): signing identity, content hygiene, and
+  ruff on staged files only. Kept under a second so it is never bypassed.
+- **Push** (`.githooks/pre-push`): the full gate. This is the local control.
+- **CI**: the same gate on a clean checkout. Local hooks are bypassable with
+  `--no-verify`, so CI is the enforceable one, and on `develop` it is also the
+  real pre-merge gate — see the `--ff-only` note above.
+
+Both hooks need `git config core.hooksPath .githooks` once per clone.
 
 ### Running Tests
 
