@@ -8,7 +8,7 @@ import json
 import shutil
 import sqlite3
 import threading
-from contextlib import contextmanager
+from contextlib import closing, contextmanager
 from typing import TYPE_CHECKING
 
 import pytest
@@ -107,13 +107,13 @@ def _assert_trees_equal(left: Path, right: Path) -> None:
 
 
 def _read_event_seqs(db_path: Path) -> list[tuple[str, int]]:
-    with sqlite3.connect(db_path) as conn:
+    with closing(sqlite3.connect(db_path)) as conn:
         rows = conn.execute("SELECT plan_id, seq FROM events ORDER BY seq").fetchall()
     return [(str(row[0]), int(row[1])) for row in rows]
 
 
 def _story_title(db_path: Path, plan_id: str) -> str:
-    with sqlite3.connect(db_path) as conn:
+    with closing(sqlite3.connect(db_path)) as conn:
         row = conn.execute(
             "SELECT title FROM stories WHERE plan_id = ? AND id = 'story'",
             (plan_id,),
@@ -330,7 +330,7 @@ def test_replace_plan_identical_content_succeeds(tmp_path: Path) -> None:
         replace_plan_id="alpha",
     )
     assert report.ok
-    with sqlite3.connect(db_path) as conn:
+    with closing(sqlite3.connect(db_path)) as conn:
         row = conn.execute(
             "SELECT COUNT(*) FROM stories WHERE plan_id IN ('alpha', 'beta')"
         ).fetchone()
@@ -399,7 +399,7 @@ def test_export_snapshot_is_stable_across_concurrent_write(tmp_path: Path) -> No
     )
     plan_ids = [entry["id"] for entry in index_data["plans"]]
     assert plan_ids == ["alpha"]
-    with sqlite3.connect(db_path) as conn:
+    with closing(sqlite3.connect(db_path)) as conn:
         db_plan_ids = [
             str(row[0])
             for row in conn.execute("SELECT id FROM plans ORDER BY ord, id").fetchall()

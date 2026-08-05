@@ -75,6 +75,18 @@ markers = [
     "integration: integration tests (may touch filesystem or run end-to-end)",
     "soak: long-running concurrency soak harness (excluded from default run; use `-m soak`)",
 ]
+# A leaked sqlite3 connection holds the database file and can hold locks, which
+# is this project's main source of nondeterminism. Fail on it rather than let it
+# scroll past: `with sqlite3.connect(...)` commits but does NOT close, so use
+# `with closing(sqlite3.connect(...))`.
+# The second entry is load-bearing: a ResourceWarning is raised from the garbage
+# collector, so pytest re-wraps it and `error::ResourceWarning` alone never sees it.
+# Detection happens at GC time, so the failure may not name the guilty test; run
+# `uv run python -X tracemalloc=25 -m pytest ...` to get the allocation traceback.
+filterwarnings = [
+    "error::ResourceWarning",
+    "error::pytest.PytestUnraisableExceptionWarning",
+]
 
 # Coverage configuration
 [tool.coverage.run]

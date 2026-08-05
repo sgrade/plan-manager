@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import sqlite3
 import threading
+from contextlib import closing
 from pathlib import Path
 
 import pytest
@@ -129,7 +130,7 @@ def test_same_plan_concurrent_create_story_allocates_distinct_ids(
 
     assert not errors
     assert sorted(created_ids) == ["same", "same-2"]
-    with sqlite3.connect(db_path) as conn:
+    with closing(sqlite3.connect(db_path)) as conn:
         count = conn.execute(
             "SELECT COUNT(*) FROM stories WHERE plan_id = ?",
             ("race-plan",),
@@ -181,7 +182,7 @@ def test_guarded_task_transition_race_allows_exactly_one_winner(tmp_path: Path) 
     assert not errors
     assert wins == 1
     assert conflicts == 1
-    with sqlite3.connect(db_path) as conn:
+    with closing(sqlite3.connect(db_path)) as conn:
         row = conn.execute(
             "SELECT status FROM tasks WHERE plan_id = ? AND story_id = ? AND local_id = ?",
             ("plan-a", "story-a", "task-a"),
@@ -267,7 +268,7 @@ def test_story_and_plan_guarded_transition_sets_and_clears_completion_time(
             next_status=Status.DONE,
             completion_time="2026-08-05T06:00:01.000Z",
         )
-    with sqlite3.connect(db_path) as conn:
+    with closing(sqlite3.connect(db_path)) as conn:
         row = conn.execute(
             "SELECT (SELECT completion_time FROM stories WHERE plan_id = ? AND id = ?), "
             "(SELECT completion_time FROM plans WHERE id = ?)",
@@ -291,7 +292,7 @@ def test_story_and_plan_guarded_transition_sets_and_clears_completion_time(
             next_status=Status.IN_PROGRESS,
             completion_time=None,
         )
-    with sqlite3.connect(db_path) as conn:
+    with closing(sqlite3.connect(db_path)) as conn:
         row = conn.execute(
             "SELECT (SELECT completion_time FROM stories WHERE plan_id = ? AND id = ?), "
             "(SELECT completion_time FROM plans WHERE id = ?)",
@@ -355,7 +356,7 @@ def test_update_task_is_per_item_write(tmp_path: Path) -> None:
             ord_value=1,
         )
 
-    with sqlite3.connect(db_path) as conn:
+    with closing(sqlite3.connect(db_path)) as conn:
         before = conn.execute(
             "SELECT title, description, status, priority, depends_on, steps, changes, review_feedback, rework_count, body, creation_time, completion_time, ord, extra "
             "FROM tasks WHERE plan_id = ? AND story_id = ? AND local_id = ?",
@@ -375,7 +376,7 @@ def test_update_task_is_per_item_write(tmp_path: Path) -> None:
         )
     assert updated
 
-    with sqlite3.connect(db_path) as conn:
+    with closing(sqlite3.connect(db_path)) as conn:
         after = conn.execute(
             "SELECT title, description, status, priority, depends_on, steps, changes, review_feedback, rework_count, body, creation_time, completion_time, ord, extra "
             "FROM tasks WHERE plan_id = ? AND story_id = ? AND local_id = ?",
@@ -406,7 +407,7 @@ def test_fk_state_pointers_and_cascades(tmp_path: Path) -> None:
     with unit_of_work(db_path, write=True) as conn:
         deleted = delete_task(conn, "plan-a", "story-a", "task-a")
     assert deleted
-    with sqlite3.connect(db_path) as conn:
+    with closing(sqlite3.connect(db_path)) as conn:
         row = conn.execute(
             "SELECT current_story_id, current_task_story_id, current_task_local_id "
             "FROM plan_state WHERE plan_id = ?",
@@ -424,7 +425,7 @@ def test_fk_state_pointers_and_cascades(tmp_path: Path) -> None:
 
     with unit_of_work(db_path, write=True) as conn:
         delete_plan(conn, "plan-a")
-    with sqlite3.connect(db_path) as conn:
+    with closing(sqlite3.connect(db_path)) as conn:
         counts = conn.execute(
             "SELECT "
             "(SELECT COUNT(*) FROM plans), "

@@ -6,6 +6,7 @@ from __future__ import annotations
 import json
 import pathlib
 import sqlite3
+from contextlib import closing
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -221,7 +222,7 @@ def test_f3_both_present_does_not_reimport(tmp_path: Path) -> None:
     action = startup_storage(todo_dir=empty_todo, db_dir=db_dir)
     assert action.action == StartupAction.INITIALIZE_EMPTY
 
-    with sqlite3.connect(db_dir / DB_FILENAME) as conn:
+    with closing(sqlite3.connect(db_dir / DB_FILENAME)) as conn:
         conn.execute(
             "INSERT INTO plans(id, title, status, creation_time, ord) VALUES (?, ?, ?, ?, ?)",
             ("existing", "Existing", "TODO", canonical_utc_timestamp(), 0),
@@ -231,7 +232,7 @@ def test_f3_both_present_does_not_reimport(tmp_path: Path) -> None:
     second = startup_storage(todo_dir=todo_dir, db_dir=db_dir)
     assert second.action == StartupAction.SERVE_DB
 
-    with sqlite3.connect(db_dir / DB_FILENAME) as conn:
+    with closing(sqlite3.connect(db_dir / DB_FILENAME)) as conn:
         plans = conn.execute("SELECT id FROM plans ORDER BY id").fetchall()
     assert [row[0] for row in plans] == ["existing"]
 
@@ -339,7 +340,7 @@ def test_f15_mixed_timestamp_formats_normalized_and_ordering_restored(
     report = import_legacy_tree(todo_dir=todo_dir, db_dir=db_dir)
     assert report.ok
 
-    with sqlite3.connect(db_dir / DB_FILENAME) as conn:
+    with closing(sqlite3.connect(db_dir / DB_FILENAME)) as conn:
         rows = conn.execute(
             "SELECT legacy_id, ts FROM events WHERE plan_id = ? ORDER BY ts",
             ("default",),
@@ -450,7 +451,7 @@ def test_duplicate_story_ids_across_plans_import_with_composite_keys(
     assert report.stories == 2
     assert report.tasks == 2
 
-    with sqlite3.connect(db_dir / DB_FILENAME) as conn:
+    with closing(sqlite3.connect(db_dir / DB_FILENAME)) as conn:
         rows = conn.execute(
             "SELECT plan_id, id FROM stories WHERE id = 's' ORDER BY plan_id"
         ).fetchall()
@@ -465,7 +466,7 @@ def test_bodies_and_extra_keys_round_trip(tmp_path: Path) -> None:
     report = import_legacy_tree(todo_dir=todo_dir, db_dir=db_dir)
     assert report.ok
 
-    with sqlite3.connect(db_dir / DB_FILENAME) as conn:
+    with closing(sqlite3.connect(db_dir / DB_FILENAME)) as conn:
         row = conn.execute(
             "SELECT body, extra FROM stories WHERE plan_id = ? AND id = ?",
             ("default", "s"),
@@ -524,7 +525,7 @@ def test_startup_reimports_when_db_marker_pending(tmp_path: Path) -> None:
     _create_valid_tree(todo_dir)
     startup_storage(todo_dir=tmp_path / "empty", db_dir=db_dir)
 
-    with sqlite3.connect(db_dir / DB_FILENAME) as conn:
+    with closing(sqlite3.connect(db_dir / DB_FILENAME)) as conn:
         conn.execute(
             "UPDATE meta SET value = ? WHERE key = ?",
             ("pending", "import_state"),
@@ -534,7 +535,7 @@ def test_startup_reimports_when_db_marker_pending(tmp_path: Path) -> None:
 
     decision = startup_storage(todo_dir=todo_dir, db_dir=db_dir)
     assert decision.action == StartupAction.IMPORT_LEGACY
-    with sqlite3.connect(db_dir / DB_FILENAME) as conn:
+    with closing(sqlite3.connect(db_dir / DB_FILENAME)) as conn:
         marker = conn.execute(
             "SELECT value FROM meta WHERE key = ?",
             ("import_state",),
@@ -559,7 +560,7 @@ def test_startup_imports_empty_plans_index(tmp_path: Path) -> None:
 
     decision = startup_storage(todo_dir=todo_dir, db_dir=db_dir)
     assert decision.action == StartupAction.IMPORT_LEGACY
-    with sqlite3.connect(db_dir / DB_FILENAME) as conn:
+    with closing(sqlite3.connect(db_dir / DB_FILENAME)) as conn:
         marker = conn.execute(
             "SELECT value FROM meta WHERE key = ?",
             ("import_state",),

@@ -6,6 +6,7 @@ from __future__ import annotations
 import json
 import sqlite3
 import threading
+from contextlib import closing
 from datetime import UTC, datetime
 
 import pytest
@@ -69,7 +70,7 @@ def test_uow_rolls_back_on_exception_and_releases_write_lock(tmp_path):
     finally:
         second_conn.close()
 
-    with sqlite3.connect(db_path) as conn:
+    with closing(sqlite3.connect(db_path)) as conn:
         rows = conn.execute(
             "SELECT id FROM plans WHERE id IN (?, ?) ORDER BY id",
             ("committed", "rolled-back"),
@@ -135,7 +136,7 @@ def test_uow_read_mode_rejects_write_statements(tmp_path):
         with unit_of_work(db_path) as conn:
             _insert_plan_row(conn, "swallowed-write")
 
-    with sqlite3.connect(db_path) as conn:
+    with closing(sqlite3.connect(db_path)) as conn:
         rows = conn.execute(
             "SELECT id FROM plans WHERE id = ?", ("swallowed-write",)
         ).fetchall()
@@ -203,7 +204,7 @@ def test_uow_contention_retries_begin_immediate(tmp_path, monkeypatch):
 
     assert not contender_error
     assert retry_sleep_calls, "Expected at least one busy retry sleep."
-    with sqlite3.connect(db_path) as conn:
+    with closing(sqlite3.connect(db_path)) as conn:
         count = conn.execute(
             "SELECT COUNT(*) FROM plans WHERE id IN ('holder', 'contender')"
         ).fetchone()
@@ -480,7 +481,7 @@ def test_schema_round_trip_full_plan_story_task_payload(tmp_path):
     assert loaded_main_task.review_feedback[0].by == "reviewer-1"
     assert loaded_main_task.rework_count == main_task.rework_count
 
-    with sqlite3.connect(db_path) as conn:
+    with closing(sqlite3.connect(db_path)) as conn:
         extra_values = conn.execute(
             "SELECT extra FROM tasks WHERE plan_id = ? AND story_id = ? AND local_id = ?",
             (plan.id, main_story.id, main_task.local_id),
