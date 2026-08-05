@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Roman Klyuev
 
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from plan_manager.domain.models import Status
 from plan_manager.schemas.outputs import OperationResult, PlanListItem, PlanOut
@@ -36,7 +36,7 @@ def register_plan_tools(mcp_instance: "FastMCP") -> None:
 
 
 def create_plan(
-    title: str, description: Optional[str] = None, priority: Optional[float] = None
+    title: str, description: str | None = None, priority: float | None = None
 ) -> PlanOut:
     """Create a new plan with the specified details.
 
@@ -66,10 +66,10 @@ def get_plan(plan_id: str) -> PlanOut:
 
 def update_plan(
     plan_id: str,
-    title: Optional[str] = None,
-    description: Optional[str] = None,
-    priority: Optional[float] = None,
-    status: Optional[Status] = None,
+    title: str | None = None,
+    description: str | None = None,
+    priority: float | None = None,
+    status: Status | None = None,
 ) -> PlanOut:
     """Update a plan.
 
@@ -96,9 +96,9 @@ def delete_plan(plan_id: str) -> OperationResult:
 
 
 def list_plans(
-    statuses: Optional[list[Status]] = None,
-    offset: Optional[int] = 0,
-    limit: Optional[int] = None,
+    statuses: list[Status] | None = None,
+    offset: int | None = 0,
+    limit: int | None = None,
 ) -> list[PlanListItem]:
     """List plans with optional status filter and pagination."""
     if statuses is None:

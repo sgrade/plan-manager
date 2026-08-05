@@ -6,6 +6,7 @@ import threading
 
 import pytest
 
+from plan_manager.domain.models import Status
 from plan_manager.services.shared import service_uow
 from plan_manager.storage import repositories
 from plan_manager.tools import (
@@ -141,8 +142,8 @@ def test_concurrent_agents_on_different_plans_do_not_interfere():
     assert not errors
     status_a = task_tools.get_task(plan_a.id, task_a.id).status
     status_b = task_tools.get_task(plan_b.id, task_b.id).status
-    assert str(status_a) == "Status.PENDING_REVIEW"
-    assert str(status_b) == "Status.PENDING_REVIEW"
+    assert status_a is Status.PENDING_REVIEW
+    assert status_b is Status.PENDING_REVIEW
 
 
 @pytest.mark.integration
@@ -170,4 +171,4 @@ def test_workflow_happy_path_with_explicit_task_id():
 
     approved = task_tools.approve_pr(plan_id=plan.id, task_id=task.id)
     assert approved.success is True
-    assert str(approved.task.status) == "Status.DONE"
+    assert approved.task.status is Status.DONE

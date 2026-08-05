@@ -2,12 +2,11 @@
 # Copyright (c) 2026 Roman Klyuev
 
 from contextvars import ContextVar
-from typing import Optional
 
-_correlation_id: ContextVar[Optional[str]] = ContextVar("correlation_id", default=None)
+_correlation_id: ContextVar[str | None] = ContextVar("correlation_id", default=None)
 
 
-def set_correlation_id(value: Optional[str]) -> None:
+def set_correlation_id(value: str | None) -> None:
     """Set the correlation ID for the current request context.
 
     Args:
@@ -16,7 +15,7 @@ def set_correlation_id(value: Optional[str]) -> None:
     _correlation_id.set(value)
 
 
-def get_correlation_id() -> Optional[str]:
+def get_correlation_id() -> str | None:
     """Get the correlation ID from the current request context.
 
     Returns:

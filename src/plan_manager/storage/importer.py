@@ -9,7 +9,7 @@ import json
 import sqlite3
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -1758,14 +1758,14 @@ def _parse_and_normalize_timestamp(
         )
         return None
     if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
-    return canonical_utc_timestamp(parsed.astimezone(timezone.utc))
+        parsed = parsed.replace(tzinfo=UTC)
+    return canonical_utc_timestamp(parsed.astimezone(UTC))
 
 
 def _normalize_datetime(value: datetime) -> datetime:
     if value.tzinfo is None:
-        return value.replace(tzinfo=timezone.utc)
-    return value.astimezone(timezone.utc)
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
 
 
 def _extract_extra_fields(

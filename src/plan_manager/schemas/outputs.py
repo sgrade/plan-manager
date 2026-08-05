@@ -9,8 +9,8 @@ transport concerns (serialization, stability of output contracts) separate
 from core domain entities and rules.
 """
 
-from enum import Enum
-from typing import Any, Optional
+from enum import StrEnum
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -31,8 +31,8 @@ class CurrentContextOut(BaseModel):
     """Current context output returned by MCP tools."""
 
     plan_id: str
-    current_story_id: Optional[str] = None
-    current_task_id: Optional[str] = None
+    current_story_id: str | None = None
+    current_task_id: str | None = None
 
 
 # --- Report Schemas ---
@@ -54,10 +54,10 @@ class PlanOut(BaseModel):
     id: str
     title: str
     status: Status
-    priority: Optional[int] = None
-    creation_time: Optional[str] = None
-    completion_time: Optional[str] = None
-    description: Optional[str] = None
+    priority: int | None = None
+    creation_time: str | None = None
+    completion_time: str | None = None
+    description: str | None = None
 
 
 class PlanListItem(BaseModel):
@@ -66,18 +66,18 @@ class PlanListItem(BaseModel):
     id: str
     title: str
     status: Status
-    priority: Optional[int] = None
-    creation_time: Optional[str] = None
+    priority: int | None = None
+    creation_time: str | None = None
 
 
 class WorkflowStatusOut(BaseModel):
     """Workflow status output showing current state and next actions."""
 
-    current_task: Optional[dict[str, Any]] = None
+    current_task: dict[str, Any] | None = None
     workflow_state: dict[str, Any]
     compliance: dict[str, Any]
     next_actions: list[str]
-    actions: Optional[list[dict[str, Any]]] = None
+    actions: list[dict[str, Any]] | None = None
 
 
 class ChangelogPreviewOut(BaseModel):
@@ -100,10 +100,10 @@ class StoryOut(BaseModel):
     id: str
     title: str
     status: Status
-    priority: Optional[int] = None
-    creation_time: Optional[str] = None
-    description: Optional[str] = None
-    acceptance_criteria: Optional[list[str]] = None
+    priority: int | None = None
+    creation_time: str | None = None
+    description: str | None = None
+    acceptance_criteria: list[str] | None = None
     depends_on: list[str] = []
 
 
@@ -117,9 +117,9 @@ class StoryListItem(BaseModel):
     id: str
     title: str
     status: Status
-    priority: Optional[int] = None
-    creation_time: Optional[str] = None
-    completion_time: Optional[str] = None
+    priority: int | None = None
+    creation_time: str | None = None
+    completion_time: str | None = None
 
 
 # --- Task Schemas ---
@@ -134,18 +134,18 @@ class TaskOut(BaseModel):
 
     plan_id: str
     id: str
-    local_id: Optional[str] = None
+    local_id: str | None = None
     title: str
-    description: Optional[str] = None
+    description: str | None = None
     status: Status
-    priority: Optional[int] = None
-    creation_time: Optional[str] = None
-    completion_time: Optional[str] = None
+    priority: int | None = None
+    creation_time: str | None = None
+    completion_time: str | None = None
     depends_on: list[str] = []
-    steps: Optional[list[dict[str, Any]]] = None
+    steps: list[dict[str, Any]] | None = None
     changes: list[str] = []
-    review_feedback: Optional[list[dict[str, Any]]] = None
-    rework_count: Optional[int] = None
+    review_feedback: list[dict[str, Any]] | None = None
+    rework_count: int | None = None
 
 
 class TaskListItem(BaseModel):
@@ -156,17 +156,17 @@ class TaskListItem(BaseModel):
 
     plan_id: str
     id: str
-    local_id: Optional[str] = None
+    local_id: str | None = None
     title: str
     status: Status
-    priority: Optional[int] = None
-    creation_time: Optional[str] = None
+    priority: int | None = None
+    creation_time: str | None = None
 
 
 # --- Unified Task Workflow Schemas ---
 
 
-class WorkflowGate(str, Enum):
+class WorkflowGate(StrEnum):
     """High-level gate aligned to the Task Execution workflow diagram."""
 
     READY_TO_START = "READY_TO_START"  # Task in TODO
@@ -176,7 +176,7 @@ class WorkflowGate(str, Enum):
     BLOCKED = "BLOCKED"  # Task BLOCKED
 
 
-class ActionType(str, Enum):
+class ActionType(StrEnum):
     """Categorical description of what action this tool performed."""
 
     NONE = "NONE"
@@ -189,7 +189,7 @@ class ActionType(str, Enum):
     REQUEST_PR_CHANGES = "REQUEST_PR_CHANGES"
 
 
-class WhoRuns(str, Enum):
+class WhoRuns(StrEnum):
     """Who is expected to perform the next action."""
 
     USER = "USER"
@@ -208,9 +208,9 @@ class NextAction(BaseModel):
     label: str = Field(description="Human-readable label for UI")
     who: WhoRuns
     recommended: bool = False
-    blocked_reason: Optional[str] = None
-    arguments: Optional[dict[str, Any]] = None
-    pending_arguments: Optional[list[str]] = None
+    blocked_reason: str | None = None
+    arguments: dict[str, Any] | None = None
+    pending_arguments: list[str] | None = None
 
 
 # Intentionally no separate agent policy type: agents derive behavior from
@@ -226,12 +226,12 @@ class TaskWorkflowResult(BaseModel):
 
     success: bool
     message: str
-    plan_id: Optional[str] = None
-    task: Optional[TaskOut] = None
-    gate: Optional[WorkflowGate] = None
+    plan_id: str | None = None
+    task: TaskOut | None = None
+    gate: WorkflowGate | None = None
     action: ActionType = ActionType.NONE
     next_actions: list[NextAction] = Field(default_factory=list)
-    changelog_snippet: Optional[str] = None
+    changelog_snippet: str | None = None
     # Keep output minimal; agents infer behavior from next_actions.who
 
 

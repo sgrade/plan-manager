@@ -4,7 +4,7 @@
 """Input validation utilities for Plan Manager."""
 
 import re
-from typing import Any, Optional
+from typing import Any
 
 # Input length limits
 MAX_TITLE_LENGTH = 200
@@ -62,7 +62,7 @@ def validate_title(title: str) -> str:
     return title.strip()
 
 
-def validate_description(description: Optional[str]) -> Optional[str]:
+def validate_description(description: str | None) -> str | None:
     """Validate and sanitize a description.
 
     Args:
@@ -88,7 +88,7 @@ def validate_description(description: Optional[str]) -> Optional[str]:
     return description.strip()
 
 
-def validate_acceptance_criteria(criteria: Optional[list[str]]) -> Optional[list[str]]:
+def validate_acceptance_criteria(criteria: list[str] | None) -> list[str] | None:
     """Validate acceptance criteria.
 
     Args:

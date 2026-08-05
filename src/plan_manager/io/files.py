@@ -2,12 +2,11 @@
 # Copyright (c) 2026 Roman Klyuev
 
 from pathlib import Path
-from typing import Optional
 
 from plan_manager.config import WORKSPACE_ROOT
 
 
-def resolve_workspace_path(relative_path: str, base: Optional[str] = None) -> str:
+def resolve_workspace_path(relative_path: str, base: str | None = None) -> str:
     """Resolve a workspace-relative path to an absolute path.
 
     Args:

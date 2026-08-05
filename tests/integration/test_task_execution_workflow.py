@@ -5,6 +5,8 @@ import uuid
 
 import pytest
 
+from plan_manager.domain.models import Status
+
 
 @pytest.mark.integration
 def test_task_execution_gate1_paths():
@@ -85,7 +87,7 @@ def test_task_execution_gate1_paths():
     res1 = task_service.start_task(plan_id=plan_id, task_id=T1_id, story_id=story_id)
     assert res1["success"] is True
     cur_T1 = task_service.get_task(plan_id, story_id, T1_local)
-    assert str(cur_T1["status"]) == "Status.IN_PROGRESS"
+    assert cur_T1["status"] is Status.IN_PROGRESS
 
     # Path 2: Fast-track (no proposal UI): create steps then approve -> IN_PROGRESS
     set_current_task_id(T3_id, plan_id)
@@ -98,7 +100,7 @@ def test_task_execution_gate1_paths():
     res2 = task_service.start_task(plan_id=plan_id, task_id=T3_id, story_id=story_id)
     assert res2["success"] is True
     cur_T3 = task_service.get_task(plan_id, story_id, T3_local)
-    assert str(cur_T3["status"]) == "Status.IN_PROGRESS"
+    assert cur_T3["status"] is Status.IN_PROGRESS
 
     # Path 3: Blocked with steps (T2 depends on T1 not DONE) -> approval fails
     _ = task_service.create_steps(

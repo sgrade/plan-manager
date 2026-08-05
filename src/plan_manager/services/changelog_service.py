@@ -1,21 +1,20 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Roman Klyuev
 
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 from plan_manager.domain.models import Task
 
 
 def _today_str() -> str:
-    return datetime.now(timezone.utc).date().isoformat()
+    return datetime.now(UTC).date().isoformat()
 
 
 def generate_changelog_for_task(
     task: Task,
     category: str,
-    version: Optional[str] = None,
-    date: Optional[str] = None,
+    version: str | None = None,
+    date: str | None = None,
 ) -> str:
     """Generate a changelog entry for a completed task in keepachangelog.com format.
 

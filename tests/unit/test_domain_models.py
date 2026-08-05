@@ -153,8 +153,8 @@ class TestStatusEnum:
         assert Status.DEFERRED == "DEFERRED"
 
     def test_status_string_conversion(self):
-        """Test string conversion of status enum."""
-        assert str(Status.TODO) == "Status.TODO"
+        """Status renders as its bare value (StrEnum, not a str+Enum mixin)."""
+        assert str(Status.TODO) == "TODO"
         assert Status.TODO.value == "TODO"
 
 

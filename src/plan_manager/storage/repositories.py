@@ -170,12 +170,12 @@ def update_plan(
     *,
     plan_id: str,
     title: str | object = UNSET,
-    description: str | None | object = UNSET,
+    description: str | object | None = UNSET,
     status: Status | object = UNSET,
-    priority: int | None | object = UNSET,
-    completion_time: datetime | str | None | object = UNSET,
+    priority: int | object | None = UNSET,
+    completion_time: datetime | str | object | None = UNSET,
     ord_value: int | object = UNSET,
-    extra: dict[str, Any] | None | object = UNSET,
+    extra: dict[str, Any] | object | None = UNSET,
 ) -> bool:
     assignments: list[str] = []
     values: list[Any] = []
@@ -207,7 +207,7 @@ def update_plan(
         return False
     values.append(plan_id)
     result = conn.execute(
-        f"UPDATE plans SET {', '.join(assignments)} WHERE id = ?",  # noqa: S608
+        f"UPDATE plans SET {', '.join(assignments)} WHERE id = ?",  # noqa: S608  # nosec B608
         tuple(values),
     )
     return result.rowcount > 0
@@ -321,14 +321,14 @@ def update_story(
     plan_id: str,
     story_id: str,
     title: str | object = UNSET,
-    description: str | None | object = UNSET,
+    description: str | object | None = UNSET,
     status: Status | object = UNSET,
-    priority: int | None | object = UNSET,
-    acceptance_criteria: list[str] | None | object = UNSET,
-    depends_on: list[str] | None | object = UNSET,
-    completion_time: datetime | str | None | object = UNSET,
+    priority: int | object | None = UNSET,
+    acceptance_criteria: list[str] | object | None = UNSET,
+    depends_on: list[str] | object | None = UNSET,
+    completion_time: datetime | str | object | None = UNSET,
     body: str | object = UNSET,
-    extra: dict[str, Any] | None | object = UNSET,
+    extra: dict[str, Any] | object | None = UNSET,
 ) -> bool:
     if depends_on is not UNSET:
         depends_on_list = cast("list[str] | None", depends_on)
@@ -374,7 +374,7 @@ def update_story(
         return False
     values.extend([plan_id, story_id])
     result = conn.execute(
-        f"UPDATE stories SET {', '.join(assignments)} WHERE plan_id = ? AND id = ?",  # noqa: S608
+        f"UPDATE stories SET {', '.join(assignments)} WHERE plan_id = ? AND id = ?",  # noqa: S608  # nosec B608
         tuple(values),
     )
     return result.rowcount > 0
@@ -506,17 +506,17 @@ def update_task(
     story_id: str,
     local_id: str,
     title: str | object = UNSET,
-    description: str | None | object = UNSET,
+    description: str | object | None = UNSET,
     status: Status | object = UNSET,
-    priority: int | None | object = UNSET,
-    depends_on: list[str] | None | object = UNSET,
-    steps: list[Task.Step] | None | object = UNSET,
-    changes: list[str] | None | object = UNSET,
-    review_feedback: list[Task.ReviewFeedback] | None | object = UNSET,
+    priority: int | object | None = UNSET,
+    depends_on: list[str] | object | None = UNSET,
+    steps: list[Task.Step] | object | None = UNSET,
+    changes: list[str] | object | None = UNSET,
+    review_feedback: list[Task.ReviewFeedback] | object | None = UNSET,
     rework_count: int | object = UNSET,
-    completion_time: datetime | str | None | object = UNSET,
+    completion_time: datetime | str | object | None = UNSET,
     body: str | object = UNSET,
-    extra: dict[str, Any] | None | object = UNSET,
+    extra: dict[str, Any] | object | None = UNSET,
     rollup_story_status: Status | object = UNSET,
     rollup_plan_status: Status | object = UNSET,
 ) -> bool:
@@ -584,7 +584,7 @@ def update_task(
         updated = (
             conn.execute(
                 (
-                    f"UPDATE tasks SET {', '.join(assignments)} "  # noqa: S608
+                    f"UPDATE tasks SET {', '.join(assignments)} "  # noqa: S608  # nosec B608
                     "WHERE plan_id = ? AND story_id = ? AND local_id = ?"
                 ),
                 tuple(values),
@@ -635,7 +635,7 @@ def transition_task_status_guarded(
     local_id: str,
     expected_status: Status,
     next_status: Status,
-    completion_time: datetime | str | None | object = UNSET,
+    completion_time: datetime | str | object | None = UNSET,
     raise_on_conflict: bool = True,
 ) -> bool:
     fields = ["status = ?"]
@@ -646,7 +646,7 @@ def transition_task_status_guarded(
     values.extend([plan_id, story_id, local_id, expected_status.value])
     result = conn.execute(
         (
-            f"UPDATE tasks SET {', '.join(fields)} "  # noqa: S608
+            f"UPDATE tasks SET {', '.join(fields)} "  # noqa: S608  # nosec B608
             "WHERE plan_id = ? AND story_id = ? AND local_id = ? AND status = ?"
         ),
         tuple(values),
@@ -671,7 +671,7 @@ def transition_story_status_guarded(
     story_id: str,
     expected_status: Status,
     next_status: Status,
-    completion_time: datetime | str | None | object = UNSET,
+    completion_time: datetime | str | object | None = UNSET,
     raise_on_conflict: bool = True,
 ) -> bool:
     fields = ["status = ?"]
@@ -682,7 +682,7 @@ def transition_story_status_guarded(
     values.extend([plan_id, story_id, expected_status.value])
     result = conn.execute(
         (
-            f"UPDATE stories SET {', '.join(fields)} "  # noqa: S608
+            f"UPDATE stories SET {', '.join(fields)} "  # noqa: S608  # nosec B608
             "WHERE plan_id = ? AND id = ? AND status = ?"
         ),
         tuple(values),
@@ -704,7 +704,7 @@ def transition_plan_status_guarded(
     plan_id: str,
     expected_status: Status,
     next_status: Status,
-    completion_time: datetime | str | None | object = UNSET,
+    completion_time: datetime | str | object | None = UNSET,
     raise_on_conflict: bool = True,
 ) -> bool:
     fields = ["status = ?"]
@@ -715,7 +715,7 @@ def transition_plan_status_guarded(
     values.extend([plan_id, expected_status.value])
     result = conn.execute(
         (
-            f"UPDATE plans SET {', '.join(fields)} "  # noqa: S608
+            f"UPDATE plans SET {', '.join(fields)} "  # noqa: S608  # nosec B608
             "WHERE id = ? AND status = ?"
         ),
         tuple(values),
@@ -870,7 +870,7 @@ def _insert_with_unique_suffix(
         try:
             inserter(candidate)
             return candidate
-        except sqlite3.IntegrityError as exc:  # noqa: PERF203
+        except sqlite3.IntegrityError as exc:
             if not _is_retryable_id_conflict(exc, id_constraint_tokens):
                 raise
             if attempt == max_attempts:
@@ -893,7 +893,7 @@ def _is_retryable_id_conflict(
     )
 
 
-def _to_timestamp(value: datetime | str | None | object) -> str | None:
+def _to_timestamp(value: datetime | str | object | None) -> str | None:
     if value is UNSET:
         return None
     if value is None:

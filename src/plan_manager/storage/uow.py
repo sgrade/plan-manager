@@ -8,7 +8,7 @@ import sqlite3
 import time
 from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 DEFAULT_BUSY_TIMEOUT_MS = 5000
@@ -89,11 +89,11 @@ def canonical_utc_timestamp(value: datetime | None = None) -> str:
     """Return canonical RFC3339 UTC timestamp with millisecond precision."""
     if value is not None and not isinstance(value, datetime):
         raise TypeError(f"expected datetime, got {type(value).__name__}")
-    moment = value or datetime.now(timezone.utc)
+    moment = value or datetime.now(UTC)
     if moment.tzinfo is None:
-        moment = moment.replace(tzinfo=timezone.utc)
+        moment = moment.replace(tzinfo=UTC)
     else:
-        moment = moment.astimezone(timezone.utc)
+        moment = moment.astimezone(UTC)
     return moment.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
 
 
@@ -127,7 +127,7 @@ def _begin_immediate_attempt(
         # Exponential backoff with bounded jitter keeps retries deterministic enough for tests.
         lower = 0.005 * (2 ** (attempt - 1))
         upper = 0.020 * (2 ** (attempt - 1))
-        time.sleep(random.uniform(lower, upper))
+        time.sleep(random.uniform(lower, upper))  # nosec B311 - retry jitter
         _begin_immediate_attempt(conn, attempt=attempt + 1, attempts=attempts)
 
 

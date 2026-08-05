@@ -2,7 +2,7 @@
 # Copyright (c) 2026 Roman Klyuev
 
 import logging
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from pydantic import ValidationError
 
@@ -48,10 +48,10 @@ def register_story_tools(mcp_instance: "FastMCP") -> None:
 def create_story(
     plan_id: str,
     title: str,
-    description: Optional[str] = None,
-    acceptance_criteria: Optional[list[str]] = None,
-    priority: Optional[float] = None,
-    depends_on: Optional[list[str]] = None,
+    description: str | None = None,
+    acceptance_criteria: list[str] | None = None,
+    priority: float | None = None,
+    depends_on: list[str] | None = None,
 ) -> StoryOut:
     """Create a new story with the specified details.
 
@@ -78,7 +78,7 @@ def create_story(
     return StoryOut(**data)
 
 
-def get_story(plan_id: str, story_id: Optional[str] = None) -> StoryOut:
+def get_story(plan_id: str, story_id: str | None = None) -> StoryOut:
     """Fetch a story by ID or the current story for a plan.
 
     Args:
@@ -97,11 +97,11 @@ def get_story(plan_id: str, story_id: Optional[str] = None) -> StoryOut:
 def update_story(
     plan_id: str,
     story_id: str,
-    title: Optional[str] = None,
-    description: Optional[str] = None,
-    acceptance_criteria: Optional[list[str]] = None,
-    depends_on: Optional[list[str]] = None,
-    priority: Optional[float] = None,
+    title: str | None = None,
+    description: str | None = None,
+    acceptance_criteria: list[str] | None = None,
+    depends_on: list[str] | None = None,
+    priority: float | None = None,
 ) -> StoryOut:
     """Update mutable fields of a story.
 
@@ -135,10 +135,10 @@ def delete_story(plan_id: str, story_id: str) -> OperationResult:
 
 def list_stories(
     plan_id: str,
-    statuses: Optional[list[Status]] = None,
+    statuses: list[Status] | None = None,
     unblocked: bool = False,
-    offset: Optional[int] = 0,
-    limit: Optional[int] = None,
+    offset: int | None = 0,
+    limit: int | None = None,
 ) -> list[StoryListItem]:
     """List stories with optional status filter, unblocked flag and pagination."""
     if statuses is None:
@@ -176,7 +176,7 @@ def list_stories(
 
 def set_current_story(
     plan_id: str,
-    story_id: Optional[str] = None,
+    story_id: str | None = None,
 ) -> OperationResult | list[StoryListItem]:
     """Set the current story for a specific plan.
 

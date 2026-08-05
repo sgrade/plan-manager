@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Roman Klyuev
 
-from typing import TYPE_CHECKING, Callable, Optional, TypedDict
+from collections.abc import Callable
+from typing import TYPE_CHECKING, TypedDict
 
 from mcp.server.fastmcp.prompts import base
 
@@ -54,7 +55,7 @@ PROMPT_SPECS: list[PromptSpec] = [
 
 
 def register_prompts(
-    mcp_instance: "FastMCP", prompt_specs: Optional[list[PromptSpec]] = None
+    mcp_instance: "FastMCP", prompt_specs: list[PromptSpec] | None = None
 ) -> None:
     """Register prompts with the MCP instance using provided specs.
 

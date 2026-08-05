@@ -8,7 +8,7 @@ from __future__ import annotations
 import sqlite3
 import uuid
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 
 from plan_manager.storage.schema import (
@@ -24,7 +24,7 @@ class StorageBootstrapError(RuntimeError):
     """Raised when storage bootstrap or WAL verification fails."""
 
 
-class StartupAction(str, Enum):
+class StartupAction(StrEnum):
     INITIALIZE_EMPTY = "initialize_empty"
     IMPORT_LEGACY = "import_legacy"
     SERVE_DB = "serve_db"

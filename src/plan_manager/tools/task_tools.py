@@ -2,7 +2,7 @@
 # Copyright (c) 2026 Roman Klyuev
 
 import json
-from typing import TYPE_CHECKING, Any, NoReturn, Optional
+from typing import TYPE_CHECKING, Any, NoReturn
 
 if TYPE_CHECKING:
     from mcp.server.fastmcp import FastMCP
@@ -108,9 +108,9 @@ def create_task(
     plan_id: str,
     story_id: str,
     title: str,
-    priority: Optional[float] = None,
-    depends_on: Optional[list[str]] = None,
-    description: Optional[str] = None,
+    priority: float | None = None,
+    depends_on: list[str] | None = None,
+    description: str | None = None,
 ) -> TaskOut:
     """Create a new task under the specified story.
 
@@ -139,8 +139,8 @@ def create_task(
 
 def get_task(
     plan_id: str,
-    task_id: Optional[str] = None,
-    story_id: Optional[str] = None,
+    task_id: str | None = None,
+    story_id: str | None = None,
 ) -> TaskOut:
     """Get a task by its ID.
 
@@ -173,13 +173,13 @@ def get_task(
 def update_task(
     plan_id: str,
     task_id: str,
-    story_id: Optional[str] = None,
-    title: Optional[str] = None,
-    description: Optional[str] = None,
-    priority: Optional[float] = None,
-    depends_on: Optional[list[str]] = None,
-    status: Optional[str] = None,
-    steps: Optional[list[dict[str, Any]]] = None,
+    story_id: str | None = None,
+    title: str | None = None,
+    description: str | None = None,
+    priority: float | None = None,
+    depends_on: list[str] | None = None,
+    status: str | None = None,
+    steps: list[dict[str, Any]] | None = None,
 ) -> TaskOut:
     """Update mutable fields of a task.
 
@@ -238,7 +238,7 @@ def update_task(
 def delete_task(
     plan_id: str,
     task_id: str,
-    story_id: Optional[str] = None,
+    story_id: str | None = None,
 ) -> OperationResult:
     """Delete a task by ID (fails if other items depend on it).
 
@@ -256,10 +256,10 @@ def delete_task(
 
 def list_tasks(
     plan_id: str,
-    statuses: Optional[list[Status]] = None,
-    story_id: Optional[str] = None,
-    offset: Optional[int] = 0,
-    limit: Optional[int] = None,
+    statuses: list[Status] | None = None,
+    story_id: str | None = None,
+    offset: int | None = 0,
+    limit: int | None = None,
 ) -> list[TaskListItem]:
     """List tasks with optional filtering by status and story, with pagination support.
 
@@ -297,7 +297,7 @@ def list_tasks(
 
 
 def _status_to_gate(
-    status: Status, _steps: Optional[list[dict[str, Any]]]
+    status: Status, _steps: list[dict[str, Any]] | None
 ) -> WorkflowGate:
     if status == Status.DONE:
         return WorkflowGate.DONE
@@ -581,7 +581,7 @@ def create_task_steps(
     plan_id: str,
     task_id: str,
     steps: list[dict[str, Any]],
-    story_id: Optional[str] = None,
+    story_id: str | None = None,
 ) -> TaskWorkflowResult:
     """Create implementation steps for a task, enabling pre-execution review.
 
@@ -632,7 +632,7 @@ def create_task_steps(
     )
 
 
-def set_current_task(plan_id: str, task_id: Optional[str] = None) -> TaskWorkflowResult:
+def set_current_task(plan_id: str, task_id: str | None = None) -> TaskWorkflowResult:
     """Set the current task for a specific plan.
 
     Args:
@@ -690,7 +690,7 @@ def set_current_task(plan_id: str, task_id: Optional[str] = None) -> TaskWorkflo
 def start_task(
     plan_id: str,
     task_id: str,
-    story_id: Optional[str] = None,
+    story_id: str | None = None,
 ) -> TaskWorkflowResult:
     """
     Start work on a TODO task (Gate 1: Pre-Execution Approval).
@@ -759,7 +759,7 @@ def start_task(
 def approve_pr(
     plan_id: str,
     task_id: str,
-    story_id: Optional[str] = None,
+    story_id: str | None = None,
 ) -> TaskWorkflowResult:
     """
     Approve a PENDING_REVIEW task (Gate 2: Code Review Approval).
@@ -828,7 +828,7 @@ def request_pr_changes(
     plan_id: str,
     task_id: str,
     feedback: str,
-    story_id: Optional[str] = None,
+    story_id: str | None = None,
 ) -> TaskWorkflowResult:
     """Request changes for a task (PENDING_REVIEW -> IN_PROGRESS).
 
@@ -860,8 +860,8 @@ def request_pr_changes(
             ],
         )
     cur_task_id = f"{s_id}:{local_task_id}"
-    task: Optional[TaskOut] = None
-    gate: Optional[WorkflowGate] = None
+    task: TaskOut | None = None
+    gate: WorkflowGate | None = None
     next_actions: list[NextAction] = []
     if cur_task_id:
         try:
@@ -887,7 +887,7 @@ def submit_pr(
     plan_id: str,
     task_id: str,
     changes: list[str],
-    story_id: Optional[str] = None,
+    story_id: str | None = None,
 ) -> TaskWorkflowResult:
     """Submit a completed task for code review and move it to PENDING_REVIEW status.
 

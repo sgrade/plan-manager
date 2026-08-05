@@ -2,7 +2,7 @@
 # Copyright (c) 2026 Roman Klyuev
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import ValidationError
 
@@ -77,7 +77,7 @@ def _load_plan_snapshot(conn: Any, plan_id: str) -> Plan:
 def _find_task(
     conn: Any,
     plan_id: str,
-    story_id: Optional[str],
+    story_id: str | None,
     task_id: str,
 ) -> tuple[Story, Task]:
     resolved_story_id, local_task_id = resolve_task_id(
@@ -174,9 +174,9 @@ def create_task(
     plan_id: str,
     story_id: str,
     title: str,
-    priority: Optional[int],
+    priority: int | None,
     depends_on: list[str],
-    description: Optional[str],
+    description: str | None,
 ) -> dict[str, Any]:
     title = validate_title(title)
     description = validate_description(description)
@@ -286,11 +286,11 @@ def update_task(
     plan_id: str,
     story_id: str,
     task_id: str,
-    title: Optional[str] = None,
-    description: Optional[str] = None,
-    depends_on: Optional[list[str]] = None,
-    priority: Optional[int] = None,
-    status: Optional[Status] = None,
+    title: str | None = None,
+    description: str | None = None,
+    depends_on: list[str] | None = None,
+    priority: int | None = None,
+    status: Status | None = None,
 ) -> dict[str, Any]:
     with service_uow(write=True, operation="update_task", plan_id=plan_id) as conn:
         ensure_plan_exists(conn, plan_id)
@@ -420,8 +420,8 @@ def delete_task(plan_id: str, story_id: str, task_id: str) -> dict[str, Any]:
 
 def list_tasks(
     plan_id: str,
-    statuses: Optional[list[Status]],
-    story_id: Optional[str] = None,
+    statuses: list[Status] | None,
+    story_id: str | None = None,
 ) -> list[Task]:
     with service_uow(write=False, operation="list_tasks", plan_id=plan_id) as conn:
         ensure_plan_exists(conn, plan_id)

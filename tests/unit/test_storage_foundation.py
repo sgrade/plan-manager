@@ -6,7 +6,7 @@ from __future__ import annotations
 import json
 import sqlite3
 import threading
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -222,7 +222,7 @@ def test_bootstrap_fails_loudly_when_wal_verification_fails(tmp_path, monkeypatc
 
 def test_schema_round_trip_full_plan_story_task_payload(tmp_path):
     db_path = bootstrap(tmp_path)
-    base_time = datetime(2026, 8, 4, 12, 34, 56, 789000, tzinfo=timezone.utc)
+    base_time = datetime(2026, 8, 4, 12, 34, 56, 789000, tzinfo=UTC)
 
     prep_task = Task(
         id="story-main:prep",

@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Roman Klyuev
 
-from typing import Any, Optional
+from typing import Any
 
 
-def coerce_optional_int(value: Any, param_name: str) -> Optional[int]:
+def coerce_optional_int(value: Any, param_name: str) -> int | None:
     """Coerce a possibly loosely-typed value to Optional[int].
 
     - None -> None

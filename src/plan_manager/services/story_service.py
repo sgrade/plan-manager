@@ -2,7 +2,7 @@
 # Copyright (c) 2026 Roman Klyuev
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import ValidationError
 
@@ -29,9 +29,9 @@ logger = logging.getLogger(__name__)
 def create_story(
     plan_id: str,
     title: str,
-    description: Optional[str],
-    acceptance_criteria: Optional[list[str]],
-    priority: Optional[int],
+    description: str | None,
+    acceptance_criteria: list[str] | None,
+    priority: int | None,
     depends_on: list[str],
 ) -> dict[str, Any]:
     # Validate inputs
@@ -118,11 +118,11 @@ def get_story(plan_id: str, story_id: str) -> dict[str, Any]:
 def update_story(
     plan_id: str,
     story_id: str,
-    title: Optional[str] = None,
-    description: Optional[str] = None,
-    acceptance_criteria: Optional[list[str]] = None,
-    priority: Optional[int] = None,
-    depends_on: Optional[list[str]] = None,
+    title: str | None = None,
+    description: str | None = None,
+    acceptance_criteria: list[str] | None = None,
+    priority: int | None = None,
+    depends_on: list[str] | None = None,
 ) -> dict[str, Any]:
     logger.info(
         {
@@ -212,7 +212,7 @@ def delete_story(plan_id: str, story_id: str) -> dict[str, Any]:
 
 def list_stories(
     plan_id: str,
-    statuses: Optional[list[Status]],
+    statuses: list[Status] | None,
     unblocked: bool = False,
 ) -> list[Story]:
     """Return domain stories after topological sort and filtering.

@@ -101,6 +101,9 @@ def test_ui_routes_render_content_and_bound_events():
         story_page = client.get(f"/ui/{plan_id}/{story_id}")
         assert story_page.status_code == 200
         assert "Safe Task" in story_page.text
+        # Task rows carry plain status strings, not Status members, so a `.value`
+        # lookup in the template renders empty; pin the whole row to catch that.
+        assert f"{story_id}:safe-task | TODO | Priority 1" in story_page.text
         assert "<script>alert('task')</script>" not in story_page.text
         assert "<img src=x onerror=" not in story_page.text
         assert 'href="javascript:' not in story_page.text

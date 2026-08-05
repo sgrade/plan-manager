@@ -52,7 +52,7 @@ def incr(metric: str, value: int = 1, **labels: Any) -> None:
 
 
 @contextmanager
-def timer(metric: str, **labels: Any) -> Generator[None, None, None]:
+def timer(metric: str, **labels: Any) -> Generator[None]:
     """Context manager for timing operations.
 
     Args:

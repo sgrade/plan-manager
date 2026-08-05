@@ -2,7 +2,7 @@
 # Copyright (c) 2026 Roman Klyuev
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import ValidationError
 
@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 def create_plan(
-    title: str, description: Optional[str], priority: Optional[int]
+    title: str, description: str | None, priority: int | None
 ) -> dict[str, Any]:
     # Validate inputs
     title = validate_title(title)
@@ -66,10 +66,10 @@ def get_plan(plan_id: str) -> dict[str, Any]:
 
 def update_plan(
     plan_id: str,
-    title: Optional[str],
-    description: Optional[str],
-    priority: Optional[int],
-    status: Optional[Status],
+    title: str | None,
+    description: str | None,
+    priority: int | None,
+    status: Status | None,
 ) -> dict[str, Any]:
     with service_uow(write=True, operation="update_plan", plan_id=plan_id) as conn:
         current = repositories.get_plan(conn, plan_id)
@@ -97,7 +97,7 @@ def delete_plan(plan_id: str) -> dict[str, Any]:
     return {"success": True, "message": f"Successfully deleted plan '{plan_id}'."}
 
 
-def list_plans(statuses: Optional[list[Status]] = None) -> list[dict[str, Any]]:
+def list_plans(statuses: list[Status] | None = None) -> list[dict[str, Any]]:
     with service_uow(write=False, operation="list_plans") as conn:
         items = [plan_to_dict(plan) for plan in repositories.list_plans(conn)]
     if statuses:

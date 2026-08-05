@@ -178,7 +178,7 @@ def starlette_app() -> Starlette:
 
     def _render_markdown(text: str) -> Markup:
         # markdown-it-py renders with raw HTML disabled (`html=False`).
-        return Markup(_MARKDOWN.render(text))  # noqa: S704
+        return Markup(_MARKDOWN.render(text))  # noqa: S704  # nosec B704
 
     def _render_not_found(
         request: Request,

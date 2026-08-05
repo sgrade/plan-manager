@@ -7,7 +7,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from plan_manager.config import PLAN_MANAGER_DB_DIR, PLAN_MANAGER_DB_PATH, TODO_DIR
 from plan_manager.domain.models import Plan, Status, Story, Task
@@ -247,7 +247,7 @@ def ensure_task_in_plan(
     )
 
 
-def parse_status(value: Optional[str | Status]) -> Optional[Status]:
+def parse_status(value: str | Status | None) -> Status | None:
     """Parse a status input string."""
     if value is None:
         return None
@@ -264,7 +264,7 @@ def parse_status(value: Optional[str | Status]) -> Optional[Status]:
         ) from e
 
 
-def parse_priority_input(priority: str) -> Optional[int]:
+def parse_priority_input(priority: str) -> int | None:
     """Parse a priority input string."""
     if priority == "6":
         return None
@@ -294,8 +294,8 @@ def find_dependents(plan: Plan, target_id: str) -> list[str]:
     """
     dependents: list[str] = []
     is_task = ":" in target_id
-    target_story_id: Optional[str] = None
-    target_local: Optional[str] = None
+    target_story_id: str | None = None
+    target_local: str | None = None
     if is_task:
         target_story_id, target_local = target_id.split(":", 1)
 

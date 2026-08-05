@@ -86,7 +86,7 @@ def test_streamable_http_stateless_concurrent_initializes():
                 pool.map(lambda c: _initialize(client, c), correlation_ids)
             )
 
-        for corr_id, resp in zip(correlation_ids, responses):
+        for corr_id, resp in zip(correlation_ids, responses, strict=True):
             assert resp.status_code == 200
             assert "result" in resp.json()
             assert "mcp-session-id" not in resp.headers

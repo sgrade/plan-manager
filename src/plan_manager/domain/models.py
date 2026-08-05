@@ -3,16 +3,15 @@
 
 import importlib
 import logging
-from datetime import datetime, timezone
-from enum import Enum
-from typing import Optional
+from datetime import UTC, datetime
+from enum import StrEnum
 
 from pydantic import BaseModel, Field, ValidationInfo, field_validator, model_validator
 
 logger = logging.getLogger(__name__)
 
 
-class Status(str, Enum):
+class Status(StrEnum):
     TODO = "TODO"
     IN_PROGRESS = "IN_PROGRESS"
     PENDING_REVIEW = "PENDING_REVIEW"
@@ -24,12 +23,12 @@ class Status(str, Enum):
 class WorkItem(BaseModel):
     id: str
     title: str
-    description: Optional[str] = None
-    priority: Optional[int] = None
-    depends_on: Optional[list[str]] = Field(default_factory=list)
+    description: str | None = None
+    priority: int | None = None
+    depends_on: list[str] | None = Field(default_factory=list)
     status: Status = Field(default=Status.TODO)
-    creation_time: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    completion_time: Optional[datetime] = None
+    creation_time: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    completion_time: datetime | None = None
 
     @field_validator("status")
     @classmethod
@@ -46,7 +45,7 @@ class WorkItem(BaseModel):
 
     @field_validator("priority")
     @classmethod
-    def priority_must_be_in_range(cls, value: Optional[int]) -> Optional[int]:
+    def priority_must_be_in_range(cls, value: int | None) -> int | None:
         if value is not None and not (0 <= value <= 5):
             raise ValueError(
                 "Priority must be between 0 and 5 (inclusive) if provided."
@@ -58,7 +57,7 @@ class Story(WorkItem):
     """A Story represents a user-facing outcome (the 'what' and 'why').
     Its 'how' is the collection of tasks it contains."""
 
-    acceptance_criteria: Optional[list[str]] = None
+    acceptance_criteria: list[str] | None = None
     tasks: list["Task"] = Field(default_factory=list)
 
 
@@ -67,16 +66,16 @@ class Task(WorkItem):
     While a story provides the high-level context, a task also has its own
     granular 'what' (title), 'why' (description), and 'how' (steps)."""
 
-    story_id: Optional[str] = None
-    local_id: Optional[str] = None
+    story_id: str | None = None
+    local_id: str | None = None
     # See Story fields for semantics
     # Steps are small implementation bullets suitable for PATCH-level changes.
 
     class Step(BaseModel):
         title: str
-        description: Optional[str] = None
+        description: str | None = None
 
-    steps: Optional[list[Step]] = Field(
+    steps: list[Step] | None = Field(
         default_factory=list,
         description="Ordered implementation steps. Each step has a title and an optional description.",
     )
@@ -87,8 +86,8 @@ class Task(WorkItem):
 
     class ReviewFeedback(BaseModel):
         message: str
-        at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-        by: Optional[str] = None
+        at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+        by: str | None = None
 
     review_feedback: list[ReviewFeedback] = Field(default_factory=list)
     rework_count: int = Field(default=0)
