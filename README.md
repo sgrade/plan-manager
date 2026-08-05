@@ -62,6 +62,17 @@ pm
 
 The server will start on `http://localhost:3000/mcp`.
 
+### Backup and Restore (Operational)
+
+- `pm export` is the only supported backup path for SQLite storage.
+- `pm export --plan <id>` is scoped and writes only that plan's tree. It refuses to target an existing multi-plan backup directory.
+- `pm import --dry-run --from <dir>` validates a backup tree without publishing.
+- `pm import --from <dir>` restores a full tree; `pm import --replace-plan <id> --from <dir>` atomically replaces one plan.
+- Export/import require the server to be offline; they refuse to run while a live server process holds the DB lock.
+- Copying/tarring a live DB volume is unsupported and can produce torn WAL snapshots.
+- Rollback after a cutover is safe only if you exported first; otherwise post-cutover writes are lost.
+- Exit codes: `0` on success, non-zero on failure.
+
 ### Connect from Cursor IDE
 
 Add to your `.cursor/mcp.json`:

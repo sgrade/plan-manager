@@ -10,6 +10,26 @@ Notes:
 - TODO_DIR (default: `<workspace>/todo`)
   - Base directory storing plans and items
 - PLANS_INDEX_FILE_PATH (derived: `$TODO_DIR/plans/index.yaml`)
+- PLAN_MANAGER_DB_DIR (default: `<workspace>/db`)
+  - SQLite directory (`plan_manager.sqlite3`) and operational lock file
+
+## Backup / Restore CLI
+- `pm export [--plan ID] [--out DIR]`
+  - Reads one SQLite snapshot transaction and publishes a complete YAML tree with `MANIFEST`
+  - Default `--out` is `TODO_DIR`
+  - Scoped mode (`--plan`) refuses an existing multi-plan backup target to avoid deleting sibling plan backups
+- `pm import [--dry-run] [--replace-plan ID] [--from DIR]`
+  - Validates/imports a tree; `--replace-plan` replaces exactly one plan in one transaction
+  - Default `--from` is `TODO_DIR`
+- Offline guard:
+  - `pm` server holds an advisory lock file at `$PLAN_MANAGER_DB_DIR/plan_manager.server.lock`
+  - `pm export` and `pm import` probe that lock and refuse while the server is live
+- Supported backup contract:
+  - `pm export` is the only supported backup path
+  - Directly copying/tarring a live DB volume is unsupported (WAL can be torn)
+- Exit codes:
+  - `0`: success
+  - non-zero: failure (problem report on stderr)
 
 ## Logging
 - LOG_DIR (default: `<workspace>/logs`)

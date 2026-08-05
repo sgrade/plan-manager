@@ -12,11 +12,18 @@ from plan_manager.storage.db import (
     decide_startup_action,
     startup_storage,
 )
+from plan_manager.storage.exporter import ExportReport, export_tree
 from plan_manager.storage.importer import (
     ImportProblem,
     ImportReport,
     LegacyImportError,
     import_legacy_tree,
+    replace_plan_from_tree,
+)
+from plan_manager.storage.offline_guard import (
+    LiveServerDetectedError,
+    hold_server_lock,
+    require_offline,
 )
 from plan_manager.storage.repositories import (
     EventRecord,
@@ -64,9 +71,11 @@ __all__ = [
     "DEFAULT_BUSY_TIMEOUT_MS",
     "LATEST_USER_VERSION",
     "EventRecord",
+    "ExportReport",
     "ImportProblem",
     "ImportReport",
     "LegacyImportError",
+    "LiveServerDetectedError",
     "PlanStateRecord",
     "StartupAction",
     "StartupDecision",
@@ -85,16 +94,20 @@ __all__ = [
     "delete_plan",
     "delete_story",
     "delete_task",
+    "export_tree",
     "get_meta_value",
     "get_plan",
     "get_plan_state",
     "get_story",
     "get_task",
+    "hold_server_lock",
     "import_legacy_tree",
     "list_events",
     "list_plans",
     "list_stories",
     "list_tasks",
+    "replace_plan_from_tree",
+    "require_offline",
     "set_current_story",
     "set_current_task",
     "set_meta_value",

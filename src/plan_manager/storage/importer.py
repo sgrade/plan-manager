@@ -19,6 +19,11 @@ from pydantic import ValidationError
 from plan_manager.domain.models import Plan, Story, Task
 from plan_manager.io.file_mirror import split_front_matter
 from plan_manager.io.paths import slugify
+from plan_manager.storage.backup_manifest import (
+    MANIFEST_FILENAME,
+    MANIFEST_VERSION,
+    compute_tree_content_hash,
+)
 from plan_manager.storage.codecs import dumps_json, loads_json, serialize_steps
 from plan_manager.storage.schema import (
     IMPORT_STATE_DONE,
@@ -26,7 +31,7 @@ from plan_manager.storage.schema import (
     IMPORT_STATE_PENDING,
     apply_migrations,
 )
-from plan_manager.storage.uow import canonical_utc_timestamp
+from plan_manager.storage.uow import canonical_utc_timestamp, unit_of_work
 
 LEGACY_SCHEMA_VERSION = 1
 PUBLISHED_DB_FILENAME = "plan_manager.sqlite3"
@@ -90,7 +95,8 @@ class _LegacyStory:
 
 @dataclass
 class _LegacyEvent:
-    legacy_id: str
+    legacy_id: str | None
+    seq: int | None
     ts: str
     event_type: str
     scope: dict[str, Any]
@@ -114,6 +120,26 @@ class _LegacyTree:
     plans: list[_LegacyPlan]
 
 
+@dataclass(frozen=True)
+class _ImportManifest:
+    path: Path
+    plans: list[str]
+    plan_counts: dict[str, dict[str, int]]
+    seq_min: int | None
+    seq_max: int | None
+    content_hash: str
+
+
+@dataclass(frozen=True)
+class _ParsedImportSource:
+    tree: _LegacyTree
+    manifest: _ImportManifest | None
+
+    @property
+    def preserve_event_seq(self) -> bool:
+        return self.manifest is not None
+
+
 def import_legacy_tree(
     todo_dir: str | Path,
     db_dir: str | Path,
@@ -125,14 +151,19 @@ def import_legacy_tree(
     db_root.mkdir(parents=True, exist_ok=True)
     _sweep_orphaned_import_temp_dbs(db_root)
 
-    tree = _parse_legacy_tree(todo_root)
+    source = _parse_legacy_tree(todo_root)
+    tree = source.tree
     temp_db_path = db_root / f"{PUBLISHED_DB_FILENAME}.import.{uuid.uuid4().hex}.tmp"
     published_db_path = db_root / PUBLISHED_DB_FILENAME
     published = False
 
     try:
-        _build_temp_db(tree, temp_db_path)
-        _assert_semantic_equivalence(tree, temp_db_path)
+        _build_temp_db(tree, temp_db_path, preserve_event_seq=source.preserve_event_seq)
+        _assert_semantic_equivalence(
+            tree,
+            temp_db_path,
+            include_event_seq=source.preserve_event_seq,
+        )
         if not dry_run:
             _cleanup_sqlite_sidecars(published_db_path)
             temp_db_path.replace(published_db_path)
@@ -150,8 +181,91 @@ def import_legacy_tree(
     )
 
 
-def _parse_legacy_tree(todo_root: Path) -> _LegacyTree:
+def replace_plan_from_tree(
+    *,
+    todo_dir: str | Path,
+    db_path: str | Path,
+    replace_plan_id: str,
+    dry_run: bool = False,
+) -> ImportReport:
+    source = _parse_legacy_tree(Path(todo_dir))
+    plan = next(
+        (
+            candidate
+            for candidate in source.tree.plans
+            if candidate.model.id == replace_plan_id
+        ),
+        None,
+    )
+    if plan is None:
+        report = ImportReport(
+            dry_run=dry_run,
+            published=False,
+            plans=0,
+            stories=0,
+            tasks=0,
+            events=0,
+            problems=[
+                ImportProblem(
+                    path=str(Path(todo_dir)),
+                    cause=f"replace target plan '{replace_plan_id}' is missing in import tree",
+                )
+            ],
+        )
+        raise LegacyImportError(report)
+
+    if dry_run:
+        return ImportReport(
+            dry_run=True,
+            published=False,
+            plans=1,
+            stories=len(plan.stories),
+            tasks=sum(len(story.tasks) for story in plan.stories),
+            events=len(plan.events),
+        )
+
+    try:
+        with unit_of_work(db_path, write=True) as conn:
+            if source.preserve_event_seq:
+                _assert_replace_event_seq_conflicts(
+                    conn=conn,
+                    replace_plan_id=replace_plan_id,
+                    events=plan.events,
+                )
+            conn.execute("DELETE FROM plans WHERE id = ?", (replace_plan_id,))
+            _insert_plan(conn, plan=plan, preserve_event_seq=source.preserve_event_seq)
+            if source.preserve_event_seq:
+                _sync_events_sequence(conn)
+    except sqlite3.Error as exc:
+        report = ImportReport(
+            dry_run=False,
+            published=False,
+            plans=1,
+            stories=len(plan.stories),
+            tasks=sum(len(story.tasks) for story in plan.stories),
+            events=len(plan.events),
+            problems=[
+                ImportProblem(
+                    path=str(db_path),
+                    cause=f"replace transaction failed: {exc}",
+                )
+            ],
+        )
+        raise LegacyImportError(report) from exc
+
+    return ImportReport(
+        dry_run=False,
+        published=True,
+        plans=1,
+        stories=len(plan.stories),
+        tasks=sum(len(story.tasks) for story in plan.stories),
+        events=len(plan.events),
+    )
+
+
+def _parse_legacy_tree(todo_root: Path) -> _ParsedImportSource:
     errors: list[ImportProblem] = []
+    manifest = _parse_manifest(todo_root, errors)
     index_path = todo_root / "plans" / "index.yaml"
     index_data = _load_yaml_mapping(index_path, errors)
     plan_entries = _extract_plan_entries(index_data, index_path, errors)
@@ -179,12 +293,22 @@ def _parse_legacy_tree(todo_root: Path) -> _LegacyTree:
 
     legacy_plans: list[_LegacyPlan] = []
     for order, (plan_id, _entry) in enumerate(plan_entries):
-        plan = _parse_plan(todo_root, plan_id, order, errors)
+        plan = _parse_plan(
+            todo_root,
+            plan_id,
+            order,
+            errors,
+            require_event_seq=manifest is not None,
+        )
         if plan is not None:
             legacy_plans.append(plan)
 
+    tree = _LegacyTree(plans=legacy_plans)
+    if manifest is not None:
+        _validate_manifest_against_tree(manifest=manifest, tree=tree, errors=errors)
+
     _raise_if_errors(errors)
-    return _LegacyTree(plans=legacy_plans)
+    return _ParsedImportSource(tree=tree, manifest=manifest)
 
 
 def _parse_plan(
@@ -192,6 +316,7 @@ def _parse_plan(
     plan_id: str,
     order: int,
     errors: list[ImportProblem],
+    require_event_seq: bool,
 ) -> _LegacyPlan | None:
     plan_dir = todo_root / plan_id
     manifest_path = plan_dir / "plan.yaml"
@@ -254,7 +379,11 @@ def _parse_plan(
     _validate_story_cycles(stories, manifest_path, errors)
     _validate_task_cycles(stories, manifest_path, errors)
 
-    events = _parse_activity_events(plan_dir / "activity.yaml", errors)
+    events = _parse_activity_events(
+        plan_dir / "activity.yaml",
+        errors,
+        require_seq=require_event_seq,
+    )
     current_story_id, current_task_story_id, current_task_local_id = _parse_state(
         plan_dir / "state.yaml", stories, errors
     )
@@ -455,7 +584,9 @@ def _parse_task(
     )
 
 
-def _build_temp_db(tree: _LegacyTree, temp_db_path: Path) -> None:
+def _build_temp_db(
+    tree: _LegacyTree, temp_db_path: Path, *, preserve_event_seq: bool
+) -> None:
     conn = sqlite3.connect(temp_db_path)
     try:
         _set_wal(conn)
@@ -463,124 +594,203 @@ def _build_temp_db(tree: _LegacyTree, temp_db_path: Path) -> None:
         _set_import_state(conn, IMPORT_STATE_PENDING)
         with conn:
             for plan in tree.plans:
-                conn.execute(
-                    "INSERT INTO plans(id, title, description, status, priority, creation_time, completion_time, ord, extra) "
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                    (
-                        plan.model.id,
-                        plan.model.title,
-                        plan.model.description,
-                        plan.model.status.value,
-                        plan.model.priority,
-                        canonical_utc_timestamp(plan.model.creation_time),
-                        (
-                            canonical_utc_timestamp(plan.model.completion_time)
-                            if plan.model.completion_time
-                            else None
-                        ),
-                        plan.order,
-                        dumps_json(plan.extra),
-                    ),
-                )
-                for story in plan.stories:
-                    conn.execute(
-                        "INSERT INTO stories(plan_id, id, title, status, priority, description, acceptance_criteria, depends_on, body, creation_time, completion_time, ord, extra) "
-                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                        (
-                            plan.model.id,
-                            story.model.id,
-                            story.model.title,
-                            story.model.status.value,
-                            story.model.priority,
-                            story.model.description,
-                            dumps_json(story.model.acceptance_criteria),
-                            dumps_json(story.model.depends_on),
-                            story.body,
-                            canonical_utc_timestamp(story.model.creation_time),
-                            (
-                                canonical_utc_timestamp(story.model.completion_time)
-                                if story.model.completion_time
-                                else None
-                            ),
-                            story.order,
-                            dumps_json(story.extra),
-                        ),
-                    )
-                    for task in story.tasks:
-                        conn.execute(
-                            "INSERT INTO tasks(plan_id, story_id, local_id, title, status, priority, description, depends_on, steps, changes, review_feedback, rework_count, body, creation_time, completion_time, ord, extra) "
-                            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                            (
-                                plan.model.id,
-                                story.model.id,
-                                task.model.local_id,
-                                task.model.title,
-                                task.model.status.value,
-                                task.model.priority,
-                                task.model.description,
-                                dumps_json(task.model.depends_on),
-                                dumps_json(serialize_steps(task.model.steps)),
-                                dumps_json(task.model.changes),
-                                dumps_json(
-                                    [
-                                        feedback.model_dump(mode="json")
-                                        for feedback in task.model.review_feedback
-                                    ]
-                                ),
-                                task.model.rework_count,
-                                task.body,
-                                canonical_utc_timestamp(task.model.creation_time),
-                                (
-                                    canonical_utc_timestamp(task.model.completion_time)
-                                    if task.model.completion_time
-                                    else None
-                                ),
-                                task.order,
-                                dumps_json(task.extra),
-                            ),
-                        )
-                if any(
-                    [
-                        plan.current_story_id is not None,
-                        plan.current_task_story_id is not None,
-                        plan.current_task_local_id is not None,
-                    ]
-                ):
-                    conn.execute(
-                        "INSERT INTO plan_state(plan_id, current_story_id, current_task_story_id, current_task_local_id) "
-                        "VALUES (?, ?, ?, ?)",
-                        (
-                            plan.model.id,
-                            plan.current_story_id,
-                            plan.current_task_story_id,
-                            plan.current_task_local_id,
-                        ),
-                    )
-                for event in plan.events:
-                    conn.execute(
-                        "INSERT INTO events(plan_id, legacy_id, ts, type, scope, data) VALUES (?, ?, ?, ?, ?, ?)",
-                        (
-                            plan.model.id,
-                            event.legacy_id,
-                            event.ts,
-                            event.event_type,
-                            json.dumps(event.scope, sort_keys=True),
-                            (
-                                json.dumps(event.data, sort_keys=True)
-                                if event.data is not None
-                                else None
-                            ),
-                        ),
-                    )
+                _insert_plan(conn, plan=plan, preserve_event_seq=preserve_event_seq)
+            if preserve_event_seq:
+                _sync_events_sequence(conn)
         conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
         _set_import_state(conn, IMPORT_STATE_DONE)
     finally:
         conn.close()
 
 
-def _assert_semantic_equivalence(tree: _LegacyTree, temp_db_path: Path) -> None:
-    source_view = _source_semantic_view(tree)
-    db_view = _db_semantic_view(temp_db_path)
+def _insert_plan(
+    conn: sqlite3.Connection,
+    *,
+    plan: _LegacyPlan,
+    preserve_event_seq: bool,
+) -> None:
+    conn.execute(
+        "INSERT INTO plans(id, title, description, status, priority, creation_time, completion_time, ord, extra) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (
+            plan.model.id,
+            plan.model.title,
+            plan.model.description,
+            plan.model.status.value,
+            plan.model.priority,
+            canonical_utc_timestamp(plan.model.creation_time),
+            (
+                canonical_utc_timestamp(plan.model.completion_time)
+                if plan.model.completion_time
+                else None
+            ),
+            plan.order,
+            dumps_json(plan.extra),
+        ),
+    )
+    for story in plan.stories:
+        conn.execute(
+            "INSERT INTO stories(plan_id, id, title, status, priority, description, acceptance_criteria, depends_on, body, creation_time, completion_time, ord, extra) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                plan.model.id,
+                story.model.id,
+                story.model.title,
+                story.model.status.value,
+                story.model.priority,
+                story.model.description,
+                dumps_json(story.model.acceptance_criteria),
+                dumps_json(story.model.depends_on),
+                story.body,
+                canonical_utc_timestamp(story.model.creation_time),
+                (
+                    canonical_utc_timestamp(story.model.completion_time)
+                    if story.model.completion_time
+                    else None
+                ),
+                story.order,
+                dumps_json(story.extra),
+            ),
+        )
+        for task in story.tasks:
+            conn.execute(
+                "INSERT INTO tasks(plan_id, story_id, local_id, title, status, priority, description, depends_on, steps, changes, review_feedback, rework_count, body, creation_time, completion_time, ord, extra) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    plan.model.id,
+                    story.model.id,
+                    task.model.local_id,
+                    task.model.title,
+                    task.model.status.value,
+                    task.model.priority,
+                    task.model.description,
+                    dumps_json(task.model.depends_on),
+                    dumps_json(serialize_steps(task.model.steps)),
+                    dumps_json(task.model.changes),
+                    dumps_json(
+                        [
+                            feedback.model_dump(mode="json")
+                            for feedback in task.model.review_feedback
+                        ]
+                    ),
+                    task.model.rework_count,
+                    task.body,
+                    canonical_utc_timestamp(task.model.creation_time),
+                    (
+                        canonical_utc_timestamp(task.model.completion_time)
+                        if task.model.completion_time
+                        else None
+                    ),
+                    task.order,
+                    dumps_json(task.extra),
+                ),
+            )
+    if any(
+        [
+            plan.current_story_id is not None,
+            plan.current_task_story_id is not None,
+            plan.current_task_local_id is not None,
+        ]
+    ):
+        conn.execute(
+            "INSERT INTO plan_state(plan_id, current_story_id, current_task_story_id, current_task_local_id) "
+            "VALUES (?, ?, ?, ?)",
+            (
+                plan.model.id,
+                plan.current_story_id,
+                plan.current_task_story_id,
+                plan.current_task_local_id,
+            ),
+        )
+    for event in plan.events:
+        if preserve_event_seq:
+            conn.execute(
+                "INSERT INTO events(seq, plan_id, legacy_id, ts, type, scope, data) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (
+                    event.seq,
+                    plan.model.id,
+                    event.legacy_id,
+                    event.ts,
+                    event.event_type,
+                    json.dumps(event.scope, sort_keys=True),
+                    json.dumps(event.data, sort_keys=True)
+                    if event.data is not None
+                    else None,
+                ),
+            )
+        else:
+            conn.execute(
+                "INSERT INTO events(plan_id, legacy_id, ts, type, scope, data) VALUES (?, ?, ?, ?, ?, ?)",
+                (
+                    plan.model.id,
+                    event.legacy_id,
+                    event.ts,
+                    event.event_type,
+                    json.dumps(event.scope, sort_keys=True),
+                    json.dumps(event.data, sort_keys=True)
+                    if event.data is not None
+                    else None,
+                ),
+            )
+
+
+def _sync_events_sequence(conn: sqlite3.Connection) -> None:
+    row = conn.execute("SELECT MAX(seq) FROM events").fetchone()
+    max_seq = int(row[0]) if row is not None and row[0] is not None else None
+    if max_seq is None:
+        return
+    updated = conn.execute(
+        "UPDATE sqlite_sequence SET seq = ? WHERE name = 'events'",
+        (max_seq,),
+    ).rowcount
+    if updated == 0:
+        conn.execute(
+            "INSERT INTO sqlite_sequence(name, seq) VALUES('events', ?)",
+            (max_seq,),
+        )
+
+
+def _assert_replace_event_seq_conflicts(
+    *,
+    conn: sqlite3.Connection,
+    replace_plan_id: str,
+    events: list[_LegacyEvent],
+) -> None:
+    seqs = [event.seq for event in events if event.seq is not None]
+    if not seqs:
+        return
+    seq_set = {int(seq) for seq in seqs}
+    rows = conn.execute(
+        "SELECT seq, plan_id FROM events WHERE plan_id != ?",
+        (replace_plan_id,),
+    ).fetchall()
+    rows = [row for row in rows if int(row["seq"]) in seq_set]
+    if not rows:
+        return
+    conflicts = ", ".join(f"{int(row['seq'])}:{row['plan_id']}" for row in rows)
+    raise LegacyImportError(
+        ImportReport(
+            dry_run=False,
+            published=False,
+            plans=1,
+            stories=0,
+            tasks=0,
+            events=len(events),
+            problems=[
+                ImportProblem(
+                    path=replace_plan_id,
+                    cause=f"event seq conflict with other plans: {conflicts}",
+                )
+            ],
+        )
+    )
+
+
+def _assert_semantic_equivalence(
+    tree: _LegacyTree, temp_db_path: Path, *, include_event_seq: bool
+) -> None:
+    source_view = _source_semantic_view(tree, include_event_seq=include_event_seq)
+    db_view = _db_semantic_view(temp_db_path, include_event_seq=include_event_seq)
     if source_view != db_view:
         report = ImportReport(
             dry_run=False,
@@ -601,7 +811,9 @@ def _assert_semantic_equivalence(tree: _LegacyTree, temp_db_path: Path) -> None:
         raise LegacyImportError(report)
 
 
-def _source_semantic_view(tree: _LegacyTree) -> dict[str, Any]:
+def _source_semantic_view(
+    tree: _LegacyTree, *, include_event_seq: bool
+) -> dict[str, Any]:
     plans: list[dict[str, Any]] = []
     for plan in tree.plans:
         plan_view: dict[str, Any] = {
@@ -626,6 +838,7 @@ def _source_semantic_view(tree: _LegacyTree) -> dict[str, Any]:
             },
             "events": [
                 {
+                    **({"seq": event.seq} if include_event_seq else {}),
                     "legacy_id": event.legacy_id,
                     "ts": event.ts,
                     "type": event.event_type,
@@ -689,7 +902,7 @@ def _source_semantic_view(tree: _LegacyTree) -> dict[str, Any]:
     return {"plans": plans}
 
 
-def _db_semantic_view(db_path: Path) -> dict[str, Any]:
+def _db_semantic_view(db_path: Path, *, include_event_seq: bool) -> dict[str, Any]:
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     try:
@@ -760,7 +973,7 @@ def _db_semantic_view(db_path: Path) -> dict[str, Any]:
                 (plan_id,),
             ).fetchone()
             event_rows = conn.execute(
-                "SELECT legacy_id, ts, type, scope, data FROM events WHERE plan_id = ? ORDER BY seq",
+                "SELECT seq, legacy_id, ts, type, scope, data FROM events WHERE plan_id = ? ORDER BY seq",
                 (plan_id,),
             ).fetchall()
             result_plans.append(
@@ -792,7 +1005,16 @@ def _db_semantic_view(db_path: Path) -> dict[str, Any]:
                     },
                     "events": [
                         {
-                            "legacy_id": str(event_row["legacy_id"]),
+                            **(
+                                {"seq": int(event_row["seq"])}
+                                if include_event_seq
+                                else {}
+                            ),
+                            "legacy_id": (
+                                str(event_row["legacy_id"])
+                                if event_row["legacy_id"] is not None
+                                else None
+                            ),
                             "ts": str(event_row["ts"]),
                             "type": str(event_row["type"]),
                             "scope": loads_json(event_row["scope"]),
@@ -852,8 +1074,203 @@ def _extract_plan_entries(
     return entries
 
 
+def _parse_manifest(
+    todo_root: Path, errors: list[ImportProblem]
+) -> _ImportManifest | None:
+    manifest_path = todo_root / MANIFEST_FILENAME
+    if not manifest_path.exists():
+        return None
+    try:
+        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        errors.append(
+            ImportProblem(path=str(manifest_path), cause=f"invalid MANIFEST: {exc}")
+        )
+        return None
+
+    if not isinstance(payload, dict):
+        errors.append(
+            ImportProblem(
+                path=str(manifest_path), cause="MANIFEST must be a JSON object"
+            )
+        )
+        return None
+    if payload.get("format_version") != MANIFEST_VERSION:
+        errors.append(
+            ImportProblem(
+                path=str(manifest_path),
+                cause=(
+                    "unsupported MANIFEST format_version "
+                    f"'{payload.get('format_version')}'"
+                ),
+            )
+        )
+        return None
+
+    plans = payload.get("plans")
+    if not isinstance(plans, list) or not all(
+        isinstance(item, str) and item for item in plans
+    ):
+        errors.append(
+            ImportProblem(
+                path=str(manifest_path), cause="MANIFEST.plans must be a list[str]"
+            )
+        )
+        return None
+    counts_raw = payload.get("counts")
+    if not isinstance(counts_raw, dict):
+        errors.append(
+            ImportProblem(
+                path=str(manifest_path), cause="MANIFEST.counts must be an object"
+            )
+        )
+        return None
+    counts: dict[str, dict[str, int]] = {}
+    for plan_id, value in counts_raw.items():
+        if not isinstance(plan_id, str) or not isinstance(value, dict):
+            errors.append(
+                ImportProblem(
+                    path=str(manifest_path), cause="MANIFEST.counts entries are invalid"
+                )
+            )
+            return None
+        try:
+            counts[plan_id] = {
+                "stories": int(value["stories"]),
+                "tasks": int(value["tasks"]),
+                "events": int(value["events"]),
+            }
+        except (KeyError, TypeError, ValueError):
+            errors.append(
+                ImportProblem(
+                    path=str(manifest_path),
+                    cause=f"MANIFEST.counts['{plan_id}'] must contain integer stories/tasks/events",
+                )
+            )
+            return None
+    seq_raw = payload.get("event_seq_range")
+    if not isinstance(seq_raw, dict):
+        errors.append(
+            ImportProblem(
+                path=str(manifest_path),
+                cause="MANIFEST.event_seq_range must be an object",
+            )
+        )
+        return None
+    seq_min = seq_raw.get("min")
+    seq_max = seq_raw.get("max")
+    if seq_min is not None and not isinstance(seq_min, int):
+        errors.append(
+            ImportProblem(
+                path=str(manifest_path),
+                cause="MANIFEST.event_seq_range.min must be integer|null",
+            )
+        )
+    if seq_max is not None and not isinstance(seq_max, int):
+        errors.append(
+            ImportProblem(
+                path=str(manifest_path),
+                cause="MANIFEST.event_seq_range.max must be integer|null",
+            )
+        )
+    content_hash = payload.get("content_hash")
+    if not isinstance(content_hash, str) or not content_hash:
+        errors.append(
+            ImportProblem(
+                path=str(manifest_path),
+                cause="MANIFEST.content_hash must be a non-empty string",
+            )
+        )
+        return None
+    return _ImportManifest(
+        path=manifest_path,
+        plans=[str(plan) for plan in plans],
+        plan_counts=counts,
+        seq_min=seq_min if isinstance(seq_min, int) else None,
+        seq_max=seq_max if isinstance(seq_max, int) else None,
+        content_hash=content_hash,
+    )
+
+
+def _validate_manifest_against_tree(
+    *,
+    manifest: _ImportManifest,
+    tree: _LegacyTree,
+    errors: list[ImportProblem],
+) -> None:
+    actual_hash = compute_tree_content_hash(manifest.path.parent)
+    if actual_hash != manifest.content_hash:
+        errors.append(
+            ImportProblem(
+                path=str(manifest.path),
+                cause=(
+                    "MANIFEST content_hash mismatch; export appears torn or modified "
+                    f"(expected {manifest.content_hash}, got {actual_hash})"
+                ),
+            )
+        )
+
+    tree_plan_ids = [plan.model.id for plan in tree.plans]
+    if manifest.plans != tree_plan_ids:
+        errors.append(
+            ImportProblem(
+                path=str(manifest.path),
+                cause=(
+                    "MANIFEST.plans does not match parsed plans "
+                    f"(manifest={manifest.plans}, parsed={tree_plan_ids})"
+                ),
+            )
+        )
+
+    for plan in tree.plans:
+        expected = manifest.plan_counts.get(plan.model.id)
+        actual = {
+            "stories": len(plan.stories),
+            "tasks": sum(len(story.tasks) for story in plan.stories),
+            "events": len(plan.events),
+        }
+        if expected is None:
+            errors.append(
+                ImportProblem(
+                    path=str(manifest.path),
+                    cause=f"MANIFEST.counts missing plan '{plan.model.id}'",
+                )
+            )
+            continue
+        if expected != actual:
+            errors.append(
+                ImportProblem(
+                    path=str(manifest.path),
+                    cause=f"MANIFEST.counts mismatch for '{plan.model.id}': expected {expected}, got {actual}",
+                )
+            )
+
+    seqs = [
+        int(event.seq)
+        for plan in tree.plans
+        for event in plan.events
+        if event.seq is not None
+    ]
+    seq_min = min(seqs) if seqs else None
+    seq_max = max(seqs) if seqs else None
+    if seq_min != manifest.seq_min or seq_max != manifest.seq_max:
+        errors.append(
+            ImportProblem(
+                path=str(manifest.path),
+                cause=(
+                    "MANIFEST.event_seq_range mismatch "
+                    f"(expected min={manifest.seq_min}, max={manifest.seq_max}; "
+                    f"got min={seq_min}, max={seq_max})"
+                ),
+            )
+        )
+
+
 def _parse_activity_events(
-    activity_path: Path, errors: list[ImportProblem]
+    activity_path: Path,
+    errors: list[ImportProblem],
+    *,
+    require_seq: bool,
 ) -> list[_LegacyEvent]:
     if not activity_path.exists():
         return []
@@ -875,13 +1292,29 @@ def _parse_activity_events(
                 ImportProblem(path=item_path, cause="event must be a mapping")
             )
             continue
-        legacy_id = item.get("id")
+        legacy_id = item.get("legacy_id")
+        fallback_id = item.get("id")
+        if legacy_id is None and not require_seq:
+            legacy_id = fallback_id
+        seq = item.get("seq")
         event_type = item.get("type")
         scope = item.get("scope")
         ts = item.get("ts")
         data_field = item.get("data")
-        if legacy_id is None:
-            errors.append(ImportProblem(path=item_path, cause="event.id is required"))
+        if legacy_id is None and fallback_id is None:
+            errors.append(
+                ImportProblem(
+                    path=item_path, cause="event.id or event.legacy_id is required"
+                )
+            )
+            continue
+        if require_seq and (not isinstance(seq, int) or seq <= 0):
+            errors.append(
+                ImportProblem(
+                    path=item_path,
+                    cause="event.seq must be a positive integer when MANIFEST is present",
+                )
+            )
             continue
         if not isinstance(event_type, str) or not event_type.strip():
             errors.append(
@@ -905,7 +1338,8 @@ def _parse_activity_events(
             continue
         events.append(
             _LegacyEvent(
-                legacy_id=str(legacy_id),
+                legacy_id=(str(legacy_id) if legacy_id is not None else None),
+                seq=int(seq) if isinstance(seq, int) else None,
                 ts=normalized_ts,
                 event_type=event_type,
                 scope=scope,
