@@ -162,7 +162,7 @@ def test_uow_contention_retries_begin_immediate(tmp_path, monkeypatch):
     def fake_sleep(seconds: float) -> None:
         retry_sleep_calls.append(seconds)
         retry_observed.set()
-        allow_retry_to_continue.wait(timeout=1.0)
+        allow_retry_to_continue.wait(timeout=5.0)
 
     monkeypatch.setattr("plan_manager.storage.uow.time.sleep", fake_sleep)
     monkeypatch.setattr("plan_manager.storage.uow.random.uniform", lambda _a, _b: 0.0)
@@ -191,11 +191,15 @@ def test_uow_contention_retries_begin_immediate(tmp_path, monkeypatch):
 
     contender_thread.start()
     assert retry_observed.wait(timeout=1.0)
+    # Retire the holder completely before releasing the retry: sleep is faked to
+    # return instantly, so a holder still committing would burn every remaining
+    # attempt against the 10ms busy timeout and raise StorageBusyError.
     release_holder.set()
+    holder_thread.join(timeout=5.0)
+    assert not holder_thread.is_alive(), "Lock holder did not release."
     allow_retry_to_continue.set()
 
-    contender_thread.join(timeout=2.0)
-    holder_thread.join(timeout=2.0)
+    contender_thread.join(timeout=5.0)
 
     assert not contender_error
     assert retry_sleep_calls, "Expected at least one busy retry sleep."
