@@ -1,29 +1,31 @@
 name: Release
 
+# release-please owns the tag, the GitHub release and its notes. This workflow
+# only builds the distribution for a released tag and attaches it as assets.
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - 'plan-manager-v*'
   workflow_dispatch:
     inputs:
-      version:
-        description: 'Version to release (e.g., v0.7.1)'
+      tag:
+        description: 'Released tag to build and attach artifacts to (e.g. plan-manager-v0.13.0)'
         required: true
         type: string
 
 permissions:
   contents: write
-  id-token: write
 
 jobs:
-  build-and-publish:
-    name: Build and Create GitHub Release
+  attach-artifacts:
+    name: Build and Attach Release Artifacts
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
         with:
+          ref: ${{ inputs.tag || github.ref_name }}
           fetch-depth: 0
 
       - name: Install uv
@@ -48,11 +50,8 @@ jobs:
       - name: Check distribution
         run: uv run twine check dist/*
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
-        with:
-          files: dist/*
-          generate_release_notes: true
-          draft: false
-          prerelease: ${{ contains(github.ref, 'alpha') || contains(github.ref, 'beta') || contains(github.ref, 'rc') }}
+      - name: Attach artifacts to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ inputs.tag || github.ref_name }}
+        run: gh release upload "$TAG" dist/* --clobber

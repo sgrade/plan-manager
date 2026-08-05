@@ -226,9 +226,11 @@ This project uses [release-please](https://github.com/googleapis/release-please)
 2. **Merge to main** (via develop or direct):
    ```bash
    git checkout main
-   git merge develop
+   git merge --ff-only develop
    git push origin main
    ```
+   `--ff-only` fails loudly if the branches have diverged instead of creating a
+   surprise merge commit. If it fails, sync `main` back into `develop` first.
 
 3. **Release-please automatically**:
    - Analyzes commits since last release
@@ -241,12 +243,27 @@ This project uses [release-please](https://github.com/googleapis/release-please)
 4. **Review and merge the Release PR**:
    - Check the version bump is appropriate
    - Verify the changelog entries are accurate
-   - Merge the PR on GitHub
+   - Squash-merge with an admin bypass:
+     ```bash
+     gh pr merge <pr> --squash --admin
+     ```
+     release-please commits through the git data API, which GitHub does not sign,
+     so the `main` ruleset (`required_signatures`) refuses the merge without a
+     bypass — every merge method is refused, not just this one. Squashing means
+     the unsigned commit is discarded and what lands on `main` is a fresh commit
+     GitHub signs itself, so the branch history stays fully verified.
 
 5. **Automatic release**:
-   - Release-please creates a git tag (e.g., `v0.10.0`)
+   - Release-please creates a git tag (e.g., `plan-manager-v0.13.0`)
    - Creates a GitHub Release with release notes
-   - CI workflow builds and uploads distribution artifacts
+   - The `Release` workflow builds the distribution for that tag and attaches it
+     to the release. To backfill artifacts for an existing tag, dispatch it
+     manually: `gh workflow run release.yml -f tag=plan-manager-v0.13.0`
+
+6. **Refresh the lockfile** on `develop`: release-please bumps the version in
+   `pyproject.toml` only, so run `uv lock` and commit the resulting
+   `plan-manager` version bump in `uv.lock`. Otherwise the next `uv run` dirties
+   the working tree for everyone.
 
 ### Commit Message Format
 
@@ -259,7 +276,9 @@ Follow the [Conventional Commits](https://www.conventionalcommits.org/) specific
 - `refactor:` - Code refactoring (no version bump)
 - `perf:` - Performance improvements (no version bump)
 - `test:` - Test changes (no version bump)
-- `BREAKING CHANGE:` - Breaking change (bumps major version: 0.9.0 → 1.0.0)
+- `BREAKING CHANGE:` (or `feat!:`) - Breaking change. Pre-1.0 this bumps the
+  minor version (0.12.0 → 0.13.0), because `bump-minor-pre-major` is enabled in
+  `release-please-config.json`; it will bump major only after 1.0.0.
 
 ### Emergency Manual Release
 
