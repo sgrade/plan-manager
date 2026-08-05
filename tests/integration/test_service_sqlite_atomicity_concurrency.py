@@ -10,18 +10,20 @@ from plan_manager.domain.models import Status
 
 def test_submit_pr_rolls_back_when_event_append_fails(monkeypatch):
     from plan_manager.services import plan_service, story_service, task_service
-    from plan_manager.services.shared import set_current_plan_id, set_current_task_id
+    from plan_manager.services.shared import set_current_task_id
     from plan_manager.storage import repositories
 
     plan = plan_service.create_plan("Atomicity Plan", None, None)
-    set_current_plan_id(plan["id"])
-    story = story_service.create_story("Atomicity Story", None, None, None, [])
-    task = task_service.create_task(story["id"], "Atomicity Task", None, [], None)
+    plan_id = plan["id"]
+    story = story_service.create_story(plan_id, "Atomicity Story", None, None, None, [])
+    task = task_service.create_task(
+        plan_id, story["id"], "Atomicity Task", None, [], None
+    )
     task_local_id = task["id"].split(":", 1)[1]
 
-    task_service.create_steps(story["id"], task_local_id, [{"title": "step"}])
-    set_current_task_id(task["id"], plan["id"])
-    task_service.start_current_task()
+    task_service.create_steps(plan_id, story["id"], task_local_id, [{"title": "step"}])
+    set_current_task_id(task["id"], plan_id)
+    task_service.start_task(plan_id, task["id"], story_id=story["id"])
 
     original_append = repositories.append_event
 
@@ -33,24 +35,23 @@ def test_submit_pr_rolls_back_when_event_append_fails(monkeypatch):
     )
     try:
         with pytest.raises(RuntimeError, match="injected event failure"):
-            task_service.submit_pr(story["id"], task_local_id, ["changed"])
+            task_service.submit_pr(plan_id, story["id"], task_local_id, ["changed"])
     finally:
         monkeypatch.setattr(
             "plan_manager.services.task_service.repositories.append_event",
             original_append,
         )
 
-    task_after = task_service.get_task(story["id"], task_local_id)
+    task_after = task_service.get_task(plan_id, story["id"], task_local_id)
     assert task_after["status"] == Status.IN_PROGRESS
     assert task_after.get("changes") == []
 
 
 def test_concurrent_create_story_generates_distinct_ids():
     from plan_manager.services import plan_service, story_service
-    from plan_manager.services.shared import set_current_plan_id
 
     plan = plan_service.create_plan("Story Race Plan", None, None)
-    set_current_plan_id(plan["id"])
+    plan_id = plan["id"]
 
     ready = threading.Barrier(2)
     created_ids: list[str] = []
@@ -60,7 +61,9 @@ def test_concurrent_create_story_generates_distinct_ids():
     def worker() -> None:
         try:
             ready.wait(timeout=2.0)
-            story = story_service.create_story("Same title", None, None, None, [])
+            story = story_service.create_story(
+                plan_id, "Same title", None, None, None, []
+            )
             with lock:
                 created_ids.append(story["id"])
         except Exception as exc:  # noqa: BLE001
@@ -82,19 +85,22 @@ def test_concurrent_create_story_generates_distinct_ids():
 def test_concurrent_start_task_allows_exactly_one_success():
     from plan_manager.services import plan_service, story_service, task_service
     from plan_manager.services.shared import (
-        set_current_plan_id,
         set_current_story_id,
         set_current_task_id,
     )
 
     plan = plan_service.create_plan("Start Race Plan", None, None)
-    set_current_plan_id(plan["id"])
-    story = story_service.create_story("Start Race Story", None, None, None, [])
-    task = task_service.create_task(story["id"], "Start Race Task", None, [], None)
+    plan_id = plan["id"]
+    story = story_service.create_story(
+        plan_id, "Start Race Story", None, None, None, []
+    )
+    task = task_service.create_task(
+        plan_id, story["id"], "Start Race Task", None, [], None
+    )
     task_local_id = task["id"].split(":", 1)[1]
-    task_service.create_steps(story["id"], task_local_id, [{"title": "step"}])
-    set_current_story_id(story["id"], plan["id"])
-    set_current_task_id(task["id"], plan["id"])
+    task_service.create_steps(plan_id, story["id"], task_local_id, [{"title": "step"}])
+    set_current_story_id(story["id"], plan_id)
+    set_current_task_id(task["id"], plan_id)
 
     ready = threading.Barrier(2)
     outcomes: list[bool] = []
@@ -103,7 +109,7 @@ def test_concurrent_start_task_allows_exactly_one_success():
     def worker() -> None:
         try:
             ready.wait(timeout=2.0)
-            task_service.start_current_task()
+            task_service.start_task(plan_id, task["id"], story_id=story["id"])
             success = True
         except Exception:  # noqa: BLE001
             success = False
@@ -119,34 +125,37 @@ def test_concurrent_start_task_allows_exactly_one_success():
 
     assert outcomes.count(True) == 1
     assert outcomes.count(False) == 1
-    task_after = task_service.get_task(story["id"], task_local_id)
+    task_after = task_service.get_task(plan_id, story["id"], task_local_id)
     assert task_after["status"] == Status.IN_PROGRESS
 
 
 def test_done_transitions_set_completion_time_and_roundtrip():
     from plan_manager.services import plan_service, story_service, task_service
     from plan_manager.services.shared import (
-        set_current_plan_id,
         set_current_story_id,
         set_current_task_id,
     )
 
     plan = plan_service.create_plan("Completion Plan", None, None)
-    set_current_plan_id(plan["id"])
-    story = story_service.create_story("Completion Story", None, None, None, [])
-    task = task_service.create_task(story["id"], "Completion Task", None, [], None)
+    plan_id = plan["id"]
+    story = story_service.create_story(
+        plan_id, "Completion Story", None, None, None, []
+    )
+    task = task_service.create_task(
+        plan_id, story["id"], "Completion Task", None, [], None
+    )
     task_local_id = task["id"].split(":", 1)[1]
 
-    set_current_story_id(story["id"], plan["id"])
-    set_current_task_id(task["id"], plan["id"])
-    task_service.create_steps(story["id"], task_local_id, [{"title": "step"}])
-    task_service.start_current_task()
-    task_service.submit_pr(story["id"], task_local_id, ["implemented"])
-    task_service.approve_pr()
+    set_current_story_id(story["id"], plan_id)
+    set_current_task_id(task["id"], plan_id)
+    task_service.create_steps(plan_id, story["id"], task_local_id, [{"title": "step"}])
+    task_service.start_task(plan_id, task["id"], story_id=story["id"])
+    task_service.submit_pr(plan_id, story["id"], task_local_id, ["implemented"])
+    task_service.approve_pr(plan_id, task["id"], story_id=story["id"])
 
-    done_task = task_service.get_task(story["id"], task_local_id)
-    done_story = story_service.get_story(story["id"])
-    done_plan = plan_service.get_plan(plan["id"])
+    done_task = task_service.get_task(plan_id, story["id"], task_local_id)
+    done_story = story_service.get_story(plan_id, story["id"])
+    done_plan = plan_service.get_plan(plan_id)
 
     assert done_task["status"] == Status.DONE
     assert done_story["status"] == Status.DONE
@@ -158,14 +167,18 @@ def test_done_transitions_set_completion_time_and_roundtrip():
 
 def test_set_current_task_local_id_uses_single_uow(monkeypatch):
     from plan_manager.services import plan_service, shared, story_service, task_service
-    from plan_manager.services.shared import set_current_plan_id, set_current_story_id
+    from plan_manager.services.shared import set_current_story_id
 
     plan = plan_service.create_plan("Set Current Task Plan", None, None)
-    set_current_plan_id(plan["id"])
-    story = story_service.create_story("Set Current Task Story", None, None, None, [])
-    task = task_service.create_task(story["id"], "Set Current Task", None, [], None)
+    plan_id = plan["id"]
+    story = story_service.create_story(
+        plan_id, "Set Current Task Story", None, None, None, []
+    )
+    task = task_service.create_task(
+        plan_id, story["id"], "Set Current Task", None, [], None
+    )
     task_local_id = task["id"].split(":", 1)[1]
-    set_current_story_id(story["id"], plan["id"])
+    set_current_story_id(story["id"], plan_id)
 
     original_service_uow = shared.service_uow
     uow_calls = 0
@@ -178,5 +191,5 @@ def test_set_current_task_local_id_uses_single_uow(monkeypatch):
     monkeypatch.setattr(
         "plan_manager.services.shared.service_uow", counting_service_uow
     )
-    shared.set_current_task_id(task_local_id, plan["id"])
+    shared.set_current_task_id(task_local_id, plan_id)
     assert uow_calls == 1

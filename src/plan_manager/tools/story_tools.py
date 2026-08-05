@@ -46,6 +46,7 @@ def register_story_tools(mcp_instance: "FastMCP") -> None:
 
 
 def create_story(
+    plan_id: str,
     title: str,
     description: Optional[str] = None,
     acceptance_criteria: Optional[list[str]] = None,
@@ -55,10 +56,11 @@ def create_story(
     """Create a new story with the specified details.
 
     Args:
+        plan_id: Plan identifier, for example `concurrency_stability`.
         title: The title of the story (will be validated and sanitized)
         description: Optional description of the story
         acceptance_criteria: Optional list of acceptance criteria for the story
-        priority: Optional priority level (0-5, where 5 is highest)
+        priority: Optional priority level (0-5, where 0 is highest priority)
         depends_on: Optional list of story IDs this story depends on
 
     Returns:
@@ -66,23 +68,34 @@ def create_story(
     """
     coerced_priority = coerce_optional_int(priority, "priority")
     data = svc_create_story(
-        title, description, acceptance_criteria, coerced_priority, depends_on or []
+        plan_id,
+        title,
+        description,
+        acceptance_criteria,
+        coerced_priority,
+        depends_on or [],
     )
     return StoryOut(**data)
 
 
-def get_story(story_id: Optional[str] = None) -> StoryOut:
-    """Fetch a story by ID or the current story if none provided."""
-    story_id = story_id or get_current_story_id()
+def get_story(plan_id: str, story_id: Optional[str] = None) -> StoryOut:
+    """Fetch a story by ID or the current story for a plan.
+
+    Args:
+        plan_id: Plan identifier, for example `concurrency_stability`.
+        story_id: Story identifier, for example `task_orchestration`.
+    """
+    story_id = story_id or get_current_story_id(plan_id)
     if not story_id:
         raise ValueError(
-            "No current story set. Call set_current_story or provide story_id."
+            "Missing required parameter 'story_id': no current story for this plan. Call `set_current_story` with plan_id, or provide story_id."
         )
-    data = svc_get_story(story_id)
+    data = svc_get_story(plan_id, story_id)
     return StoryOut(**data)
 
 
 def update_story(
+    plan_id: str,
     story_id: str,
     title: Optional[str] = None,
     description: Optional[str] = None,
@@ -90,21 +103,38 @@ def update_story(
     depends_on: Optional[list[str]] = None,
     priority: Optional[float] = None,
 ) -> StoryOut:
-    """Update mutable fields of a story."""
+    """Update mutable fields of a story.
+
+    Args:
+        plan_id: Plan identifier, for example `concurrency_stability`.
+        story_id: Story identifier, for example `task_orchestration`.
+    """
     coerced_priority = coerce_optional_int(priority, "priority")
     data = svc_update_story(
-        story_id, title, description, acceptance_criteria, coerced_priority, depends_on
+        plan_id,
+        story_id,
+        title,
+        description,
+        acceptance_criteria,
+        coerced_priority,
+        depends_on,
     )
     return StoryOut(**data)
 
 
-def delete_story(story_id: str) -> OperationResult:
-    """Delete a story by ID (fails if other items depend on it)."""
-    data = svc_delete_story(story_id)
+def delete_story(plan_id: str, story_id: str) -> OperationResult:
+    """Delete a story by ID (fails if other items depend on it).
+
+    Args:
+        plan_id: Plan identifier, for example `concurrency_stability`.
+        story_id: Story identifier, for example `task_orchestration`.
+    """
+    data = svc_delete_story(plan_id, story_id)
     return OperationResult(**data)
 
 
 def list_stories(
+    plan_id: str,
     statuses: Optional[list[Status]] = None,
     unblocked: bool = False,
     offset: Optional[int] = 0,
@@ -115,9 +145,10 @@ def list_stories(
         statuses = []
     logger.info("Handling list_stories: statuses=%s, unblocked=%s", statuses, unblocked)
     try:
-        stories: list[Story] = svc_list_stories(statuses, unblocked)
+        stories: list[Story] = svc_list_stories(plan_id, statuses, unblocked)
         items = [
             StoryListItem(
+                plan_id=plan_id,
                 id=s.id,
                 title=s.title,
                 status=s.status,
@@ -144,12 +175,18 @@ def list_stories(
 
 
 def set_current_story(
+    plan_id: str,
     story_id: Optional[str] = None,
 ) -> OperationResult | list[StoryListItem]:
-    """Set the current story. If no ID is provided, lists available stories."""
+    """Set the current story for a specific plan.
+
+    Args:
+        plan_id: Plan identifier, for example `concurrency_stability`.
+        story_id: Story identifier, for example `task_orchestration`.
+    """
     if story_id:
-        set_current_story_id(story_id)
+        set_current_story_id(story_id, plan_id)
         return OperationResult(
             success=True, message=f"Current story set to '{story_id}'"
         )
-    return list_stories()
+    return list_stories(plan_id=plan_id)

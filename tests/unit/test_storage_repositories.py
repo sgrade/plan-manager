@@ -211,15 +211,16 @@ def test_guarded_transition_conflict_is_typed(tmp_path: Path) -> None:
 
 def test_meta_value_round_trip(tmp_path: Path) -> None:
     db_path = bootstrap(tmp_path)
+    key = "agent_scope_test_key"
     with unit_of_work(db_path, write=True) as conn:
-        assert get_meta_value(conn, "current_plan_id") is None
-        set_meta_value(conn, "current_plan_id", "plan-a")
+        assert get_meta_value(conn, key) is None
+        set_meta_value(conn, key, "plan-a")
     with unit_of_work(db_path) as conn:
-        assert get_meta_value(conn, "current_plan_id") == "plan-a"
+        assert get_meta_value(conn, key) == "plan-a"
     with unit_of_work(db_path, write=True) as conn:
-        delete_meta_value(conn, "current_plan_id")
+        delete_meta_value(conn, key)
     with unit_of_work(db_path) as conn:
-        assert get_meta_value(conn, "current_plan_id") is None
+        assert get_meta_value(conn, key) is None
 
 
 def test_story_and_plan_guarded_transition_conflicts(tmp_path: Path) -> None:

@@ -9,7 +9,6 @@ from pydantic import ValidationError
 from plan_manager.domain.models import Plan, Status
 from plan_manager.logging_context import get_correlation_id
 from plan_manager.services.shared import (
-    CURRENT_PLAN_META_KEY,
     generate_slug,
     plan_to_dict,
     service_uow,
@@ -54,8 +53,6 @@ def create_plan(
         created_plan = repositories.get_plan(conn, plan_id)
         if created_plan is None:
             raise RuntimeError(f"Plan '{plan_id}' was not persisted.")
-        if repositories.get_meta_value(conn, CURRENT_PLAN_META_KEY) is None:
-            repositories.set_meta_value(conn, CURRENT_PLAN_META_KEY, plan_id)
     return plan_to_dict(created_plan)
 
 
@@ -97,15 +94,6 @@ def delete_plan(plan_id: str) -> dict[str, Any]:
         deleted = repositories.delete_plan(conn, plan_id)
         if not deleted:
             raise FileNotFoundError(f"Plan '{plan_id}' not found.")
-        current = repositories.get_meta_value(conn, CURRENT_PLAN_META_KEY)
-        if current == plan_id:
-            remaining = repositories.list_plans(conn)
-            if remaining:
-                repositories.set_meta_value(
-                    conn, CURRENT_PLAN_META_KEY, remaining[0].id
-                )
-            else:
-                repositories.delete_meta_value(conn, CURRENT_PLAN_META_KEY)
     return {"success": True, "message": f"Successfully deleted plan '{plan_id}'."}
 
 

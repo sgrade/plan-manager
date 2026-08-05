@@ -10,11 +10,11 @@ from plan_manager.domain.models import Plan, Status, Story, Task
 from plan_manager.logging_context import get_correlation_id
 from plan_manager.services.changelog_service import generate_changelog_for_task
 from plan_manager.services.shared import (
+    ensure_plan_exists,
+    ensure_story_in_plan,
+    ensure_task_in_plan,
     find_dependents,
     generate_slug,
-    get_current_plan_id,
-    get_current_story_id,
-    get_current_task_id,
     is_unblocked,
     resolve_task_id,
     service_uow,
@@ -82,6 +82,19 @@ def _find_task(
 ) -> tuple[Story, Task]:
     resolved_story_id, local_task_id = resolve_task_id(
         task_id, story_id, plan_id=plan_id, conn=conn
+    )
+    ensure_story_in_plan(
+        conn,
+        plan_id,
+        resolved_story_id,
+        parameter_name="story_id",
+    )
+    ensure_task_in_plan(
+        conn,
+        plan_id,
+        resolved_story_id,
+        local_task_id,
+        parameter_name="task_id",
     )
     story_obj = repositories.get_story(conn, plan_id, resolved_story_id)
     if story_obj is None:
@@ -158,6 +171,7 @@ def _refresh_blocked_tasks(conn: Any, plan_id: str) -> None:
 
 
 def create_task(
+    plan_id: str,
     story_id: str,
     title: str,
     priority: Optional[int],
@@ -177,7 +191,6 @@ def create_task(
             "corr_id": get_correlation_id(),
         }
     )
-    plan_id = get_current_plan_id()
     task_local_id = _generate_task_id_from_title(title)
     try:
         task = Task(
@@ -198,8 +211,8 @@ def create_task(
         ) from e
 
     with service_uow(write=True, operation="create_task", plan_id=plan_id) as conn:
-        if repositories.get_story(conn, plan_id, story_id) is None:
-            raise KeyError(f"story with ID '{story_id}' not found.")
+        ensure_plan_exists(conn, plan_id)
+        ensure_story_in_plan(conn, plan_id, story_id, parameter_name="story_id")
         local_id = repositories.create_task(
             conn,
             plan_id=plan_id,
@@ -220,11 +233,13 @@ def create_task(
     if created is None:
         raise RuntimeError(f"Task '{story_id}:{local_id}' was not persisted.")
     payload = task_to_dict(created)
+    payload["plan_id"] = plan_id
     return {
         key: value
         for key, value in payload.items()
         if key
         in {
+            "plan_id",
             "id",
             "title",
             "status",
@@ -236,14 +251,25 @@ def create_task(
     }
 
 
-def get_task(story_id: str, task_id: str) -> dict[str, Any]:
-    plan_id = get_current_plan_id()
+def get_task(plan_id: str, story_id: str, task_id: str) -> dict[str, Any]:
     resolved_story_id, local_task_id = resolve_task_id(
         task_id, story_id, plan_id=plan_id
     )
     with service_uow(write=False, operation="get_task", plan_id=plan_id) as conn:
-        if repositories.get_story(conn, plan_id, resolved_story_id) is None:
-            raise KeyError(f"story with ID '{resolved_story_id}' not found.")
+        ensure_plan_exists(conn, plan_id)
+        ensure_story_in_plan(
+            conn,
+            plan_id,
+            resolved_story_id,
+            parameter_name="story_id",
+        )
+        ensure_task_in_plan(
+            conn,
+            plan_id,
+            resolved_story_id,
+            local_task_id,
+            parameter_name="task_id",
+        )
         task_obj = repositories.get_task(
             conn, plan_id, resolved_story_id, local_task_id
         )
@@ -251,10 +277,13 @@ def get_task(story_id: str, task_id: str) -> dict[str, Any]:
         raise KeyError(
             f"task with ID '{resolved_story_id}:{local_task_id}' not found under story '{resolved_story_id}'."
         )
-    return task_to_dict(task_obj)
+    payload = task_to_dict(task_obj)
+    payload["plan_id"] = plan_id
+    return payload
 
 
 def update_task(
+    plan_id: str,
     story_id: str,
     task_id: str,
     title: Optional[str] = None,
@@ -263,8 +292,8 @@ def update_task(
     priority: Optional[int] = None,
     status: Optional[Status] = None,
 ) -> dict[str, Any]:
-    plan_id = get_current_plan_id()
     with service_uow(write=True, operation="update_task", plan_id=plan_id) as conn:
+        ensure_plan_exists(conn, plan_id)
         story, task_obj = _find_task(conn, plan_id, story_id, task_id)
         plan_snapshot = _load_plan_snapshot(conn, plan_id)
 
@@ -364,12 +393,14 @@ def update_task(
         ):
             repositories.set_current_story(conn, plan_id=plan_id, current_story_id=None)
 
-    return task_to_dict(updated_task)
+    payload = task_to_dict(updated_task)
+    payload["plan_id"] = plan_id
+    return payload
 
 
-def delete_task(story_id: str, task_id: str) -> dict[str, Any]:
-    plan_id = get_current_plan_id()
+def delete_task(plan_id: str, story_id: str, task_id: str) -> dict[str, Any]:
     with service_uow(write=True, operation="delete_task", plan_id=plan_id) as conn:
+        ensure_plan_exists(conn, plan_id)
         _story, task_obj = _find_task(conn, plan_id, story_id, task_id)
         plan = _load_plan_snapshot(conn, plan_id)
         dependents = find_dependents(plan, task_obj.id)
@@ -388,10 +419,12 @@ def delete_task(story_id: str, task_id: str) -> dict[str, Any]:
 
 
 def list_tasks(
-    statuses: Optional[list[Status]], story_id: Optional[str] = None
+    plan_id: str,
+    statuses: Optional[list[Status]],
+    story_id: Optional[str] = None,
 ) -> list[Task]:
-    plan_id = get_current_plan_id()
     with service_uow(write=False, operation="list_tasks", plan_id=plan_id) as conn:
+        ensure_plan_exists(conn, plan_id)
         return repositories.list_tasks(
             conn,
             plan_id,
@@ -401,9 +434,8 @@ def list_tasks(
 
 
 def create_steps(
-    story_id: str, task_id: str, steps: list[dict[str, Any]]
+    plan_id: str, story_id: str, task_id: str, steps: list[dict[str, Any]]
 ) -> dict[str, Any]:
-    plan_id = get_current_plan_id()
     validated_steps = validate_task_steps(steps)
     new_steps = [
         Task.Step(title=step["title"], description=step["description"])
@@ -411,6 +443,7 @@ def create_steps(
     ]
 
     with service_uow(write=True, operation="create_steps", plan_id=plan_id) as conn:
+        ensure_plan_exists(conn, plan_id)
         _story, task_obj = _find_task(conn, plan_id, story_id, task_id)
         if task_obj.status not in [Status.TODO, Status.IN_PROGRESS]:
             raise ValueError(
@@ -432,17 +465,16 @@ def create_steps(
         )
     if updated is None:
         raise RuntimeError(f"Task '{task_obj.id}' disappeared while setting steps.")
-    return task_to_dict(updated)
+    payload = task_to_dict(updated)
+    payload["plan_id"] = plan_id
+    return payload
 
 
-def start_current_task() -> dict[str, Any]:
-    plan_id = get_current_plan_id()
-    task_id = get_current_task_id(plan_id)
-    if not task_id:
-        raise ValueError("No active task. Use set_current_task first.")
-
-    story_id = get_current_story_id(plan_id) or task_id.split(":")[0]
+def start_task(
+    plan_id: str, task_id: str, story_id: str | None = None
+) -> dict[str, Any]:
     with service_uow(write=True, operation="start_task", plan_id=plan_id) as conn:
+        ensure_plan_exists(conn, plan_id)
         story, task = _find_task(conn, plan_id, story_id, task_id)
         if task.status != Status.TODO:
             raise ValueError(
@@ -490,18 +522,16 @@ def start_current_task() -> dict[str, Any]:
         "success": True,
         "message": f"Task '{task.title}' started and moved to IN_PROGRESS.",
         "changelog_snippet": None,
+        "plan_id": plan_id,
         **task_to_dict(updated),
     }
 
 
-def approve_pr() -> dict[str, Any]:
-    plan_id = get_current_plan_id()
-    task_id = get_current_task_id(plan_id)
-    if not task_id:
-        raise ValueError("No active task. There is nothing to approve.")
-    story_id = get_current_story_id(plan_id) or task_id.split(":")[0]
-
+def approve_pr(
+    plan_id: str, task_id: str, story_id: str | None = None
+) -> dict[str, Any]:
     with service_uow(write=True, operation="approve_pr", plan_id=plan_id) as conn:
+        ensure_plan_exists(conn, plan_id)
         story, task = _find_task(conn, plan_id, story_id, task_id)
         if task.status != Status.PENDING_REVIEW:
             raise ValueError(
@@ -544,31 +574,20 @@ def approve_pr() -> dict[str, Any]:
         "success": True,
         "message": f"Task '{task.title}' approved and moved to DONE.",
         "changelog_snippet": changelog_snippet,
+        "plan_id": plan_id,
         **task_to_dict(updated),
     }
 
 
-def approve_current_task() -> dict[str, Any]:
-    plan_id = get_current_plan_id()
-    task_id = get_current_task_id(plan_id)
-    if not task_id:
-        raise ValueError("No active task. There is nothing to approve.")
-    story_id = get_current_story_id(plan_id) or task_id.split(":")[0]
-    task = get_task(story_id, task_id)
-    task_status = task["status"]
-    if task_status == Status.TODO:
-        return start_current_task()
-    if task_status == Status.PENDING_REVIEW:
-        return approve_pr()
-    raise ValueError(
-        f"The active task '{task['title']}' is not in a state requiring approval (current status: {task_status})."
-    )
-
-
-def submit_pr(story_id: str, task_id: str, changes: list[str]) -> dict[str, Any]:
+def submit_pr(
+    plan_id: str,
+    story_id: str,
+    task_id: str,
+    changes: list[str],
+) -> dict[str, Any]:
     changes = validate_changes(changes)
-    plan_id = get_current_plan_id()
     with service_uow(write=True, operation="submit_pr", plan_id=plan_id) as conn:
+        ensure_plan_exists(conn, plan_id)
         story, task = _find_task(conn, plan_id, story_id, task_id)
         if task.status != Status.IN_PROGRESS:
             raise ValueError(
@@ -607,13 +626,20 @@ def submit_pr(story_id: str, task_id: str, changes: list[str]) -> dict[str, Any]
         )
     if updated is None:
         raise RuntimeError(f"Task '{task_id}' disappeared while submitting for review.")
-    return task_to_dict(updated)
+    payload = task_to_dict(updated)
+    payload["plan_id"] = plan_id
+    return payload
 
 
-def request_changes(story_id: str, task_id: str, feedback: str) -> dict[str, Any]:
+def request_changes(
+    plan_id: str,
+    story_id: str,
+    task_id: str,
+    feedback: str,
+) -> dict[str, Any]:
     feedback = validate_feedback(feedback)
-    plan_id = get_current_plan_id()
     with service_uow(write=True, operation="request_changes", plan_id=plan_id) as conn:
+        ensure_plan_exists(conn, plan_id)
         story, task = _find_task(conn, plan_id, story_id, task_id)
         if task.status != Status.PENDING_REVIEW:
             raise ValueError(
@@ -658,17 +684,15 @@ def request_changes(story_id: str, task_id: str, feedback: str) -> dict[str, Any
     return {
         "success": True,
         "message": f"Changes requested for task '{task.title}'. Moved to IN_PROGRESS.",
+        "plan_id": plan_id,
     }
 
 
-def find_reviewable_tasks() -> list[Task]:
-    try:
-        plan_id = get_current_plan_id()
-    except ValueError:
-        return []
+def find_reviewable_tasks(plan_id: str) -> list[Task]:
     with service_uow(
         write=False, operation="find_reviewable_tasks", plan_id=plan_id
     ) as conn:
+        ensure_plan_exists(conn, plan_id)
         tasks = repositories.list_tasks(conn, plan_id)
     return [
         task

@@ -4,39 +4,50 @@ This guide is for agents using the Plan Manager MCP server. It summarizes the wo
 
 ## Overview
 
-Plan Manager is a tool for a single developer or orchestrator to coordinate the work of one or more AI agents or models.
+Plan Manager coordinates one or more AI agents around explicit plan scope.
 
 ## Core concepts
 - Plan: epic/major-level scope that groups stories.
 - Story: user-facing outcome (the WHAT and WHY), minor-level; contains tasks.
 - Task: implementation unit for the agent (the HOW), patch-level; contains optional steps and changelog entries.
-- Context IDs: current plan/story/task are read from server-side state and can be set via `set_current_plan`, `set_current_story`, `set_current_task`.
+- Explicit scope: every plan-scoped tool requires `plan_id`; workflow mutations also require `task_id`.
+- Per-plan current story/task: `set_current_story` and `set_current_task` are discovery helpers only; mutations must still pass explicit ids.
 
 ## Commands (tools)
 
 ### Workflow Tools
-- **start_task** — approve implementation plan and start work (Gate 1: TODO → IN_PROGRESS)
-- **submit_pr(changes)** — submit work for code review (IN_PROGRESS → PENDING_REVIEW)
-- **approve_pr** — approve code review (Gate 2: PENDING_REVIEW → DONE)
-- **merge_pr(task_id, category, commit_type)** — **RECOMMENDED**: approve + generate changelog + commit (Gate 2 convenience)
-- **request_pr_changes(feedback)** — request modifications (PENDING_REVIEW → IN_PROGRESS)
+- **start_task(plan_id, task_id)** — approve implementation plan and start work (Gate 1: TODO → IN_PROGRESS)
+- **submit_pr(plan_id, task_id, changes)** — submit work for code review (IN_PROGRESS → PENDING_REVIEW)
+- **approve_pr(plan_id, task_id)** — approve code review (Gate 2: PENDING_REVIEW → DONE)
+- **merge_pr(plan_id, task_id, changelog_category, commit_type)** — **RECOMMENDED**: approve + generate changelog + commit (Gate 2 convenience)
+- **request_pr_changes(plan_id, task_id, feedback)** — request modifications (PENDING_REVIEW → IN_PROGRESS)
 
 ### Task Management Tools
-- list_*, create_*, update_*, delete_*, set_current_* — manage items and selection
-- **create_task_steps(steps)** — define implementation steps (replaces existing steps)
+- `list_*`, `create_*`, `get_*`, `update_*`, `delete_*`, `set_current_*` — all plan-scoped calls require `plan_id`
+- **create_task_steps(plan_id, task_id, steps)** — define implementation steps (replaces existing steps)
 
 ### Artifact Generation Tools
-- **generate_changelog_entry(task_id, category)** — generate keepachangelog.com entry
-- **generate_commit_message(task_id, commit_type)** — generate conventional commit message
+- **generate_changelog_entry(plan_id, task_id, category)** — generate keepachangelog.com entry
+- **generate_commit_message(plan_id, task_id, commit_type)** — generate conventional commit message
 
 ### Status and Context Tools
-- **report**, **get_current** — status and context helpers
+- **report(plan_id, scope)** and **get_current(plan_id)** — status and context helpers
 
-All tools return structured results. On failure, responses include human-readable guidance.
+All tools return structured results. Failures are structured, but message quality varies by path (some are contract-specific, some are generic validation/tool errors).
 
 Result shape essentials (for agents):
-- Each workflow tool returns `next_actions` with an explicit `who` field (e.g., USER, AGENT) and a `recommended` flag to steer behavior.
-- Use `set_current_*` to manage context; operations act on the current selection when IDs are omitted.
+- `start_task`, `submit_pr`, `approve_pr`, and `request_pr_changes` return `TaskWorkflowResult` with `next_actions`.
+- `merge_pr` returns `TaskFinalizationOut` (no `next_actions` field).
+- `next_actions.arguments` includes `plan_id` and full `task_id` values so scope can be forwarded mechanically.
+- Scope mismatch errors name both the supplied `plan_id` and the mismatched id.
+
+## Compatibility map (v2 explicit scope)
+
+- Removed: `set_current_plan`
+- Changed: `get_current(plan_id)` (was parameterless global current)
+- Changed: every plan-scoped tool now requires `plan_id`
+- Changed: workflow mutations require explicit `task_id`
+- Unchanged global tools: `create_plan`, `list_plans`, `get_plan(plan_id)`
 
 ### Result schema at a glance
 
@@ -54,6 +65,7 @@ NextAction {
 TaskWorkflowResult {
   success: boolean,
   message: string,
+  plan_id?: string,
   task?: TaskOut,
   gate?: "READY_TO_START" | "EXECUTING" | "AWAITING_REVIEW" | "DONE" | "BLOCKED",
   action: string,          // enum of the operation performed
@@ -63,11 +75,13 @@ TaskWorkflowResult {
 ```
 
 ## Prompts (assisted planning)
-- `/create_plan`, `/create_stories`, `/create_tasks`, `/create_steps` propose content; tools create items. Always get explicit user approval before creation.
+- `/create_plan`, `/create_stories`, `/create_tasks`, `/create_steps` propose content; tools create items.
+- Prompts now carry explicit ids in instructions (`plan_id`, `story_id`, `task_id`) for follow-up tool calls.
+- Always get explicit user approval before creation.
 
 ## Examples: Tool parameter types
 
-- Priority (integer 0–5, 0 is highest).
+- Priority (integer 0–5, 0 is highest / most urgent).
   - `priority: 2` → accepted
   - `priority: 2.0` → accepted (coerced to 2)
   - `priority: 2.5` → rejected with a clear message, e.g.:
@@ -78,4 +92,5 @@ TaskWorkflowResult {
   - Mixed case strings are normalized (e.g., `"in_progress"` → `IN_PROGRESS`), invalid values are rejected with allowed options listed.
 
 - IDs
-  - For tasks, either use a fully-qualified id (`<story_id>:<task_id>`) or a local id that is unique within the current story.
+  - For tasks, use fully-qualified ids (`<story_id>:<task_id>`) when possible.
+  - Every plan-scoped call includes `plan_id`, e.g. `concurrency_stability`.

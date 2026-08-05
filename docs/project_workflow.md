@@ -2,6 +2,9 @@
 
 This document outlines the command workflows for the Plan Manager.
 
+All plan-scoped calls shown below require explicit `plan_id`.
+Workflow mutations also require explicit `task_id`.
+
 ### Overview
 
 The user journey follows a logical progression from high-level planning to task execution:
@@ -22,8 +25,8 @@ graph TD
     N2 --> N3{Desired <Item> exists?};
     N3 -- No --> N4["User runs create_<item>"];
     N4 --> N2;
-    N3 -- Yes --> N5["User runs set_current_<item> [id]"];
-    N5 --> N6["Current <Item> is set"];
+    N3 -- Yes --> N5["If item is Story/Task: user runs set_current_story/set_current_task(plan_id, id)"];
+    N5 --> N6["Selected context item is set"];
     N6 --> N7([End]);
 ```
 
@@ -51,7 +54,7 @@ graph TD
     N6 --> N7{"Changes required?"};
     N7 -- Yes --> N3;
     N7 -- No --> N8["User types approve"] --> N9;
-    N9["Agent runs create_<child> for each item in the approved proposal"];
+    N9["Agent runs create_<child>(plan_id, ...) for each approved item"];
     N9 --> N10[Children Created];
     N10 --> N11([End]);
 ```
@@ -72,11 +75,11 @@ graph TD
     N1([Start]) --> N2{Current task set?};
 
     subgraph Select Current Task
-        N2 -- No --> N3["Agent runs list_tasks"];
+        N2 -- No --> N3["Agent runs list_tasks(plan_id, ...)"];
         N3 --> N4["Agent proposes next task"];
         N4 --> N5{User confirms?};
-        N5 -- Yes --> N6["Agent runs set_current_task"];
-        N5 -- No --> N7["User runs set_current_task [id]"];
+        N5 -- Yes --> N6["Agent runs set_current_task(plan_id, task_id)"];
+        N5 -- No --> N7["User runs set_current_task(plan_id, task_id)"];
         N6 --> N8[Current Task is set];
         N7 --> N8;
     end
@@ -98,26 +101,26 @@ graph TD
         N11 --> N12["Agent saves proposed steps to todo/temp/steps.json"];
         N12 --> N13["User reviews/edits the steps.json file"];
         N13 --> N14["User says 'approve steps' in chat"];
-        N14 --> N15["Agent runs create_task_steps with final steps.json"];
-        N15 --> N16["Agent runs start_task"];
+        N14 --> N15["Agent runs create_task_steps(plan_id, task_id, steps)"];
+        N15 --> N16["Agent runs start_task(plan_id, task_id)"];
         N16 --> N17[Task is in **IN_PROGRESS** state];
 
         N10 -- Fast-Track --> N18["User says 'approve steps' in chat"];
-        N18 --> N19["Agent runs create_task_steps (no proposal UI)"];
+        N18 --> N19["Agent runs create_task_steps(plan_id, task_id, steps) (no proposal UI)"];
         N19 --> N16;
     end
 
     N17 --> N20["User says 'execute' in chat"];
     N20 --> N21["Agent executes the task"];
-    N21 --> N22["Agent runs submit_pr (changes list)"];
+    N21 --> N22["Agent runs submit_pr(plan_id, task_id, changes)"];
 
     subgraph Gate 2: Code Review Approval
         N22 --> N23["Agent displays changes and asks user to approve or request changes"]
         N23 --> N24[Task is in PENDING_REVIEW state];
         N24 --> N25{User reviews the code};
-        N25 -- Approve --> N26["User says 'approve review' in chat"] --> N26a["Agent runs merge_pr (or approve_pr)"] --> N27[Task is in DONE state];
+        N25 -- Approve --> N26["User says 'approve review' in chat"] --> N26a["Agent runs merge_pr(plan_id, task_id, changelog_category, commit_type) (or approve_pr(plan_id, task_id))"] --> N27[Task is in DONE state];
         N25 -- Request Changes --> N28["User provides feedback in natural language"] --> N29;
-        N29["Agent runs request_pr_changes"] --> N17;
+        N29["Agent runs request_pr_changes(plan_id, task_id, feedback)"] --> N17;
     end
 
     N27 --> N30["Changelog entry and commit message returned (from merge_pr)"];

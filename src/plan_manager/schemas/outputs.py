@@ -30,7 +30,7 @@ class OperationResult(BaseModel):
 class CurrentContextOut(BaseModel):
     """Current context output returned by MCP tools."""
 
-    plan_id: Optional[str] = None
+    plan_id: str
     current_story_id: Optional[str] = None
     current_task_id: Optional[str] = None
 
@@ -41,6 +41,7 @@ class CurrentContextOut(BaseModel):
 class ReportOut(BaseModel):
     """Structured report output returned by MCP tools."""
 
+    plan_id: str
     report: str
 
 
@@ -95,6 +96,7 @@ class StoryOut(BaseModel):
     and are intentionally stable for external consumers.
     """
 
+    plan_id: str
     id: str
     title: str
     status: Status
@@ -111,6 +113,7 @@ class StoryListItem(BaseModel):
     Optimized for lists and tables; excludes heavy or rarely used fields.
     """
 
+    plan_id: str
     id: str
     title: str
     status: Status
@@ -129,6 +132,7 @@ class TaskOut(BaseModel):
     automation.
     """
 
+    plan_id: str
     id: str
     local_id: Optional[str] = None
     title: str
@@ -150,6 +154,7 @@ class TaskListItem(BaseModel):
     Optimized for lists and tables; excludes heavy or rarely used fields.
     """
 
+    plan_id: str
     id: str
     local_id: Optional[str] = None
     title: str
@@ -196,7 +201,7 @@ class NextAction(BaseModel):
 
     kind: str = Field(default="tool", description="'tool' or 'prompt' or 'instruction'")
     name: str = Field(
-        description="Tool or prompt name, e.g., 'approve_task' or '/create_steps'"
+        description="Tool or prompt name, e.g., 'approve_pr' or '/create_steps'"
     )
     label: str = Field(description="Human-readable label for UI")
     who: WhoRuns
@@ -218,6 +223,7 @@ class TaskWorkflowResult(BaseModel):
 
     success: bool
     message: str
+    plan_id: Optional[str] = None
     task: Optional[TaskOut] = None
     gate: Optional[WorkflowGate] = None
     action: ActionType = ActionType.NONE
@@ -229,6 +235,7 @@ class TaskWorkflowResult(BaseModel):
 class ChangelogEntryOut(BaseModel):
     """Output schema for generated changelog entries."""
 
+    plan_id: str
     markdown: str
     task_id: str
     category: str
@@ -237,6 +244,7 @@ class ChangelogEntryOut(BaseModel):
 class CommitMessageOut(BaseModel):
     """Output schema for generated commit messages."""
 
+    plan_id: str
     message: str
     task_id: str
     commit_type: str
@@ -245,6 +253,7 @@ class CommitMessageOut(BaseModel):
 class TaskFinalizationOut(BaseModel):
     """Output schema for finalize_task convenience tool."""
 
+    plan_id: str
     task_id: str
     task_title: str
     status: str

@@ -9,9 +9,10 @@ from pydantic import ValidationError
 from plan_manager.domain.models import Plan, Status, Story
 from plan_manager.logging_context import get_correlation_id
 from plan_manager.services.shared import (
+    ensure_plan_exists,
+    ensure_story_in_plan,
     find_dependents,
     generate_slug,
-    get_current_plan_id,
     service_uow,
     story_to_dict,
 )
@@ -26,6 +27,7 @@ logger = logging.getLogger(__name__)
 
 
 def create_story(
+    plan_id: str,
     title: str,
     description: Optional[str],
     acceptance_criteria: Optional[list[str]],
@@ -45,7 +47,6 @@ def create_story(
             "corr_id": get_correlation_id(),
         }
     )
-    plan_id = get_current_plan_id()
     try:
         new_story = Story(
             id=generated_id,
@@ -62,8 +63,7 @@ def create_story(
         ) from e
 
     with service_uow(write=True, operation="create_story", plan_id=plan_id) as conn:
-        if repositories.get_plan(conn, plan_id) is None:
-            raise FileNotFoundError(f"Plan '{plan_id}' not found.")
+        ensure_plan_exists(conn, plan_id)
         generated_id = repositories.create_story(
             conn,
             plan_id=plan_id,
@@ -80,11 +80,13 @@ def create_story(
     if created is None:
         raise RuntimeError(f"Story '{generated_id}' was not persisted.")
     payload = story_to_dict(created)
+    payload["plan_id"] = plan_id
     return {
         key: value
         for key, value in payload.items()
         if key
         in {
+            "plan_id",
             "id",
             "title",
             "description",
@@ -98,19 +100,23 @@ def create_story(
     }
 
 
-def get_story(story_id: str) -> dict[str, Any]:
-    plan_id = get_current_plan_id()
+def get_story(plan_id: str, story_id: str) -> dict[str, Any]:
     with service_uow(write=False, operation="get_story", plan_id=plan_id) as conn:
+        ensure_plan_exists(conn, plan_id)
+        ensure_story_in_plan(conn, plan_id, story_id, parameter_name="story_id")
         story = repositories.get_story(conn, plan_id, story_id)
     if story is None:
         raise KeyError(f"story with ID '{story_id}' not found.")
-    return story_to_dict(story)
+    payload = story_to_dict(story)
+    payload["plan_id"] = plan_id
+    return payload
 
 
 # Note: The status of a Story is a calculated property based on the
 # statuses of its Tasks. It is not set directly and is therefore not a
 # parameter in this function. The status rollup is handled by the task_service.
 def update_story(
+    plan_id: str,
     story_id: str,
     title: Optional[str] = None,
     description: Optional[str] = None,
@@ -118,7 +124,6 @@ def update_story(
     priority: Optional[int] = None,
     depends_on: Optional[list[str]] = None,
 ) -> dict[str, Any]:
-    plan_id = get_current_plan_id()
     logger.info(
         {
             "event": "update_story",
@@ -127,6 +132,8 @@ def update_story(
         }
     )
     with service_uow(write=True, operation="update_story", plan_id=plan_id) as conn:
+        ensure_plan_exists(conn, plan_id)
+        ensure_story_in_plan(conn, plan_id, story_id, parameter_name="story_id")
         current_story = repositories.get_story(conn, plan_id, story_id)
         if current_story is None:
             raise KeyError(f"story with ID '{story_id}' not found.")
@@ -147,11 +154,12 @@ def update_story(
         updated_story = repositories.get_story(conn, plan_id, story_id)
     if updated_story is None:
         raise RuntimeError(f"Story '{story_id}' disappeared during update.")
-    return story_to_dict(updated_story)
+    payload = story_to_dict(updated_story)
+    payload["plan_id"] = plan_id
+    return payload
 
 
-def delete_story(story_id: str) -> dict[str, Any]:
-    plan_id = get_current_plan_id()
+def delete_story(plan_id: str, story_id: str) -> dict[str, Any]:
     logger.info(
         {
             "event": "delete_story",
@@ -160,6 +168,8 @@ def delete_story(story_id: str) -> dict[str, Any]:
         }
     )
     with service_uow(write=True, operation="delete_story", plan_id=plan_id) as conn:
+        ensure_plan_exists(conn, plan_id)
+        ensure_story_in_plan(conn, plan_id, story_id, parameter_name="story_id")
         plan_row = repositories.get_plan(conn, plan_id)
         if plan_row is None:
             raise FileNotFoundError(f"Plan '{plan_id}' not found.")
@@ -201,7 +211,9 @@ def delete_story(story_id: str) -> dict[str, Any]:
 
 
 def list_stories(
-    statuses: Optional[list[Status]], unblocked: bool = False
+    plan_id: str,
+    statuses: Optional[list[Status]],
+    unblocked: bool = False,
 ) -> list[Story]:
     """Return domain stories after topological sort and filtering.
 
@@ -211,8 +223,8 @@ def list_stories(
     - Filters by allowed statuses if provided.
     - If unblocked=True, includes only TODO stories whose dependencies are all DONE.
     """
-    plan_id = get_current_plan_id()
     with service_uow(write=False, operation="list_stories", plan_id=plan_id) as conn:
+        ensure_plan_exists(conn, plan_id)
         return repositories.list_stories(
             conn,
             plan_id,

@@ -1,27 +1,13 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Roman Klyuev
 
-from typing import Optional
-
 from mcp.server.fastmcp.prompts import base
-
-from plan_manager.services.shared import (
-    get_current_plan_id,
-)
 
 
 def build_create_stories_prompt_messages(
-    plan_id: Optional[str] = None,
+    plan_id: str,
 ) -> list[base.Message]:
     """Construct the messages for 'create_stories' using the given plan_id."""
-
-    if not plan_id:
-        try:
-            plan_id = get_current_plan_id()
-        except ValueError as e:
-            raise ValueError(
-                "Could not determine a plan_id to build the prompt."
-            ) from e
 
     return [
         # == Turn 1: The Example ==
@@ -66,7 +52,7 @@ def build_create_stories_prompt_messages(
             f"Now, generate user stories for this plan: {plan_id}. "
             "Save this JSON in a temporary file named 'stories.json' in a directory called 'todo/temp'. Create the directories if they doesn't exist. Then STOP. Do not do anything else. "
             "I might review the JSON, edit it, or ask you to edit it. The review is considered complete when I say 'approve'. "
-            "Once I approve, you will create the stories by calling `create_story` tool of the Plan Manager MCP server for each story in the JSON. Use the most recent version of the JSON if it was edited. "
+            f"Once I approve, you will create the stories by calling `create_story` for each story with `plan_id='{plan_id}'`. Use the most recent version of the JSON if it was edited. "
             "Once you have created the stories, you will delete the temporary file."
         ),
     ]

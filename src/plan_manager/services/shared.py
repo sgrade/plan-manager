@@ -18,11 +18,6 @@ from plan_manager.storage.uow import StorageBusyError, unit_of_work
 
 logger = logging.getLogger(__name__)
 
-CURRENT_PLAN_META_KEY = "current_plan_id"
-# Transitional global current pointer. This shim is intentionally temporary and
-# removed in U6b when all tool contracts carry explicit plan_id.
-TRANSITIONAL_CURRENT_PLAN_COMMENT = "transitional-global-current"
-
 
 def generate_slug(title: str) -> str:
     """Generate a URL-safe slug from a title.
@@ -88,121 +83,70 @@ def service_uow(
         raise
 
 
-def get_current_plan_id() -> str:
-    with service_uow(write=False, operation="get_current_plan_id") as conn:
-        current_plan_id = repositories.get_meta_value(conn, CURRENT_PLAN_META_KEY)
-        if current_plan_id and repositories.get_plan(conn, current_plan_id):
-            return current_plan_id
-        plans = repositories.list_plans(conn)
-
-    if not plans:
-        raise ValueError("No active plan. Please create a plan first.")
-
-    fallback_plan_id = plans[0].id
-    with service_uow(
-        write=True, operation="set_current_plan_id", plan_id=fallback_plan_id
-    ) as conn:
-        repositories.set_meta_value(conn, CURRENT_PLAN_META_KEY, fallback_plan_id)
-    return fallback_plan_id
-
-
-def set_current_plan_id(plan_id: str | None) -> None:
-    with service_uow(
-        write=True, operation="set_current_plan_id", plan_id=plan_id
-    ) as conn:
-        if plan_id is None:
-            repositories.delete_meta_value(conn, CURRENT_PLAN_META_KEY)
-            return
-        if repositories.get_plan(conn, plan_id) is None:
-            raise ValueError(f"Plan '{plan_id}' not found.")
-        repositories.set_meta_value(conn, CURRENT_PLAN_META_KEY, plan_id)
-
-
-def get_current_story_id(plan_id: Optional[str] = None) -> Optional[str]:
-    try:
-        resolved_plan_id = plan_id or get_current_plan_id()
-    except ValueError:
-        return None
+def get_current_story_id(plan_id: str) -> str | None:
     with service_uow(
         write=False,
         operation="get_current_story_id",
-        plan_id=resolved_plan_id,
+        plan_id=plan_id,
     ) as conn:
-        return repositories.get_plan_state(conn, resolved_plan_id).current_story_id
+        ensure_plan_exists(conn, plan_id)
+        return repositories.get_plan_state(conn, plan_id).current_story_id
 
 
-def set_current_story_id(
-    story_id: Optional[str], plan_id: Optional[str] = None
-) -> None:
-    if plan_id is None and story_id is None:
-        try:
-            resolved_plan_id = get_current_plan_id()
-        except ValueError:
-            return
-    else:
-        resolved_plan_id = plan_id or get_current_plan_id()
+def set_current_story_id(story_id: str | None, plan_id: str) -> None:
     with service_uow(
         write=True,
         operation="set_current_story_id",
-        plan_id=resolved_plan_id,
+        plan_id=plan_id,
     ) as conn:
-        if (
-            story_id is not None
-            and repositories.get_story(conn, resolved_plan_id, story_id) is None
-        ):
-            raise KeyError(f"story with ID '{story_id}' not found.")
+        ensure_plan_exists(conn, plan_id)
+        if story_id is not None:
+            ensure_story_in_plan(conn, plan_id, story_id, parameter_name="story_id")
         repositories.set_current_story(
             conn,
-            plan_id=resolved_plan_id,
+            plan_id=plan_id,
             current_story_id=story_id,
         )
 
 
-def get_current_task_id(plan_id: Optional[str] = None) -> Optional[str]:
-    try:
-        resolved_plan_id = plan_id or get_current_plan_id()
-    except ValueError:
-        return None
+def get_current_task_id(plan_id: str) -> str | None:
     with service_uow(
         write=False,
         operation="get_current_task_id",
-        plan_id=resolved_plan_id,
+        plan_id=plan_id,
     ) as conn:
-        return repositories.get_plan_state(conn, resolved_plan_id).current_task_id
+        ensure_plan_exists(conn, plan_id)
+        return repositories.get_plan_state(conn, plan_id).current_task_id
 
 
-def set_current_task_id(task_id: Optional[str], plan_id: Optional[str] = None) -> None:
-    if plan_id is None and task_id is None:
-        try:
-            resolved_plan_id = get_current_plan_id()
-        except ValueError:
-            return
-    else:
-        resolved_plan_id = plan_id or get_current_plan_id()
+def set_current_task_id(task_id: str | None, plan_id: str) -> None:
     with service_uow(
         write=True,
         operation="set_current_task_id",
-        plan_id=resolved_plan_id,
+        plan_id=plan_id,
     ) as conn:
+        ensure_plan_exists(conn, plan_id)
         if task_id is None:
             repositories.set_current_task(
                 conn,
-                plan_id=resolved_plan_id,
+                plan_id=plan_id,
                 current_task_story_id=None,
                 current_task_local_id=None,
             )
             return
         story_id, local_task_id = resolve_task_id(
-            task_id, story_id=None, plan_id=resolved_plan_id, conn=conn
+            task_id, story_id=None, plan_id=plan_id, conn=conn
         )
-        if (
-            repositories.get_task(conn, resolved_plan_id, story_id, local_task_id)
-            is None
-        ):
-            raise KeyError(f"task with ID '{story_id}:{local_task_id}' not found.")
+        ensure_task_in_plan(
+            conn,
+            plan_id,
+            story_id,
+            local_task_id,
+            parameter_name="task_id",
+        )
         repositories.set_current_task(
             conn,
-            plan_id=resolved_plan_id,
+            plan_id=plan_id,
             current_task_story_id=story_id,
             current_task_local_id=local_task_id,
         )
@@ -210,8 +154,8 @@ def set_current_task_id(task_id: Optional[str], plan_id: Optional[str] = None) -
 
 def resolve_task_id(
     task_id: str,
-    story_id: Optional[str] = None,
-    plan_id: Optional[str] = None,
+    story_id: str | None = None,
+    plan_id: str | None = None,
     conn: Any | None = None,
 ) -> tuple[str, str]:
     """Resolve a task ID into a (story_id, local_task_id) tuple.
@@ -234,18 +178,73 @@ def resolve_task_id(
             ) from e
     else:
         # Local ID: require story context
-        s_id: str | None
+        s_id: str | None = story_id
         if story_id:
-            s_id = story_id
+            pass
         elif conn is not None and plan_id is not None:
             s_id = repositories.get_plan_state(conn, plan_id).current_story_id
-        else:
-            s_id = get_current_story_id(plan_id)
         if not s_id:
             raise ValueError(
-                "Cannot use a local task ID without a current story. Call `set_current_story` or provide a fully-qualified ID ('story:task')."
+                "Missing required scope for parameter 'task_id': local IDs require either a 'story_id' parameter or current story in the supplied 'plan_id'."
             )
         return s_id, task_id
+
+
+def ensure_plan_exists(
+    conn: Any, plan_id: str, *, parameter_name: str = "plan_id"
+) -> None:
+    if repositories.get_plan(conn, plan_id) is None:
+        raise FileNotFoundError(
+            f"Invalid parameter '{parameter_name}': plan_id '{plan_id}' was not found."
+        )
+
+
+def ensure_story_in_plan(
+    conn: Any,
+    plan_id: str,
+    story_id: str,
+    *,
+    parameter_name: str = "story_id",
+) -> None:
+    if repositories.get_story(conn, plan_id, story_id) is not None:
+        return
+    rows = conn.execute(
+        "SELECT DISTINCT plan_id FROM stories WHERE id = ? ORDER BY plan_id",
+        (story_id,),
+    ).fetchall()
+    if rows:
+        plan_ids = [str(row["plan_id"]) for row in rows]
+        raise ValueError(
+            f"Scope mismatch for parameter '{parameter_name}': story_id '{story_id}' belongs to plan_id(s) {plan_ids}, not plan_id '{plan_id}'."
+        )
+    raise KeyError(
+        f"Invalid parameter '{parameter_name}': story_id '{story_id}' was not found in plan_id '{plan_id}'."
+    )
+
+
+def ensure_task_in_plan(
+    conn: Any,
+    plan_id: str,
+    story_id: str,
+    local_task_id: str,
+    *,
+    parameter_name: str = "task_id",
+) -> None:
+    if repositories.get_task(conn, plan_id, story_id, local_task_id) is not None:
+        return
+    rows = conn.execute(
+        "SELECT DISTINCT plan_id FROM tasks WHERE story_id = ? AND local_id = ? ORDER BY plan_id",
+        (story_id, local_task_id),
+    ).fetchall()
+    fq_task_id = f"{story_id}:{local_task_id}"
+    if rows:
+        plan_ids = [str(row["plan_id"]) for row in rows]
+        raise ValueError(
+            f"Scope mismatch for parameter '{parameter_name}': task_id '{fq_task_id}' belongs to plan_id(s) {plan_ids}, not plan_id '{plan_id}'."
+        )
+    raise KeyError(
+        f"Invalid parameter '{parameter_name}': task_id '{fq_task_id}' was not found in plan_id '{plan_id}'."
+    )
 
 
 def parse_status(value: Optional[str | Status]) -> Optional[Status]:

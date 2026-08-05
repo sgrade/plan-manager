@@ -5,7 +5,7 @@ import logging
 
 from plan_manager.domain.models import Plan, Status, Task
 from plan_manager.services.shared import (
-    get_current_plan_id,
+    ensure_plan_exists,
     get_current_story_id,
     get_current_task_id,
     is_unblocked,
@@ -33,17 +33,13 @@ def _get_blockers_for_task(task: Task, plan: Plan) -> list[str]:
             dep_task = task_index[fq_dep_id]
             if dep_task.status != Status.DONE:
                 blockers.append(
-                    f"Task '{dep_task.title}' is not DONE (status: {
-                        dep_task.status.value
-                    })"
+                    f"Task '{dep_task.title}' is not DONE (status: {dep_task.status.value})"
                 )
         elif dep_id in story_index:
             dep_story = story_index[dep_id]
             if dep_story.status != Status.DONE:
                 blockers.append(
-                    f"Story '{dep_story.title}' is not DONE (status: {
-                        dep_story.status.value
-                    })"
+                    f"Story '{dep_story.title}' is not DONE (status: {dep_story.status.value})"
                 )
         else:
             blockers.append(f"Dependency '{dep_id}' not found.")
@@ -51,13 +47,13 @@ def _get_blockers_for_task(task: Task, plan: Plan) -> list[str]:
     return blockers
 
 
-def get_report(scope: str = "story") -> str:
+def get_report(plan_id: str, scope: str = "story") -> str:
     """
-    Generates a status report for the current plan or story.
+    Generates a status report for a plan or current story in that plan.
     """
-    plan = _get_current_plan()
+    plan = _get_plan(plan_id)
     if not plan:
-        return "No active plan. Use `list_plans` and `set_current_plan` to start."
+        return f"Plan '{plan_id}' was not found."
 
     if scope == "plan":
         return _generate_plan_report(plan)
@@ -66,15 +62,12 @@ def get_report(scope: str = "story") -> str:
     return _generate_story_report(plan)
 
 
-def _get_current_plan() -> Plan | None:
-    try:
-        plan_id = get_current_plan_id()
-    except ValueError:
-        return None
+def _get_plan(plan_id: str) -> Plan | None:
     try:
         with service_uow(
             write=False, operation="report_get_plan", plan_id=plan_id
         ) as conn:
+            ensure_plan_exists(conn, plan_id)
             plan = repositories.get_plan(conn, plan_id)
             if plan is None:
                 return None
@@ -122,16 +115,16 @@ def _generate_story_report(plan: Plan) -> str:
     """Generates a detailed report for the currently active story."""
     story_id = get_current_story_id(plan.id)
     if not story_id:
-        return f"Plan '{
-            plan.title
-        }' is active, but no story is selected. Use `set_current_story` if you have a specific story in mind, or `list_stories` to see all stories."
+        return (
+            f"Plan '{plan.title}' is active, but no story is selected. "
+            "Use `set_current_story` with plan_id if you have a specific story in mind, "
+            "or `list_stories` with plan_id to see all stories."
+        )
 
     story = next((s for s in plan.stories if s.id == story_id), None)
     if not story:
         # This case should ideally not be reachable if state is consistent
-        return f"Error: Active story with ID '{story_id}' not found in plan '{
-            plan.title
-        }'."
+        return f"Error: Active story with ID '{story_id}' not found in plan '{plan.title}'."
 
     report = [
         f"Current Story: {story.title} ({story.status.value})",
@@ -177,18 +170,14 @@ def _generate_story_report(plan: Plan) -> str:
     # Scenario 3: Active task is awaiting pre-execution review
     if active_task and active_task.status == Status.TODO and active_task.steps:
         report.append(
-            f"\nNext Action: The plan for '{
-                active_task.title
-            }' is ready for review. Run `approve_task` to start work."
+            f"\nNext Action: The plan for '{active_task.title}' is ready for review. Run `start_task` with plan_id and task_id to start work."
         )
         return "\n".join(report)
 
     # Scenario 4: Active task is awaiting code review
     if active_task and active_task.status == Status.PENDING_REVIEW:
         report.append(
-            f"\nNext Action: '{
-                active_task.title
-            }' is ready for code review. Run `approve_task` to mark it as DONE."
+            f"\nNext Action: '{active_task.title}' is ready for code review. Run `approve_pr` with plan_id and task_id to mark it as DONE."
         )
         changes = getattr(active_task, "changes", [])
         if changes:
@@ -210,19 +199,11 @@ def _generate_story_report(plan: Plan) -> str:
     if next_task_to_do:
         if next_task_to_do.steps:
             report.append(
-                f"\nNext Action: The plan for '{
-                    next_task_to_do.title
-                }' is ready for review. Set it as active (`set_current_task {
-                    next_task_to_do.local_id
-                }`) and run `approve_task`."
+                f"\nNext Action: The plan for '{next_task_to_do.title}' is ready for review. Set it as active (`set_current_task` with plan_id and task_id), then run `start_task`."
             )
         else:
             report.append(
-                f"\nNext Action: `create_task_steps` for Task '{
-                    next_task_to_do.local_id
-                }', or `approve_task {story.id}:{
-                    next_task_to_do.local_id
-                }` to fast-track."
+                f"\nNext Action: Run `create_task_steps` for task '{next_task_to_do.id}' (with plan_id), then run `start_task`."
             )
     # Check if all tasks are done
     elif all(t.status == Status.DONE for t in story.tasks):

@@ -1,26 +1,11 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Roman Klyuev
 
-from typing import Optional
-
 from mcp.server.fastmcp.prompts import base
 
-from plan_manager.services.shared import (
-    get_current_story_id,
-    get_current_task_id,
-)
 
-
-def create_tasks_messages(story_id: Optional[str] = None) -> list[base.Message]:
+def create_tasks_messages(plan_id: str, story_id: str) -> list[base.Message]:
     """Construct the messages for 'create_tasks' prompt using the given story_id."""
-
-    if not story_id:
-        try:
-            story_id = get_current_story_id()
-        except ValueError as e:
-            raise ValueError(
-                "Could not determine a story_id to build the prompt."
-            ) from e
 
     return [
         # == Turn 1: The Example ==
@@ -57,25 +42,17 @@ def create_tasks_messages(story_id: Optional[str] = None) -> list[base.Message]:
         # == Turn 2: The Real Request ==
         # Now that the model has seen the pattern, we ask our actual question.
         base.UserMessage(
-            f"Now, generate tasks for this story: {story_id}. "
+            f"Now, generate tasks for this story: {story_id} in plan {plan_id}. "
             "Save this JSON in a temporary file named 'tasks.json' in a directory called 'todo/temp'. Create the directories if they doesn't exist. Then STOP. Do not do anything else. "
             "I might review the JSON, edit it, or ask you to edit it. The review is considered complete when I say 'approve'. "
-            "Once I approve, you will create the tasks by calling `create_task` tool of the Plan Manager MCP server for each task in the JSON. Use the most recent version of the JSON if it was edited. "
+            f"Once I approve, you will create the tasks by calling `create_task` for each task with `plan_id='{plan_id}'` and `story_id='{story_id}'`. Use the most recent version of the JSON if it was edited. "
             "Once you have created the tasks, you will delete the temporary file."
         ),
     ]
 
 
-def create_steps_messages(task_id: Optional[str] = None) -> list[base.Message]:
+def create_steps_messages(plan_id: str, task_id: str) -> list[base.Message]:
     """Construct the messages for 'create_steps' prompt using the given task_id."""
-
-    if not task_id:
-        try:
-            task_id = get_current_task_id()
-        except ValueError as e:
-            raise ValueError(
-                "Could not determine a task_id to build the prompt."
-            ) from e
 
     return [
         # == Turn 1: The Example ==
@@ -112,11 +89,11 @@ def create_steps_messages(task_id: Optional[str] = None) -> list[base.Message]:
         # == Turn 2: The Real Request ==
         # Now that the model has seen the pattern, we ask our actual question.
         base.UserMessage(
-            f"Now, generate implementation steps for this task: {task_id}. "
+            f"Now, generate implementation steps for this task: {task_id} in plan {plan_id}. "
             "Save this JSON in a temporary file named 'steps.json' in a directory called 'todo/temp'. Create the directories if they don't exist; overwrite the file if it already exists. Then STOP. Do not do anything else. "
             "I might review the JSON, edit it, or ask you to edit it. The review is considered complete when I say 'approve'. "
-            "Once I approve, you will attach the steps by calling the `create_task_steps` tool of the Plan Manager MCP server for this task, using the most recent version of the JSON if it was edited. "
-            "After the steps are created, call `approve_task` to move the task to IN_PROGRESS. "
+            f"Once I approve, you will attach the steps by calling `create_task_steps` with `plan_id='{plan_id}'` and `task_id='{task_id}'`, using the most recent version of the JSON if it was edited. "
+            f"After the steps are created, call `start_task` with `plan_id='{plan_id}'` and `task_id='{task_id}'` to move the task to IN_PROGRESS. "
             "Once you have created the steps, you will delete the temporary file."
         ),
     ]

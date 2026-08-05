@@ -2,23 +2,13 @@
 
 ## Storage
 
-All data is file-based under `TODO_DIR` (default: `./todo`).
+Plan Manager persists runtime state in SQLite, managed by `src/plan_manager/storage/` and accessed through repository primitives (`storage/repositories.py`) inside service unit-of-work transactions.
 
-```
-TODO_DIR/
-├── plans/
-│   └── index.yaml          # lists all plans, tracks `current` plan ID
-├── <plan_id>/
-│   ├── plan.yaml            # plan manifest
-│   ├── state.yaml           # current_story_id, current_task_id
-│   ├── activity.yaml        # activity log
-│   └── <story_id>/
-│       ├── story.md         # story with YAML frontmatter
-│       └── tasks/
-│           └── <task_id>.md # task with YAML frontmatter
-```
+- DB engine: SQLite with WAL mode enabled.
+- Main entities: plans, stories, tasks, per-plan state pointers, and events.
+- Validation and status rollups run in services; writes are transactional via `storage/uow.py`.
 
-No database is used. Repositories read/write these files directly via `io.file_mirror` (atomic writes).
+The legacy YAML tree under `TODO_DIR` is no longer the runtime source of truth. It remains for migration input (`pm import`) and as a future export target.
 
 ## Deployment Modes
 
@@ -41,9 +31,11 @@ plan-manager:
     dockerfile: Dockerfile
   environment:
     - HOST=0.0.0.0
-    - TODO_DIR=/data
+    - PLAN_MANAGER_DB_DIR=/data
+    - TODO_DIR=/legacy
   volumes:
-    - ~/.local/share/plan-manager:/data
+    - plan-manager-db:/data
+    - ~/.local/share/plan-manager:/legacy
   ports:
     - "8105:3000"
   restart: unless-stopped
@@ -55,15 +47,11 @@ plan-manager:
 
 ## Known Limitations
 
-### Single active project
+### Explicit scope model
 
-`index.yaml` stores one global `current` plan ID. Tools that omit `plan_id` default to this value. All connected clients share the same `current` plan — there is no per-session or per-workspace scoping.
+Plan Manager no longer has a global current-plan pointer. Every plan-scoped tool call must include `plan_id` explicitly, and workflow mutations additionally require explicit `task_id`. This makes calls deterministic under concurrent multi-agent usage because scope is carried in arguments, not hidden server state.
 
-**Impact**: the server handles one active project at a time. If two Cursor workspaces connect simultaneously, they compete over which plan is "current."
-
-**Workaround**: run a second container instance with a different port and volume — no code changes needed.
-
-**Future**: proper multi-project support would require session-scoped plan context.
+Per-plan `current_story_id` and `current_task_id` remain available for discovery helpers (for example `get_current` and next-action suggestions), but they are not used as implicit selectors for correctness-critical mutations.
 
 ### No file locking
 

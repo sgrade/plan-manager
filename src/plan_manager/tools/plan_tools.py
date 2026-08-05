@@ -20,10 +20,6 @@ from plan_manager.services.plan_service import (
 from plan_manager.services.plan_service import (
     update_plan as svc_update_plan,
 )
-from plan_manager.services.shared import (
-    get_current_plan_id,
-    set_current_plan_id,
-)
 from plan_manager.tools.util import coerce_optional_int
 
 if TYPE_CHECKING:
@@ -37,7 +33,6 @@ def register_plan_tools(mcp_instance: "FastMCP") -> None:
     mcp_instance.tool()(get_plan)
     mcp_instance.tool()(update_plan)
     mcp_instance.tool()(delete_plan)
-    mcp_instance.tool()(set_current_plan)
 
 
 def create_plan(
@@ -48,7 +43,7 @@ def create_plan(
     Args:
         title: The title of the plan (will be validated and sanitized)
         description: Optional description of the plan
-        priority: Optional priority level (0-5, where 5 is highest)
+        priority: Optional priority level (0-5, where 0 is highest priority)
 
     Returns:
         PlanOut: The created plan with its generated ID and metadata
@@ -59,9 +54,12 @@ def create_plan(
     return PlanOut(**data)
 
 
-def get_plan(plan_id: Optional[str] = None) -> PlanOut:
-    """Fetch a plan."""
-    plan_id = plan_id or get_current_plan_id()
+def get_plan(plan_id: str) -> PlanOut:
+    """Fetch a plan.
+
+    Args:
+        plan_id: Plan identifier, for example `concurrency_stability`.
+    """
     data = svc_get_plan(plan_id)
     return PlanOut(**data)
 
@@ -73,14 +71,26 @@ def update_plan(
     priority: Optional[float] = None,
     status: Optional[Status] = None,
 ) -> PlanOut:
-    """Update a plan."""
+    """Update a plan.
+
+    Args:
+        plan_id: Plan identifier, for example `concurrency_stability`.
+        title: Updated plan title.
+        description: Updated plan description.
+        priority: Updated plan priority as an integer.
+        status: Updated plan status.
+    """
     coerced_priority = coerce_optional_int(priority, "priority")
     data = svc_update_plan(plan_id, title, description, coerced_priority, status)
     return PlanOut(**data)
 
 
 def delete_plan(plan_id: str) -> OperationResult:
-    """Delete a plan."""
+    """Delete a plan.
+
+    Args:
+        plan_id: Plan identifier, for example `concurrency_stability`.
+    """
     data = svc_delete_plan(plan_id)
     return OperationResult(**data)
 
@@ -98,14 +108,3 @@ def list_plans(
     start = max(0, offset or 0)
     end = None if limit is None else start + max(0, limit)
     return items[start:end]
-
-
-def set_current_plan(
-    plan_id: Optional[str] = None,
-) -> OperationResult | list[PlanListItem]:
-    """Set the current plan. If no ID is provided, lists available plans."""
-    if plan_id:
-        set_current_plan_id(plan_id)
-        return OperationResult(success=True, message=f"Current plan set to '{plan_id}'")
-    # If no plan_id is provided, list available plans
-    return list_plans()
