@@ -73,6 +73,7 @@ addopts = [
 ]
 markers = [
     "integration: integration tests (may touch filesystem or run end-to-end)",
+    "soak: long-running concurrency soak harness (excluded from default run; use `-m soak`)",
 ]
 
 # Coverage configuration
