@@ -120,6 +120,7 @@ def test_get_story_parameter_types():
     # Test isolation handled by autouse fixture in conftest.py
 
     import inspect
+    from typing import get_args
 
     from plan_manager.services import plan_service, story_service
     from plan_manager.tools.story_tools import get_story
@@ -128,11 +129,13 @@ def test_get_story_parameter_types():
     sig = inspect.signature(get_story)
     story_id_param = sig.parameters["story_id"]
 
-    # Check that story_id is Optional[str] with default None
+    # Check that story_id is `str | None` with default None. Assert on the
+    # union's members, not its origin: 3.13 gives a bare types.UnionType here
+    # while 3.14 gives a typing.Union, and only the latter has __origin__.
     assert story_id_param.default is None, "story_id should default to None"
-    assert story_id_param.annotation.__origin__.__name__ == "Union", (
-        "story_id should be Optional (Union with None)"
-    )
+    union_members = get_args(story_id_param.annotation)
+    assert str in union_members, "story_id should accept str"
+    assert type(None) in union_members, "story_id should be Optional"
 
     # Create a plan first (required for stories)
     suffix = str(uuid.uuid4())[:8]
