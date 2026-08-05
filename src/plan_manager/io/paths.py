@@ -2,18 +2,6 @@
 # Copyright (c) 2026 Roman Klyuev
 
 import re
-from pathlib import Path
-
-from plan_manager.config import TODO_DIR
-
-
-def get_current_plan_id_lazy() -> str:
-    """Lazy import to avoid circular dependency."""
-    from plan_manager.services.shared import (
-        get_current_plan_id,
-    )
-
-    return get_current_plan_id()
 
 
 def slugify(title: str) -> str:
@@ -33,34 +21,3 @@ def slugify(title: str) -> str:
     s = title.lower()
     s = re.sub(r"[^a-z0-9\s]+", " ", s)
     return re.sub(r"\s+", "_", s.strip())
-
-
-def story_file_path(story_id: str, plan_id: str | None = None) -> str:
-    """Generate the file path for a story's markdown file.
-
-    Args:
-        story_id: The ID of the story
-        plan_id: Optional plan ID. If not provided, uses current plan.
-
-    Returns:
-        str: The relative file path to the story markdown file
-    """
-    pid = plan_id or get_current_plan_id_lazy()
-    return str(Path(TODO_DIR) / pid / story_id / "story.md")
-
-
-def task_file_path(
-    story_id: str, task_local_id: str, plan_id: str | None = None
-) -> str:
-    """Generate the file path for a task's markdown file.
-
-    Args:
-        story_id: The ID of the parent story
-        task_local_id: The local ID of the task within the story
-        plan_id: Optional plan ID. If not provided, uses current plan.
-
-    Returns:
-        str: The relative file path to the task markdown file
-    """
-    pid = plan_id or get_current_plan_id_lazy()
-    return str(Path(TODO_DIR) / pid / story_id / "tasks" / f"{task_local_id}.md")
