@@ -26,7 +26,7 @@ lint() {
 }
 
 types() {
-    uv run mypy src/plan_manager --config-file=mypy.ini --no-error-summary
+    uv run mypy src/plan_manager --no-error-summary
 }
 
 security() {
