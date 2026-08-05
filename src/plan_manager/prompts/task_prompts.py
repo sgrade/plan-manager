@@ -5,7 +5,7 @@ from typing import Optional
 
 from mcp.server.fastmcp.prompts import base
 
-from plan_manager.services.state_repository import (
+from plan_manager.services.shared import (
     get_current_story_id,
     get_current_task_id,
 )

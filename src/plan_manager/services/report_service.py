@@ -4,13 +4,14 @@
 import logging
 
 from plan_manager.domain.models import Plan, Status, Task
-from plan_manager.services import plan_repository as plan_repo
-from plan_manager.services.shared import is_unblocked
-from plan_manager.services.state_repository import (
+from plan_manager.services.shared import (
     get_current_plan_id,
     get_current_story_id,
     get_current_task_id,
+    is_unblocked,
+    service_uow,
 )
+from plan_manager.storage import repositories
 
 logger = logging.getLogger(__name__)
 
@@ -66,11 +67,29 @@ def get_report(scope: str = "story") -> str:
 
 
 def _get_current_plan() -> Plan | None:
-    plan_id = get_current_plan_id()
-    if not plan_id:
+    try:
+        plan_id = get_current_plan_id()
+    except ValueError:
         return None
     try:
-        return plan_repo.load(plan_id)
+        with service_uow(
+            write=False, operation="report_get_plan", plan_id=plan_id
+        ) as conn:
+            plan = repositories.get_plan(conn, plan_id)
+            if plan is None:
+                return None
+            stories = repositories.list_stories(conn, plan_id)
+            tasks = repositories.list_tasks(conn, plan_id)
+        tasks_by_story: dict[str, list[Task]] = {}
+        for task in tasks:
+            if task.story_id is None:
+                continue
+            tasks_by_story.setdefault(task.story_id, []).append(task)
+        plan.stories = []
+        for story in stories:
+            story.tasks = tasks_by_story.get(story.id, [])
+            plan.stories.append(story)
+        return plan
     except FileNotFoundError:
         logger.warning("Active plan with ID '%s' not found on disk.", plan_id)
         return None

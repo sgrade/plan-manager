@@ -67,6 +67,25 @@ class EventRecord:
     data: dict[str, Any] | None
 
 
+def get_meta_value(conn: sqlite3.Connection, key: str) -> str | None:
+    row = conn.execute("SELECT value FROM meta WHERE key = ?", (key,)).fetchone()
+    if row is None:
+        return None
+    return str(row["value"])
+
+
+def set_meta_value(conn: sqlite3.Connection, key: str, value: str) -> None:
+    conn.execute(
+        "INSERT INTO meta(key, value) VALUES(?, ?) "
+        "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+        (key, value),
+    )
+
+
+def delete_meta_value(conn: sqlite3.Connection, key: str) -> None:
+    conn.execute("DELETE FROM meta WHERE key = ?", (key,))
+
+
 def create_plan(
     conn: sqlite3.Connection,
     *,
@@ -641,6 +660,73 @@ def transition_task_status_guarded(
             local_id=local_id,
             expected_status=expected_status,
             next_status=next_status,
+        )
+    return False
+
+
+def transition_story_status_guarded(
+    conn: sqlite3.Connection,
+    *,
+    plan_id: str,
+    story_id: str,
+    expected_status: Status,
+    next_status: Status,
+    completion_time: datetime | str | None | object = UNSET,
+    raise_on_conflict: bool = True,
+) -> bool:
+    fields = ["status = ?"]
+    values: list[Any] = [next_status.value]
+    if completion_time is not UNSET:
+        fields.append("completion_time = ?")
+        values.append(_to_timestamp(completion_time))
+    values.extend([plan_id, story_id, expected_status.value])
+    result = conn.execute(
+        (
+            f"UPDATE stories SET {', '.join(fields)} "  # noqa: S608
+            "WHERE plan_id = ? AND id = ? AND status = ?"
+        ),
+        tuple(values),
+    )
+    if result.rowcount == 1:
+        return True
+    if raise_on_conflict:
+        raise StorageConflictError(
+            "Story status transition conflict for "
+            f"'{story_id}' in plan '{plan_id}': expected "
+            f"{expected_status.value}, attempted {next_status.value}."
+        )
+    return False
+
+
+def transition_plan_status_guarded(
+    conn: sqlite3.Connection,
+    *,
+    plan_id: str,
+    expected_status: Status,
+    next_status: Status,
+    completion_time: datetime | str | None | object = UNSET,
+    raise_on_conflict: bool = True,
+) -> bool:
+    fields = ["status = ?"]
+    values: list[Any] = [next_status.value]
+    if completion_time is not UNSET:
+        fields.append("completion_time = ?")
+        values.append(_to_timestamp(completion_time))
+    values.extend([plan_id, expected_status.value])
+    result = conn.execute(
+        (
+            f"UPDATE plans SET {', '.join(fields)} "  # noqa: S608
+            "WHERE id = ? AND status = ?"
+        ),
+        tuple(values),
+    )
+    if result.rowcount == 1:
+        return True
+    if raise_on_conflict:
+        raise StorageConflictError(
+            "Plan status transition conflict for "
+            f"'{plan_id}': expected {expected_status.value}, "
+            f"attempted {next_status.value}."
         )
     return False
 

@@ -24,8 +24,7 @@ def test_get_story_with_explicit_id():
     # Test isolation handled by autouse fixture in conftest.py
 
     from plan_manager.services import plan_service, story_service
-    from plan_manager.services.plan_repository import set_current_plan_id
-    from plan_manager.services.state_repository import set_current_story_id
+    from plan_manager.services.shared import set_current_plan_id, set_current_story_id
     from plan_manager.tools.story_tools import get_story
 
     suffix = str(uuid.uuid4())[:8]
@@ -99,7 +98,7 @@ def test_get_story_with_null_id_requires_current():
     """Test that get_story raises ValueError when no ID is provided and no current story is set."""
     # Test isolation handled by autouse fixture in conftest.py
 
-    from plan_manager.services.state_repository import set_current_story_id
+    from plan_manager.services.shared import set_current_story_id
     from plan_manager.tools.story_tools import get_story
 
     # Clear current story
@@ -135,7 +134,7 @@ def test_get_story_parameter_types():
     plan = plan_service.create_plan(
         title=f"Test Plan {suffix}", description="Test plan", priority=None
     )
-    from plan_manager.services.plan_repository import set_current_plan_id
+    from plan_manager.services.shared import set_current_plan_id
 
     set_current_plan_id(plan["id"])
 
@@ -154,7 +153,7 @@ def test_get_story_parameter_types():
     assert result.id == story_id
 
     # Test that None explicitly passed works (should use current story if set)
-    from plan_manager.services.state_repository import set_current_story_id
+    from plan_manager.services.shared import set_current_story_id
 
     set_current_story_id(story_id)
     result_none = get_story(story_id=None)

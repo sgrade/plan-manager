@@ -162,3 +162,6 @@ ux_analysis.md
 
 # Effort-internal delivery artifacts (trackers, worker reviews) - not for git
 tmp/
+
+# Local SQLite DB (dev default; deployments use a named volume)
+/db/

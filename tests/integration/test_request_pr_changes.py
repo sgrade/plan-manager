@@ -15,15 +15,18 @@ def test_request_pr_changes_workflow():
     """Test the complete review workflow including requesting changes."""
     # Test isolation handled by autouse fixture in conftest.py
 
-    from plan_manager.services import plan_repository as repo
     from plan_manager.services import plan_service, story_service, task_service
-    from plan_manager.services import state_repository as state
+    from plan_manager.services.shared import (
+        set_current_plan_id,
+        set_current_story_id,
+        set_current_task_id,
+    )
 
     suffix = str(uuid.uuid4())[:8]
     plan_title = f"test-review-{suffix}"
     plan = plan_service.create_plan(plan_title, description=None, priority=None)
     plan_id = plan["id"]
-    repo.set_current_plan_id(plan_id)
+    set_current_plan_id(plan_id)
 
     story = story_service.create_story(
         title=f"Review Story {suffix}",
@@ -33,7 +36,7 @@ def test_request_pr_changes_workflow():
         depends_on=[],
     )
     story_id = story["id"]
-    state.set_current_story_id(story_id)
+    set_current_story_id(story_id)
 
     # Create a task
     task = task_service.create_task(
@@ -45,7 +48,7 @@ def test_request_pr_changes_workflow():
     )
     task_id = task["id"]
     task_local = task_id.split(":", 1)[1]
-    state.set_current_task_id(task_id)
+    set_current_task_id(task_id)
 
     # Add steps and start task (TODO → IN_PROGRESS)
     steps = [{"title": "Implement feature", "description": "Do the work"}]
@@ -104,20 +107,23 @@ def test_request_pr_changes_workflow():
 @pytest.mark.integration
 def test_request_pr_changes_multiple_iterations():
     """Test multiple rounds of review feedback."""
-    from plan_manager.services import plan_repository as repo
     from plan_manager.services import plan_service, story_service, task_service
-    from plan_manager.services import state_repository as state
+    from plan_manager.services.shared import (
+        set_current_plan_id,
+        set_current_story_id,
+        set_current_task_id,
+    )
 
     suffix = str(uuid.uuid4())[:8]
     plan = plan_service.create_plan(f"multi-review-{suffix}", None, None)
-    repo.set_current_plan_id(plan["id"])
+    set_current_plan_id(plan["id"])
 
     story = story_service.create_story(f"Story {suffix}", None, None, None, [])
-    state.set_current_story_id(story["id"])
+    set_current_story_id(story["id"])
 
     task = task_service.create_task(story["id"], f"Task {suffix}", None, [], None)
     task_local = task["id"].split(":", 1)[1]
-    state.set_current_task_id(task["id"])
+    set_current_task_id(task["id"])
 
     # Start task
     task_service.create_steps(story["id"], task_local, [{"title": "Work"}])

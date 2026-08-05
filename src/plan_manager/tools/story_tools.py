@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 
 from plan_manager.domain.models import Status, Story
 from plan_manager.schemas.outputs import OperationResult, StoryListItem, StoryOut
-from plan_manager.services.state_repository import (
+from plan_manager.services.shared import (
     get_current_story_id,
     set_current_story_id,
 )

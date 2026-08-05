@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING
 from plan_manager.schemas.outputs import (
     CurrentContextOut,
 )
-from plan_manager.services.plan_repository import get_current_plan_id
-from plan_manager.services.state_repository import (
+from plan_manager.services.shared import (
+    get_current_plan_id,
     get_current_story_id,
     get_current_task_id,
 )

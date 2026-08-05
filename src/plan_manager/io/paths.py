@@ -9,7 +9,7 @@ from plan_manager.config import TODO_DIR
 
 def get_current_plan_id_lazy() -> str:
     """Lazy import to avoid circular dependency."""
-    from plan_manager.services.plan_repository import (
+    from plan_manager.services.shared import (
         get_current_plan_id,
     )
 

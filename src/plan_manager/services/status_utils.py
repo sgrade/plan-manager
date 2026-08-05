@@ -1,32 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Roman Klyuev
 
-from datetime import datetime, timezone
-from typing import Protocol
-
 from plan_manager.domain.models import Status
-
-
-class HasStatus(Protocol):
-    """Protocol for models that expose a status and completion_time."""
-
-    status: Status
-    completion_time: datetime | None
-
-
-def apply_status_change(item: HasStatus, new_status: Status) -> None:
-    """Apply a status change and update completion_time accordingly.
-
-    Args:
-        item: The item whose status is being changed
-        new_status: The new status to apply
-    """
-    old = item.status.value if isinstance(item.status, Status) else item.status
-    item.status = new_status
-    if new_status == Status.DONE and old != Status.DONE.value:
-        item.completion_time = datetime.now(timezone.utc)
-    elif new_status != Status.DONE and old == Status.DONE.value:
-        item.completion_time = None
 
 
 def rollup_story_status(task_statuses: list[Status | str]) -> Status:

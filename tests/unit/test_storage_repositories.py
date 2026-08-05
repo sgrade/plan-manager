@@ -12,20 +12,26 @@ import pytest
 from plan_manager.domain.models import Status, Task
 from plan_manager.storage.db import bootstrap
 from plan_manager.storage.repositories import (
+    StorageConflictError,
     TaskStatusTransitionConflictError,
     append_event,
     create_plan,
     create_story,
     create_task,
+    delete_meta_value,
     delete_plan,
     delete_story,
     delete_task,
+    get_meta_value,
     get_plan_state,
     list_events,
     list_stories,
     list_tasks,
     set_current_story,
     set_current_task,
+    set_meta_value,
+    transition_plan_status_guarded,
+    transition_story_status_guarded,
     transition_task_status_guarded,
     update_task,
 )
@@ -201,6 +207,96 @@ def test_guarded_transition_conflict_is_typed(tmp_path: Path) -> None:
     assert exc.value.plan_id == "plan-a"
     assert exc.value.story_id == "story-a"
     assert exc.value.local_id == "task-a"
+
+
+def test_meta_value_round_trip(tmp_path: Path) -> None:
+    db_path = bootstrap(tmp_path)
+    with unit_of_work(db_path, write=True) as conn:
+        assert get_meta_value(conn, "current_plan_id") is None
+        set_meta_value(conn, "current_plan_id", "plan-a")
+    with unit_of_work(db_path) as conn:
+        assert get_meta_value(conn, "current_plan_id") == "plan-a"
+    with unit_of_work(db_path, write=True) as conn:
+        delete_meta_value(conn, "current_plan_id")
+    with unit_of_work(db_path) as conn:
+        assert get_meta_value(conn, "current_plan_id") is None
+
+
+def test_story_and_plan_guarded_transition_conflicts(tmp_path: Path) -> None:
+    db_path = bootstrap(tmp_path)
+    _seed_plan_story_task(db_path)
+
+    with unit_of_work(db_path, write=True) as conn:
+        with pytest.raises(StorageConflictError):
+            transition_story_status_guarded(
+                conn,
+                plan_id="plan-a",
+                story_id="story-a",
+                expected_status=Status.DONE,
+                next_status=Status.IN_PROGRESS,
+            )
+        with pytest.raises(StorageConflictError):
+            transition_plan_status_guarded(
+                conn,
+                plan_id="plan-a",
+                expected_status=Status.DONE,
+                next_status=Status.IN_PROGRESS,
+            )
+
+
+def test_story_and_plan_guarded_transition_sets_and_clears_completion_time(
+    tmp_path: Path,
+) -> None:
+    db_path = bootstrap(tmp_path)
+    _seed_plan_story_task(db_path)
+
+    with unit_of_work(db_path, write=True) as conn:
+        transition_story_status_guarded(
+            conn,
+            plan_id="plan-a",
+            story_id="story-a",
+            expected_status=Status.TODO,
+            next_status=Status.DONE,
+            completion_time="2026-08-05T06:00:00.000Z",
+        )
+        transition_plan_status_guarded(
+            conn,
+            plan_id="plan-a",
+            expected_status=Status.TODO,
+            next_status=Status.DONE,
+            completion_time="2026-08-05T06:00:01.000Z",
+        )
+    with sqlite3.connect(db_path) as conn:
+        row = conn.execute(
+            "SELECT (SELECT completion_time FROM stories WHERE plan_id = ? AND id = ?), "
+            "(SELECT completion_time FROM plans WHERE id = ?)",
+            ("plan-a", "story-a", "plan-a"),
+        ).fetchone()
+    assert row == ("2026-08-05T06:00:00.000Z", "2026-08-05T06:00:01.000Z")
+
+    with unit_of_work(db_path, write=True) as conn:
+        transition_story_status_guarded(
+            conn,
+            plan_id="plan-a",
+            story_id="story-a",
+            expected_status=Status.DONE,
+            next_status=Status.IN_PROGRESS,
+            completion_time=None,
+        )
+        transition_plan_status_guarded(
+            conn,
+            plan_id="plan-a",
+            expected_status=Status.DONE,
+            next_status=Status.IN_PROGRESS,
+            completion_time=None,
+        )
+    with sqlite3.connect(db_path) as conn:
+        row = conn.execute(
+            "SELECT (SELECT completion_time FROM stories WHERE plan_id = ? AND id = ?), "
+            "(SELECT completion_time FROM plans WHERE id = ?)",
+            ("plan-a", "story-a", "plan-a"),
+        ).fetchone()
+    assert row == (None, None)
 
 
 def test_update_task_is_per_item_write(tmp_path: Path) -> None:

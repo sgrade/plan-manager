@@ -58,7 +58,6 @@ class Story(WorkItem):
     """A Story represents a user-facing outcome (the 'what' and 'why').
     Its 'how' is the collection of tasks it contains."""
 
-    file_path: Optional[str] = None
     acceptance_criteria: Optional[list[str]] = None
     tasks: list["Task"] = Field(default_factory=list)
 
@@ -68,7 +67,6 @@ class Task(WorkItem):
     While a story provides the high-level context, a task also has its own
     granular 'what' (title), 'why' (description), and 'how' (steps)."""
 
-    file_path: Optional[str] = None
     story_id: Optional[str] = None
     local_id: Optional[str] = None
     # See Story fields for semantics

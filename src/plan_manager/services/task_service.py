@@ -4,42 +4,25 @@
 import logging
 from typing import Any, Optional
 
-import yaml
 from pydantic import ValidationError
 
 from plan_manager.domain.models import Plan, Status, Story, Task
-from plan_manager.io.file_mirror import (
-    delete_item_file,
-    read_item_file,
-    save_item_to_file,
-)
-from plan_manager.io.paths import task_file_path
 from plan_manager.logging_context import get_correlation_id
-from plan_manager.services import plan_repository
-from plan_manager.services.activity_repository import append_event
 from plan_manager.services.changelog_service import generate_changelog_for_task
 from plan_manager.services.shared import (
-    ensure_unique_id_from_set,
     find_dependents,
     generate_slug,
-    is_unblocked,
-    merge_frontmatter_defaults,
-    resolve_task_id,
-    validate_and_save,
-    write_story_details,
-    write_task_details,
-)
-from plan_manager.services.state_repository import (
+    get_current_plan_id,
     get_current_story_id,
     get_current_task_id,
-    set_current_story_id,
-    set_current_task_id,
+    is_unblocked,
+    resolve_task_id,
+    service_uow,
+    task_to_dict,
 )
-from plan_manager.services.status_utils import (
-    apply_status_change,
-    rollup_plan_status,
-    rollup_story_status,
-)
+from plan_manager.services.status_utils import rollup_plan_status, rollup_story_status
+from plan_manager.storage import repositories
+from plan_manager.storage.uow import canonical_utc_timestamp
 from plan_manager.telemetry import incr, timer
 from plan_manager.validation import (
     validate_changes,
@@ -52,11 +35,126 @@ from plan_manager.validation import (
 logger = logging.getLogger(__name__)
 
 
-# ---------- CRUD operations ----------
-
-
 def _generate_task_id_from_title(title: str) -> str:
     return generate_slug(title)
+
+
+def _completion_time_for_status(next_status: Status) -> str | None:
+    if next_status == Status.DONE:
+        return canonical_utc_timestamp()
+    return None
+
+
+def _load_plan_snapshot(conn: Any, plan_id: str) -> Plan:
+    plan = repositories.get_plan(conn, plan_id)
+    if plan is None:
+        raise FileNotFoundError(f"Plan '{plan_id}' not found.")
+    stories = repositories.list_stories(conn, plan_id)
+    tasks = repositories.list_tasks(conn, plan_id)
+    tasks_by_story: dict[str, list[Task]] = {}
+    for task in tasks:
+        if task.story_id is None:
+            continue
+        tasks_by_story.setdefault(task.story_id, []).append(task)
+    plan.stories = [
+        Story(
+            id=story.id,
+            title=story.title,
+            description=story.description,
+            status=story.status,
+            priority=story.priority,
+            acceptance_criteria=story.acceptance_criteria,
+            depends_on=story.depends_on,
+            creation_time=story.creation_time,
+            completion_time=story.completion_time,
+            tasks=tasks_by_story.get(story.id, []),
+        )
+        for story in stories
+    ]
+    return plan
+
+
+def _find_task(
+    conn: Any,
+    plan_id: str,
+    story_id: Optional[str],
+    task_id: str,
+) -> tuple[Story, Task]:
+    resolved_story_id, local_task_id = resolve_task_id(
+        task_id, story_id, plan_id=plan_id, conn=conn
+    )
+    story_obj = repositories.get_story(conn, plan_id, resolved_story_id)
+    if story_obj is None:
+        raise KeyError(f"Story with ID '{resolved_story_id}' not found.")
+    task_obj = repositories.get_task(conn, plan_id, resolved_story_id, local_task_id)
+    if task_obj is None:
+        raise KeyError(
+            f"Task with ID '{resolved_story_id}:{local_task_id}' not found under story '{resolved_story_id}'."
+        )
+    story = Story(
+        id=story_obj.id,
+        title=story_obj.title,
+        description=story_obj.description,
+        status=story_obj.status,
+        priority=story_obj.priority,
+        acceptance_criteria=story_obj.acceptance_criteria,
+        depends_on=story_obj.depends_on,
+        creation_time=story_obj.creation_time,
+        completion_time=story_obj.completion_time,
+        tasks=[],
+    )
+    return story, task_obj
+
+
+def _rollup_statuses(conn: Any, plan_id: str, story_id: str) -> None:
+    story = repositories.get_story(conn, plan_id, story_id)
+    if story is None:
+        raise KeyError(f"story with ID '{story_id}' not found.")
+
+    story_tasks = repositories.list_tasks(conn, plan_id, story_id=story_id)
+    next_story_status = rollup_story_status([task.status for task in story_tasks])
+    if next_story_status != story.status:
+        repositories.transition_story_status_guarded(
+            conn,
+            plan_id=plan_id,
+            story_id=story_id,
+            expected_status=story.status,
+            next_status=next_story_status,
+            completion_time=_completion_time_for_status(next_story_status),
+        )
+
+    plan = repositories.get_plan(conn, plan_id)
+    if plan is None:
+        raise FileNotFoundError(f"Plan '{plan_id}' not found.")
+    stories = repositories.list_stories(conn, plan_id)
+    next_plan_status = rollup_plan_status([entry.status for entry in stories])
+    if next_plan_status != plan.status:
+        repositories.transition_plan_status_guarded(
+            conn,
+            plan_id=plan_id,
+            expected_status=plan.status,
+            next_status=next_plan_status,
+            completion_time=_completion_time_for_status(next_plan_status),
+        )
+
+
+def _refresh_blocked_tasks(conn: Any, plan_id: str) -> None:
+    plan = _load_plan_snapshot(conn, plan_id)
+    for story in plan.stories:
+        for task in story.tasks or []:
+            if task.status not in (Status.TODO, Status.BLOCKED):
+                continue
+            next_status = Status.TODO if is_unblocked(task, plan) else Status.BLOCKED
+            if next_status == task.status:
+                continue
+            repositories.transition_task_status_guarded(
+                conn,
+                plan_id=plan_id,
+                story_id=task.story_id or story.id,
+                local_id=task.local_id or task.id.split(":", 1)[1],
+                expected_status=task.status,
+                next_status=next_status,
+            )
 
 
 def create_task(
@@ -66,23 +164,6 @@ def create_task(
     depends_on: list[str],
     description: Optional[str],
 ) -> dict[str, Any]:
-    """Create a new task in the specified story.
-
-    Args:
-        story_id: The ID of the story to add the task to
-        title: The title of the task (will be validated and sanitized)
-        priority: Optional priority level (0-5, where 5 is highest)
-        depends_on: List of task IDs this task depends on
-        description: Optional description of the task
-
-    Returns:
-        dict: Task data including the generated task ID
-
-    Raises:
-        ValueError: If input validation fails or story doesn't exist
-        KeyError: If the specified story doesn't exist
-    """
-    # Validate inputs
     title = validate_title(title)
     description = validate_description(description)
 
@@ -96,22 +177,11 @@ def create_task(
             "corr_id": get_correlation_id(),
         }
     )
-    plan = plan_repository.load_current()
-    story: Optional[Story] = next((s for s in plan.stories if s.id == story_id), None)
-    if not story:
-        raise KeyError(f"story with ID '{story_id}' not found.")
-
+    plan_id = get_current_plan_id()
     task_local_id = _generate_task_id_from_title(title)
-    fq_task_id = f"{story_id}:{task_local_id}"
-    existing_locals = [
-        t.id.split(":", 1)[1] if ":" in t.id else t.id for t in (story.tasks or [])
-    ]
-    task_local_id = ensure_unique_id_from_set(task_local_id, existing_locals)
-    fq_task_id = f"{story_id}:{task_local_id}"
-
     try:
         task = Task(
-            id=fq_task_id,
+            id=f"{story_id}:{task_local_id}",
             title=title,
             depends_on=depends_on,
             description=description,
@@ -120,31 +190,41 @@ def create_task(
             local_id=task_local_id,
         )
     except ValidationError as e:
-        logger.exception("Validation error creating new task '%s'", fq_task_id)
+        logger.exception(
+            "Validation error creating new task '%s:%s'", story_id, task_local_id
+        )
         raise ValueError(
-            f"Validation error creating new task '{fq_task_id}': {e}"
+            f"Validation error creating new task '{story_id}:{task_local_id}': {e}"
         ) from e
 
-    story.tasks = (story.tasks or []) + [task]
-    validate_and_save(plan)
-
-    try:
-        write_task_details(task)
-    except (ValueError, AttributeError, OSError):
-        # Best-effort: log but don't fail on write errors
-        logger.info("Best-effort creation of task file failed for '%s'.", fq_task_id)
-
-    try:
-        write_story_details(story)
-    except (KeyError, ValueError, AttributeError, OSError):
-        # Best-effort: log but don't fail on write errors
-        logger.info(
-            "Best-effort update of story file tasks list failed for '%s'.", story_id
+    with service_uow(write=True, operation="create_task", plan_id=plan_id) as conn:
+        if repositories.get_story(conn, plan_id, story_id) is None:
+            raise KeyError(f"story with ID '{story_id}' not found.")
+        local_id = repositories.create_task(
+            conn,
+            plan_id=plan_id,
+            story_id=story_id,
+            base_local_id=task_local_id,
+            title=task.title,
+            description=task.description,
+            status=task.status,
+            priority=task.priority,
+            depends_on=task.depends_on,
+            steps=task.steps,
+            changes=task.changes,
+            review_feedback=task.review_feedback,
+            rework_count=task.rework_count,
+            ord_value=len(repositories.list_tasks(conn, plan_id, story_id=story_id)),
         )
-
-    return task.model_dump(
-        mode="json",
-        include={
+        created = repositories.get_task(conn, plan_id, story_id, local_id)
+    if created is None:
+        raise RuntimeError(f"Task '{story_id}:{local_id}' was not persisted.")
+    payload = task_to_dict(created)
+    return {
+        key: value
+        for key, value in payload.items()
+        if key
+        in {
             "id",
             "title",
             "status",
@@ -152,105 +232,26 @@ def create_task(
             "creation_time",
             "description",
             "depends_on",
-        },
-        exclude_none=True,
-    )
-
-
-def get_task(story_id: str, task_id: str) -> dict[str, Any]:
-    plan = plan_repository.load_current()
-    s_id, local_task_id = resolve_task_id(task_id, story_id)
-
-    story: Optional[Story] = next((s for s in plan.stories if s.id == s_id), None)
-    if not story:
-        raise KeyError(f"story with ID '{s_id}' not found.")
-
-    fq_task_id = f"{s_id}:{local_task_id}"
-    if not story.tasks or not any(t.id == fq_task_id for t in story.tasks):
-        raise KeyError(f"task with ID '{fq_task_id}' not found under story '{s_id}'.")
-    task_obj = next((t for t in story.tasks if t.id == fq_task_id), None)
-    if task_obj:
-        base = task_obj.model_dump(
-            include={
-                "id",
-                "title",
-                "status",
-                "priority",
-                "creation_time",
-                "description",
-                "changes",
-                "depends_on",
-            },
-            exclude_none=True,
-        )
-        # Normalize datetime fields to ISO strings for transport schema expectations
-        ct = base.get("creation_time")
-        try:
-            # Pydantic BaseModel dumps datetime by default; ensure str
-            if ct is not None and hasattr(ct, "isoformat"):
-                base["creation_time"] = ct.isoformat()
-        except (AttributeError, TypeError):
-            # Fallback if datetime conversion fails
-            base["creation_time"] = None
-        task_details_path = task_file_path(s_id, local_task_id)
-        return merge_frontmatter_defaults(task_details_path, base)
-    task_details_path = task_file_path(s_id, local_task_id)
-    front, _body = read_item_file(task_details_path)
-    if front:
-        out = {
-            "id": front.get("id", fq_task_id),
-            "title": front.get("title", local_task_id.replace("_", " ")),
-            "status": front.get("status", "TODO"),
         }
-        for k in ("priority", "creation_time", "description", "depends_on"):
-            if front.get(k) is not None:
-                out[k] = front.get(k)
-        return out
-    return {
-        "id": fq_task_id,
-        "title": local_task_id.replace("_", " "),
-        "status": "TODO",
     }
 
 
-def _find_task(
-    plan: Plan, story_id: Optional[str], task_id: str
-) -> tuple[Story, Task, str]:
-    """Helper to find a task and its story, returning (story, task, fq_id) or raising KeyError."""
-    s_id, local_task_id = resolve_task_id(task_id, story_id)
-
-    story: Optional[Story] = next((s for s in plan.stories if s.id == s_id), None)
-    if not story:
-        raise KeyError(f"Story with ID '{s_id}' not found.")
-
-    fq_task_id = f"{s_id}:{local_task_id}"
-    task_obj: Optional[Task] = next(
-        (t for t in (story.tasks or []) if t.id == fq_task_id), None
+def get_task(story_id: str, task_id: str) -> dict[str, Any]:
+    plan_id = get_current_plan_id()
+    resolved_story_id, local_task_id = resolve_task_id(
+        task_id, story_id, plan_id=plan_id
     )
-    if not task_obj:
-        raise KeyError(f"Task with ID '{fq_task_id}' not found under story '{s_id}'.")
-    return story, task_obj, fq_task_id
-
-
-def _update_dependent_task_statuses(plan: Plan) -> None:
-    """
-    Iterates through all tasks and updates their status to BLOCKED or TODO
-    based on the current state of their dependencies.
-    """
-    logger.debug("Running blocker status update for plan '%s'.", plan.id)
-    for story in plan.stories:
-        for task in story.tasks or []:
-            if task.status in [Status.TODO, Status.BLOCKED]:
-                currently_unblocked = is_unblocked(task, plan)
-
-                if task.status == Status.TODO and not currently_unblocked:
-                    task.status = Status.BLOCKED
-                    logger.info(
-                        "Task '%s' is now BLOCKED due to unmet dependencies.", task.id
-                    )
-                elif task.status == Status.BLOCKED and currently_unblocked:
-                    task.status = Status.TODO
-                    logger.info("Task '%s' is now UNBLOCKED and set to TODO.", task.id)
+    with service_uow(write=False, operation="get_task", plan_id=plan_id) as conn:
+        if repositories.get_story(conn, plan_id, resolved_story_id) is None:
+            raise KeyError(f"story with ID '{resolved_story_id}' not found.")
+        task_obj = repositories.get_task(
+            conn, plan_id, resolved_story_id, local_task_id
+        )
+    if task_obj is None:
+        raise KeyError(
+            f"task with ID '{resolved_story_id}:{local_task_id}' not found under story '{resolved_story_id}'."
+        )
+    return task_to_dict(task_obj)
 
 
 def update_task(
@@ -262,503 +263,397 @@ def update_task(
     priority: Optional[int] = None,
     status: Optional[Status] = None,
 ) -> dict[str, Any]:
-    plan = plan_repository.load_current()
-    story, task_obj, _fq_task_id = _find_task(plan, story_id, task_id)
+    plan_id = get_current_plan_id()
+    with service_uow(write=True, operation="update_task", plan_id=plan_id) as conn:
+        story, task_obj = _find_task(conn, plan_id, story_id, task_id)
+        plan_snapshot = _load_plan_snapshot(conn, plan_id)
 
-    # Prevent starting a blocked task
-    if (
-        status == Status.IN_PROGRESS
-        and task_obj.status == Status.TODO
-        and not is_unblocked(task_obj, plan)
-    ):
-        raise ValueError(
-            f"Task '{task_obj.title}' cannot be started because it is blocked by one or more dependencies."
+        if (
+            status == Status.IN_PROGRESS
+            and task_obj.status == Status.TODO
+            and not is_unblocked(task_obj, plan_snapshot)
+        ):
+            raise ValueError(
+                f"Task '{task_obj.title}' cannot be started because it is blocked by one or more dependencies."
+            )
+
+        if title is not None:
+            task_obj.title = title
+        if description is not None:
+            task_obj.description = description
+        if depends_on is not None:
+            task_obj.depends_on = depends_on
+        if priority is not None:
+            task_obj.priority = priority
+
+        repositories.update_task(
+            conn,
+            plan_id=plan_id,
+            story_id=task_obj.story_id or story.id,
+            local_id=task_obj.local_id or task_obj.id.split(":", 1)[1],
+            title=task_obj.title,
+            description=task_obj.description,
+            depends_on=task_obj.depends_on,
+            priority=task_obj.priority,
         )
 
-    if title is not None:
-        task_obj.title = title
-    if description is not None:
-        task_obj.description = description
-    if depends_on is not None:
-        task_obj.depends_on = depends_on
-    if priority is not None:
-        task_obj.priority = priority
-
-    if status is not None:
-        prev_status = task_obj.status
-
-        # Enforce strict state transitions authorized by the 'approve' command
-        if status == Status.IN_PROGRESS and prev_status == Status.TODO:
-            if not task_obj.steps:
+        if status is not None and status != task_obj.status:
+            prev_status = task_obj.status
+            if status == Status.IN_PROGRESS and prev_status == Status.TODO:
+                if not task_obj.steps:
+                    raise ValueError(
+                        "An implementation plan must be approved before starting work."
+                    )
+            elif status == Status.IN_PROGRESS and prev_status == Status.PENDING_REVIEW:
+                pass
+            elif status == Status.PENDING_REVIEW and prev_status == Status.IN_PROGRESS:
+                if not task_obj.changes:
+                    raise ValueError(
+                        "Changes must be provided before submitting for review."
+                    )
+            elif status == Status.DONE and prev_status == Status.PENDING_REVIEW:
+                if not task_obj.changes:
+                    raise ValueError("Changes must be provided before marking as DONE.")
+            else:
                 raise ValueError(
-                    "An implementation plan must be approved before starting work."
+                    f"Invalid status transition from {prev_status} to {status}."
                 )
-            apply_status_change(task_obj, status)
-        elif status == Status.IN_PROGRESS and prev_status == Status.PENDING_REVIEW:
-            # Rework: reviewer requested changes, moving back to IN_PROGRESS
-            apply_status_change(task_obj, status)
-        elif status == Status.PENDING_REVIEW and prev_status == Status.IN_PROGRESS:
-            # Submitting for review requires changes to have been set
-            if not task_obj.changes:
-                raise ValueError(
-                    "Changes must be provided before submitting for review."
-                )
-            apply_status_change(task_obj, status)
-        elif status == Status.DONE and prev_status == Status.PENDING_REVIEW:
-            if not task_obj.changes:
-                raise ValueError("Changes must be provided before marking as DONE.")
-            apply_status_change(task_obj, status)
-            # After a task is done, re-evaluate blockers across the plan
-            _update_dependent_task_statuses(plan)
-        elif status == prev_status:
-            pass  # No change
-        else:
-            raise ValueError(
-                f"Invalid status transition from {prev_status} to {status}."
+
+            repositories.transition_task_status_guarded(
+                conn,
+                plan_id=plan_id,
+                story_id=task_obj.story_id or story.id,
+                local_id=task_obj.local_id or task_obj.id.split(":", 1)[1],
+                expected_status=prev_status,
+                next_status=status,
+                completion_time=_completion_time_for_status(status),
             )
-
-        if prev_status != task_obj.status:
-            append_event(
-                plan.id,
-                "task_status_changed",
-                {"task_id": task_obj.id},
-                {"from": prev_status.value, "to": task_obj.status.value},
+            repositories.append_event(
+                conn,
+                plan_id=plan_id,
+                event_type="task_status_changed",
+                scope={"task_id": task_obj.id},
+                data={"from": prev_status.value, "to": status.value},
             )
+            if status == Status.DONE:
+                _refresh_blocked_tasks(conn, plan_id)
 
-    # 1. Roll up story status
-    prev_story_status = story.status
-    next_story_status = rollup_story_status([t.status for t in (story.tasks or [])])
-    if prev_story_status != next_story_status:
-        apply_status_change(story, next_story_status)
-        if story.file_path:
-            try:
-                save_item_to_file(story.file_path, story, content=None, overwrite=False)
-            except (OSError, yaml.YAMLError):
-                # Best-effort: log but don't fail on write errors
-                logger.info(
-                    "Best-effort rollup update of story file failed for '%s'.", story_id
-                )
+        _rollup_statuses(conn, plan_id, story.id)
 
-    # 3. Roll up plan status
-    prev_plan_status = plan.status
-    next_plan_status = rollup_plan_status([s.status for s in plan.stories])
-    if prev_plan_status != next_plan_status:
-        apply_status_change(plan, next_plan_status)
+        current_task = repositories.get_plan_state(conn, plan_id).current_task_id
+        updated_task = repositories.get_task(
+            conn,
+            plan_id,
+            task_obj.story_id or story.id,
+            task_obj.local_id or task_obj.id.split(":", 1)[1],
+        )
+        if updated_task is None:
+            raise RuntimeError(f"Task '{task_obj.id}' disappeared during update.")
+        if updated_task.status == Status.DONE and current_task == updated_task.id:
+            repositories.set_current_task(
+                conn,
+                plan_id=plan_id,
+                current_task_story_id=None,
+                current_task_local_id=None,
+            )
+        updated_story = repositories.get_story(conn, plan_id, story.id)
+        if (
+            updated_story is not None
+            and updated_story.status == Status.DONE
+            and repositories.get_plan_state(conn, plan_id).current_story_id == story.id
+        ):
+            repositories.set_current_story(conn, plan_id=plan_id, current_story_id=None)
 
-    # 4. Save the final state
-    plan_repository.save(plan, plan_id=plan.id)
-
-    # Selection invariants (simplified)
-    try:
-        if task_obj.status == Status.DONE:
-            current_tid = get_current_task_id(plan.id)
-            if current_tid == task_obj.id:
-                # Clear selection on completion
-                set_current_task_id(None, plan.id)
-        if story.status == Status.DONE:
-            current_sid = get_current_story_id(plan.id)
-            if current_sid == story.id:
-                set_current_story_id(None, plan.id)
-    except (KeyError, ValueError):
-        # Best-effort: state management is not critical
-        logger.warning("Failed to update current selection state.")
-
-    return task_obj.model_dump(mode="json", exclude_none=True)
+    return task_to_dict(updated_task)
 
 
 def delete_task(story_id: str, task_id: str) -> dict[str, Any]:
-    plan = plan_repository.load_current()
-    story: Optional[Story] = next((s for s in plan.stories if s.id == story_id), None)
-    if not story:
-        raise KeyError(f"story with ID '{story_id}' not found.")
-    fq_task_id = f"{story_id}:{task_id}" if ":" not in task_id else task_id
-    if not story.tasks or not any(t.id == fq_task_id for t in story.tasks):
-        raise KeyError(
-            f"task with ID '{fq_task_id}' not found under story '{story_id}'."
+    plan_id = get_current_plan_id()
+    with service_uow(write=True, operation="delete_task", plan_id=plan_id) as conn:
+        _story, task_obj = _find_task(conn, plan_id, story_id, task_id)
+        plan = _load_plan_snapshot(conn, plan_id)
+        dependents = find_dependents(plan, task_obj.id)
+        if dependents:
+            raise ValueError(
+                f"Cannot delete task '{task_obj.id}' because it is a dependency of: {', '.join(dependents)}"
+            )
+        repositories.delete_task(
+            conn,
+            plan_id,
+            task_obj.story_id or story_id,
+            task_obj.local_id or task_obj.id.split(":", 1)[1],
         )
-
-    dependents = find_dependents(plan, fq_task_id)
-    if dependents:
-        raise ValueError(
-            f"Cannot delete task '{fq_task_id}' because it is a dependency of: {', '.join(dependents)}"
-        )
-
-    story.tasks = [t for t in (story.tasks or []) if t.id != fq_task_id]
-    plan_repository.save(plan)
-    try:
-        local_task_id = fq_task_id.split(":", 1)[1]
-        task_details_path = task_file_path(story_id, local_task_id)
-        delete_item_file(task_details_path)
-    except (IndexError, OSError):
-        # Best-effort: log but don't fail on delete errors
-        logger.info("Best-effort delete of task file failed for '%s'.", fq_task_id)
-    try:
-        if story.file_path:
-            save_item_to_file(story.file_path, story, content=None, overwrite=False)
-    except (OSError, yaml.YAMLError):
-        # Best-effort: log but don't fail on write errors
-        logger.info(
-            "Best-effort update of story file tasks list failed for '%s'.", story_id
-        )
-    # Selection invariants: if deleted task was current, auto-advance/reset
-    try:
-        current_tid = get_current_task_id(plan.id)
-        if current_tid == fq_task_id:
-            # Prefer next TODO/IN_PROGRESS task
-            for t in story.tasks or []:
-                if t.status in (Status.TODO, Status.IN_PROGRESS):
-                    set_current_task_id(t.id, plan.id)
-                    break
-            else:
-                set_current_task_id(None, plan.id)
-    except (KeyError, ValueError):
-        # Best-effort: state management is not critical, silently continue
-        pass
-
-    return {"success": True, "message": f"Successfully deleted task '{fq_task_id}'."}
+        _rollup_statuses(conn, plan_id, task_obj.story_id or story_id)
+    return {"success": True, "message": f"Successfully deleted task '{task_obj.id}'."}
 
 
 def list_tasks(
     statuses: Optional[list[Status]], story_id: Optional[str] = None
 ) -> list[Task]:
-    plan = plan_repository.load_current()
-    tasks: list[Task] = []
-    for s in plan.stories:
-        if story_id and s.id != story_id:
-            continue
-        tasks.extend(t for t in (s.tasks or []) if isinstance(t, Task))
-
-    allowed_statuses = set(statuses) if statuses else None
-
-    filtered: list[Task] = []
-    for t in tasks:
-        if allowed_statuses is not None and t.status not in allowed_statuses:
-            continue
-        filtered.append(t)
-
-    def _prio_key(task: Task) -> int:
-        return task.priority if task.priority is not None else 6
-
-    def _ctime_key(task: Task) -> tuple[bool, str]:
-        ctime_str = task.creation_time.isoformat() if task.creation_time else "9999"
-        return (task.creation_time is None, ctime_str)
-
-    filtered.sort(key=lambda t: (_prio_key(t), _ctime_key(t), t.id))
-    return filtered
+    plan_id = get_current_plan_id()
+    with service_uow(write=False, operation="list_tasks", plan_id=plan_id) as conn:
+        return repositories.list_tasks(
+            conn,
+            plan_id,
+            statuses=statuses,
+            story_id=story_id,
+        )
 
 
 def create_steps(
     story_id: str, task_id: str, steps: list[dict[str, Any]]
 ) -> dict[str, Any]:
-    """Set the implementation steps for a task, making it ready for pre-execution review.
-
-    Args:
-        story_id: The ID of the story containing the task
-        task_id: The local ID of the task within the story
-        steps: List of step dictionaries, each with 'title' and optional 'description'
-
-    Returns:
-        dict: Updated task data
-
-    Raises:
-        ValueError: If steps validation fails or task is in wrong status
-        KeyError: If story or task doesn't exist
-    """
-    plan = plan_repository.load_current()
-    story, task_obj, _fq_task_id = _find_task(plan, story_id, task_id)
-
-    if task_obj.status not in [Status.TODO, Status.IN_PROGRESS]:
-        raise ValueError(
-            f"Can only propose a plan for a task in TODO or IN_PROGRESS status. Current status is {task_obj.status}."
-        )
-
-    # Validate steps using centralized validation
+    plan_id = get_current_plan_id()
     validated_steps = validate_task_steps(steps)
-
-    # Convert validated steps to domain models
     new_steps = [
         Task.Step(title=step["title"], description=step["description"])
         for step in validated_steps
     ]
-    task_obj.steps = new_steps
 
-    # Re-assign the tasks list to ensure the parent model detects the change.
-    story.tasks = list(story.tasks or [])
-
-    validate_and_save(plan)
-    return task_obj.model_dump(mode="json", exclude_none=True)
-
-
-# ---------- Task workflow operations ----------
+    with service_uow(write=True, operation="create_steps", plan_id=plan_id) as conn:
+        _story, task_obj = _find_task(conn, plan_id, story_id, task_id)
+        if task_obj.status not in [Status.TODO, Status.IN_PROGRESS]:
+            raise ValueError(
+                "Can only propose a plan for a task in TODO or IN_PROGRESS status. "
+                f"Current status is {task_obj.status}."
+            )
+        repositories.update_task(
+            conn,
+            plan_id=plan_id,
+            story_id=task_obj.story_id or story_id,
+            local_id=task_obj.local_id or task_obj.id.split(":", 1)[1],
+            steps=new_steps,
+        )
+        updated = repositories.get_task(
+            conn,
+            plan_id,
+            task_obj.story_id or story_id,
+            task_obj.local_id or task_obj.id.split(":", 1)[1],
+        )
+    if updated is None:
+        raise RuntimeError(f"Task '{task_obj.id}' disappeared while setting steps.")
+    return task_to_dict(updated)
 
 
 def start_current_task() -> dict[str, Any]:
-    """Start work on the current TODO task (Gate 1: TODO → IN_PROGRESS).
-
-    Validates that the task has steps defined and is not blocked by dependencies,
-    then transitions the task from TODO to IN_PROGRESS status.
-
-    Returns:
-        dict: Updated task data including a success flag and message
-
-    Raises:
-        ValueError: If no task is active, task has no steps, or task is blocked
-        RuntimeError: If data inconsistency is detected
-    """
-    plan_id = plan_repository.get_current_plan_id()
-    if not plan_id:
-        raise ValueError("No active plan. Please select a plan first.")
-    plan = plan_repository.load(plan_id)
-
+    plan_id = get_current_plan_id()
     task_id = get_current_task_id(plan_id)
     if not task_id:
         raise ValueError("No active task. Use set_current_task first.")
 
-    story_id = get_current_story_id(plan_id)
-    if not story_id:
-        story_id = task_id.split(":")[0]
-
-    story = next((s for s in plan.stories if s.id == story_id), None)
-    if not story:
-        raise RuntimeError(
-            f"Data inconsistency: Story '{story_id}' not found for active task."
+    story_id = get_current_story_id(plan_id) or task_id.split(":")[0]
+    with service_uow(write=True, operation="start_task", plan_id=plan_id) as conn:
+        story, task = _find_task(conn, plan_id, story_id, task_id)
+        if task.status != Status.TODO:
+            raise ValueError(
+                f"Task '{task.title}' is not in TODO status (current: {task.status}). "
+                "Only TODO tasks can be started."
+            )
+        if not task.steps:
+            raise ValueError(
+                "No steps found. Create steps first via create_task_steps, then run start_task."
+            )
+        plan = _load_plan_snapshot(conn, plan_id)
+        if not is_unblocked(task, plan):
+            raise ValueError(
+                f"Task '{task.title}' is BLOCKED by unmet dependencies. Resolve blockers before starting."
+            )
+        repositories.transition_task_status_guarded(
+            conn,
+            plan_id=plan_id,
+            story_id=task.story_id or story.id,
+            local_id=task.local_id or task.id.split(":", 1)[1],
+            expected_status=Status.TODO,
+            next_status=Status.IN_PROGRESS,
+            completion_time=_completion_time_for_status(Status.IN_PROGRESS),
         )
-
-    task = next((t for t in (story.tasks or []) if t.id == task_id), None)
-    if not task:
-        raise RuntimeError(
-            f"Data inconsistency: Active task '{task_id}' not found in story '{story_id}'."
+        repositories.append_event(
+            conn,
+            plan_id=plan_id,
+            event_type="task_status_changed",
+            scope={"task_id": task.id},
+            data={"from": Status.TODO.value, "to": Status.IN_PROGRESS.value},
         )
-
-    if task.status != Status.TODO:
-        raise ValueError(
-            f"Task '{task.title}' is not in TODO status (current: {task.status}). "
-            "Only TODO tasks can be started."
+        _rollup_statuses(conn, plan_id, story.id)
+        updated = repositories.get_task(
+            conn,
+            plan_id,
+            task.story_id or story.id,
+            task.local_id or task.id.split(":", 1)[1],
         )
-
-    # Require steps to exist
-    if not task.steps:
-        raise ValueError(
-            "No steps found. Create steps first via create_task_steps, then run start_task."
-        )
-
-    # Enforce dependency gate right before transition
-    if not is_unblocked(task, plan):
-        raise ValueError(
-            f"Task '{task.title}' is BLOCKED by unmet dependencies. Resolve blockers before starting."
-        )
-
-    logger.info(
-        {
-            "event": "start_task",
-            "task_id": task.id,
-            "corr_id": get_correlation_id(),
-        }
-    )
+    if updated is None:
+        raise RuntimeError(f"Task '{task_id}' disappeared while starting.")
     with timer("start_task.duration_ms", kind="plan", task_id=task.id):
-        updated_task_data = update_task(
-            story_id=story.id, task_id=task.id, status=Status.IN_PROGRESS
-        )
+        pass
     incr("start_task.count", kind="plan")
     return {
         "success": True,
         "message": f"Task '{task.title}' started and moved to IN_PROGRESS.",
         "changelog_snippet": None,
-        **updated_task_data,
+        **task_to_dict(updated),
     }
 
 
 def approve_pr() -> dict[str, Any]:
-    """Approve the current PENDING_REVIEW task (Gate 2: PENDING_REVIEW → DONE).
-
-    Completes the code review process and marks the task as DONE. Generates a
-    changelog snippet from the task's changes.
-
-    Returns:
-        dict: Updated task data including a success flag, message, and changelog snippet
-
-    Raises:
-        ValueError: If no task is active or task is not in PENDING_REVIEW status
-        RuntimeError: If data inconsistency is detected
-    """
-    plan_id = plan_repository.get_current_plan_id()
-    if not plan_id:
-        raise ValueError("No active plan. Please select a plan first.")
-    plan = plan_repository.load(plan_id)
-
+    plan_id = get_current_plan_id()
     task_id = get_current_task_id(plan_id)
     if not task_id:
         raise ValueError("No active task. There is nothing to approve.")
+    story_id = get_current_story_id(plan_id) or task_id.split(":")[0]
 
-    story_id = get_current_story_id(plan_id)
-    if not story_id:
-        story_id = task_id.split(":")[0]
-
-    story = next((s for s in plan.stories if s.id == story_id), None)
-    if not story:
-        raise RuntimeError(
-            f"Data inconsistency: Story '{story_id}' not found for active task."
+    with service_uow(write=True, operation="approve_pr", plan_id=plan_id) as conn:
+        story, task = _find_task(conn, plan_id, story_id, task_id)
+        if task.status != Status.PENDING_REVIEW:
+            raise ValueError(
+                f"Task '{task.title}' is not in PENDING_REVIEW status (current: {task.status}). "
+                "Only PENDING_REVIEW tasks can be approved."
+            )
+        if not task.changes:
+            raise ValueError("Changes must be provided before marking as DONE.")
+        repositories.transition_task_status_guarded(
+            conn,
+            plan_id=plan_id,
+            story_id=task.story_id or story.id,
+            local_id=task.local_id or task.id.split(":", 1)[1],
+            expected_status=Status.PENDING_REVIEW,
+            next_status=Status.DONE,
+            completion_time=_completion_time_for_status(Status.DONE),
         )
-
-    task = next((t for t in (story.tasks or []) if t.id == task_id), None)
-    if not task:
-        raise RuntimeError(
-            f"Data inconsistency: Active task '{task_id}' not found in story '{story_id}'."
+        repositories.append_event(
+            conn,
+            plan_id=plan_id,
+            event_type="task_status_changed",
+            scope={"task_id": task.id},
+            data={"from": Status.PENDING_REVIEW.value, "to": Status.DONE.value},
         )
-
-    if task.status != Status.PENDING_REVIEW:
-        raise ValueError(
-            f"Task '{task.title}' is not in PENDING_REVIEW status (current: {task.status}). "
-            "Only PENDING_REVIEW tasks can be approved."
+        _refresh_blocked_tasks(conn, plan_id)
+        _rollup_statuses(conn, plan_id, story.id)
+        updated = repositories.get_task(
+            conn,
+            plan_id,
+            task.story_id or story.id,
+            task.local_id or task.id.split(":", 1)[1],
         )
-
-    logger.info(
-        {
-            "event": "approve_review",
-            "task_id": task.id,
-            "corr_id": get_correlation_id(),
-        }
-    )
+    if updated is None:
+        raise RuntimeError(f"Task '{task_id}' disappeared while approving.")
     with timer("approve_task.duration_ms", kind="review", task_id=task.id):
-        updated_task_data = update_task(
-            story_id=story.id, task_id=task.id, status=Status.DONE
-        )
+        pass
     incr("approve_task.count", kind="review")
-
-    # Generate changelog snippet (using default "Changed" category for backward compat)
-    updated_task = Task(**updated_task_data)
-    changelog_snippet = generate_changelog_for_task(updated_task, category="Changed")
-
+    changelog_snippet = generate_changelog_for_task(updated, category="Changed")
     return {
         "success": True,
         "message": f"Task '{task.title}' approved and moved to DONE.",
         "changelog_snippet": changelog_snippet,
-        **updated_task_data,
+        **task_to_dict(updated),
     }
 
 
 def approve_current_task() -> dict[str, Any]:
-    """Approve the currently active task (context-aware: Gate 1 or Gate 2).
-
-    DEPRECATED: Use start_current_task() for Gate 1 or approve_current_task_review() for Gate 2.
-    This function is kept for backward compatibility.
-
-    The transition depends on the current task state:
-    - TODO with steps → IN_PROGRESS (delegates to start_current_task)
-    - PENDING_REVIEW → DONE (delegates to approve_current_task_review)
-
-    Returns:
-        Dict[str, Any]: Result containing success status and any error messages
-
-    Raises:
-        ValueError: If no active plan/task or invalid state transitions
-    """
-    plan_id = plan_repository.get_current_plan_id()
-    if not plan_id:
-        raise ValueError("No active plan. Please select a plan first.")
-    plan = plan_repository.load(plan_id)
-
+    plan_id = get_current_plan_id()
     task_id = get_current_task_id(plan_id)
     if not task_id:
         raise ValueError("No active task. There is nothing to approve.")
-
-    story_id = get_current_story_id(plan_id)
-    if not story_id:
-        story_id = task_id.split(":")[0]
-
-    story = next((s for s in plan.stories if s.id == story_id), None)
-    if not story:
-        raise RuntimeError(
-            f"Data inconsistency: Story '{story_id}' not found for active task."
-        )
-
-    task = next((t for t in (story.tasks or []) if t.id == task_id), None)
-    if not task:
-        raise RuntimeError(
-            f"Data inconsistency: Active task '{task_id}' not found in story '{story_id}'."
-        )
-
-    # Delegate to specialized functions
-    if task.status == Status.TODO:
+    story_id = get_current_story_id(plan_id) or task_id.split(":")[0]
+    task = get_task(story_id, task_id)
+    task_status = task["status"]
+    if task_status == Status.TODO:
         return start_current_task()
-    if task.status == Status.PENDING_REVIEW:
+    if task_status == Status.PENDING_REVIEW:
         return approve_pr()
-
-    # Task is not in a state requiring approval
     raise ValueError(
-        f"The active task '{task.title}' is not in a state requiring approval (current status: {task.status})."
+        f"The active task '{task['title']}' is not in a state requiring approval (current status: {task_status})."
     )
 
 
 def submit_pr(story_id: str, task_id: str, changes: list[str]) -> dict[str, Any]:
-    """Submit a task for code review by setting changes and moving to PENDING_REVIEW.
-
-    Args:
-        story_id: The ID of the story containing the task
-        task_id: The local ID of the task within the story
-        changes: List of changes describing what was accomplished
-
-    Returns:
-        dict: Updated task data
-
-    Raises:
-        ValueError: If task is not in IN_PROGRESS or changes validation fails
-        KeyError: If story or task doesn't exist
-    """
-    # Validate changes
     changes = validate_changes(changes)
-
-    plan = plan_repository.load_current()
-    _, task_obj, _ = _find_task(plan, story_id, task_id)
-
-    if task_obj.status != Status.IN_PROGRESS:
-        raise ValueError(
-            f"Can only submit for review a task that is IN_PROGRESS. Current status is {task_obj.status}."
+    plan_id = get_current_plan_id()
+    with service_uow(write=True, operation="submit_pr", plan_id=plan_id) as conn:
+        story, task = _find_task(conn, plan_id, story_id, task_id)
+        if task.status != Status.IN_PROGRESS:
+            raise ValueError(
+                "Can only submit for review a task that is IN_PROGRESS. "
+                f"Current status is {task.status}."
+            )
+        repositories.update_task(
+            conn,
+            plan_id=plan_id,
+            story_id=task.story_id or story.id,
+            local_id=task.local_id or task.id.split(":", 1)[1],
+            changes=changes,
         )
-
-    task_obj.changes = changes
-    # Persist the changes so the subsequent update_task (which reloads the plan)
-    # can see it when validating the transition to PENDING_REVIEW.
-    plan_repository.save(plan, plan_id=plan.id)
-
-    # Delegate to update_task to handle status transition and rollups
-    return update_task(story_id=story_id, task_id=task_id, status=Status.PENDING_REVIEW)
+        repositories.transition_task_status_guarded(
+            conn,
+            plan_id=plan_id,
+            story_id=task.story_id or story.id,
+            local_id=task.local_id or task.id.split(":", 1)[1],
+            expected_status=Status.IN_PROGRESS,
+            next_status=Status.PENDING_REVIEW,
+            completion_time=_completion_time_for_status(Status.PENDING_REVIEW),
+        )
+        repositories.append_event(
+            conn,
+            plan_id=plan_id,
+            event_type="task_status_changed",
+            scope={"task_id": task.id},
+            data={"from": Status.IN_PROGRESS.value, "to": Status.PENDING_REVIEW.value},
+        )
+        _rollup_statuses(conn, plan_id, story.id)
+        updated = repositories.get_task(
+            conn,
+            plan_id,
+            task.story_id or story.id,
+            task.local_id or task.id.split(":", 1)[1],
+        )
+    if updated is None:
+        raise RuntimeError(f"Task '{task_id}' disappeared while submitting for review.")
+    return task_to_dict(updated)
 
 
 def request_changes(story_id: str, task_id: str, feedback: str) -> dict[str, Any]:
-    """Request changes for a task, moving it from PENDING_REVIEW back to IN_PROGRESS.
-
-    Args:
-        story_id: The ID of the story containing the task
-        task_id: The local ID of the task within the story
-        feedback: Feedback explaining what changes are needed (will be validated)
-
-    Returns:
-        Dict[str, Any]: Result containing success status and task data
-
-    Raises:
-        ValueError: If task is not in PENDING_REVIEW or feedback validation fails
-        KeyError: If story or task doesn't exist
-    """
-    # Validate feedback input
     feedback = validate_feedback(feedback)
-
-    plan = plan_repository.load_current()
-    _, task, _ = _find_task(plan, story_id, task_id)
-
-    if task.status != Status.PENDING_REVIEW:
-        raise ValueError(
-            f"Task '{task.title}' is not awaiting review. Current status: {task.status}."
+    plan_id = get_current_plan_id()
+    with service_uow(write=True, operation="request_changes", plan_id=plan_id) as conn:
+        story, task = _find_task(conn, plan_id, story_id, task_id)
+        if task.status != Status.PENDING_REVIEW:
+            raise ValueError(
+                f"Task '{task.title}' is not awaiting review. Current status: {task.status}."
+            )
+        next_feedback = (task.review_feedback or []) + [
+            Task.ReviewFeedback(message=feedback.strip())
+        ]
+        repositories.update_task(
+            conn,
+            plan_id=plan_id,
+            story_id=task.story_id or story.id,
+            local_id=task.local_id or task.id.split(":", 1)[1],
+            review_feedback=next_feedback,
+            rework_count=(task.rework_count or 0) + 1,
         )
-
-    # Log feedback and update rework count
-    _log_review_feedback(plan.id, task, feedback)
-
-    # Save the plan with updated feedback and rework count before status change
-    validate_and_save(plan)
-
-    # Delegate to update_task for status change
-    update_task(story_id=story_id, task_id=task_id, status=Status.IN_PROGRESS)
+        repositories.append_event(
+            conn,
+            plan_id=plan_id,
+            event_type="review_changes_requested",
+            scope={"task_id": task.id},
+            data={"feedback": feedback.strip()},
+        )
+        repositories.transition_task_status_guarded(
+            conn,
+            plan_id=plan_id,
+            story_id=task.story_id or story.id,
+            local_id=task.local_id or task.id.split(":", 1)[1],
+            expected_status=Status.PENDING_REVIEW,
+            next_status=Status.IN_PROGRESS,
+            completion_time=None,
+        )
+        repositories.append_event(
+            conn,
+            plan_id=plan_id,
+            event_type="task_status_changed",
+            scope={"task_id": task.id},
+            data={"from": Status.PENDING_REVIEW.value, "to": Status.IN_PROGRESS.value},
+        )
+        _rollup_statuses(conn, plan_id, story.id)
 
     return {
         "success": True,
@@ -766,43 +661,18 @@ def request_changes(story_id: str, task_id: str, feedback: str) -> dict[str, Any
     }
 
 
-def _log_review_feedback(plan_id: str, task: Task, feedback: str) -> None:
-    """Helper to log review feedback and update task state."""
-    try:
-        append_event(
-            plan_id,
-            "review_changes_requested",
-            {"task_id": task.id},
-            {"feedback": feedback.strip()},
-        )
-    except (OSError, KeyError, ValueError):
-        # Best-effort: event logging is not critical
-        logger.warning(
-            "Failed to log review_changes_requested event for task %s", task.id
-        )
-
-    try:
-        task.review_feedback = (task.review_feedback or []) + [
-            Task.ReviewFeedback(message=feedback.strip())
-        ]
-        task.rework_count = (getattr(task, "rework_count", 0) or 0) + 1
-    except (ValidationError, ValueError, AttributeError):
-        # Best-effort: feedback persistence is not critical
-        logger.warning("Failed to persist review feedback for task %s", task.id)
-
-
 def find_reviewable_tasks() -> list[Task]:
-    """Finds all tasks across all stories that are in a reviewable state."""
-    plan_id = plan_repository.get_current_plan_id()
-    if not plan_id:
+    try:
+        plan_id = get_current_plan_id()
+    except ValueError:
         return []
-    plan = plan_repository.load(plan_id)
-
-    reviewable = []
-    for story in plan.stories:
-        for task in story.tasks or []:
-            is_pending_pre_review = task.status == Status.TODO and task.steps
-            is_pending_code_review = task.status == Status.PENDING_REVIEW
-            if is_pending_pre_review or is_pending_code_review:
-                reviewable.append(task)
-    return reviewable
+    with service_uow(
+        write=False, operation="find_reviewable_tasks", plan_id=plan_id
+    ) as conn:
+        tasks = repositories.list_tasks(conn, plan_id)
+    return [
+        task
+        for task in tasks
+        if (task.status == Status.TODO and task.steps)
+        or task.status == Status.PENDING_REVIEW
+    ]

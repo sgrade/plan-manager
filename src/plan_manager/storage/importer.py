@@ -1369,7 +1369,6 @@ def _story_known_fields() -> set[str]:
         "acceptance_criteria",
         "tasks",
         "schema_version",
-        "file_path",
     }
 
 
@@ -1390,7 +1389,6 @@ def _task_known_fields() -> set[str]:
         "review_feedback",
         "rework_count",
         "schema_version",
-        "file_path",
     }
 
 

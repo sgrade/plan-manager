@@ -2,15 +2,26 @@
 # Copyright (c) 2026 Roman Klyuev
 
 import logging
+import os
+from collections.abc import Iterator
+from contextlib import contextmanager
+from datetime import datetime
+from pathlib import Path
 from typing import Any, Optional
 
+from plan_manager.config import PLAN_MANAGER_DB_DIR, PLAN_MANAGER_DB_PATH, TODO_DIR
 from plan_manager.domain.models import Plan, Status, Story, Task
-from plan_manager.io.file_mirror import read_item_file, save_item_to_file
-from plan_manager.io.paths import slugify, task_file_path
-from plan_manager.services import plan_repository as plan_repo
-from plan_manager.services.state_repository import get_current_story_id
+from plan_manager.io.paths import slugify
+from plan_manager.storage import db as storage_db
+from plan_manager.storage import repositories
+from plan_manager.storage.uow import StorageBusyError, unit_of_work
 
 logger = logging.getLogger(__name__)
+
+CURRENT_PLAN_META_KEY = "current_plan_id"
+# Transitional global current pointer. This shim is intentionally temporary and
+# removed in U6b when all tool contracts carry explicit plan_id.
+TRANSITIONAL_CURRENT_PLAN_COMMENT = "transitional-global-current"
 
 
 def generate_slug(title: str) -> str:
@@ -42,7 +53,167 @@ def ensure_unique_id_from_set(base_id: str, existing_ids: list[str] | set[str]) 
         counter += 1
 
 
-def resolve_task_id(task_id: str, story_id: Optional[str] = None) -> tuple[str, str]:
+def db_path() -> str:
+    env_db_dir = os.getenv("PLAN_MANAGER_DB_DIR")
+    if env_db_dir:
+        return str(Path(env_db_dir) / "plan_manager.sqlite3")
+    return PLAN_MANAGER_DB_PATH
+
+
+def db_dir() -> str:
+    env_db_dir = os.getenv("PLAN_MANAGER_DB_DIR")
+    if env_db_dir:
+        return env_db_dir
+    return PLAN_MANAGER_DB_DIR
+
+
+def ensure_storage_ready() -> None:
+    storage_db.startup_storage(TODO_DIR, db_dir())
+
+
+@contextmanager
+def service_uow(
+    *,
+    write: bool,
+    operation: str,
+    plan_id: str | None = None,
+) -> Iterator[Any]:
+    ensure_storage_ready()
+    try:
+        with unit_of_work(db_path(), write=write) as conn:
+            yield conn
+    except StorageBusyError as exc:
+        exc.operation = operation
+        exc.plan_id = plan_id
+        raise
+
+
+def get_current_plan_id() -> str:
+    with service_uow(write=False, operation="get_current_plan_id") as conn:
+        current_plan_id = repositories.get_meta_value(conn, CURRENT_PLAN_META_KEY)
+        if current_plan_id and repositories.get_plan(conn, current_plan_id):
+            return current_plan_id
+        plans = repositories.list_plans(conn)
+
+    if not plans:
+        raise ValueError("No active plan. Please create a plan first.")
+
+    fallback_plan_id = plans[0].id
+    with service_uow(
+        write=True, operation="set_current_plan_id", plan_id=fallback_plan_id
+    ) as conn:
+        repositories.set_meta_value(conn, CURRENT_PLAN_META_KEY, fallback_plan_id)
+    return fallback_plan_id
+
+
+def set_current_plan_id(plan_id: str | None) -> None:
+    with service_uow(
+        write=True, operation="set_current_plan_id", plan_id=plan_id
+    ) as conn:
+        if plan_id is None:
+            repositories.delete_meta_value(conn, CURRENT_PLAN_META_KEY)
+            return
+        if repositories.get_plan(conn, plan_id) is None:
+            raise ValueError(f"Plan '{plan_id}' not found.")
+        repositories.set_meta_value(conn, CURRENT_PLAN_META_KEY, plan_id)
+
+
+def get_current_story_id(plan_id: Optional[str] = None) -> Optional[str]:
+    try:
+        resolved_plan_id = plan_id or get_current_plan_id()
+    except ValueError:
+        return None
+    with service_uow(
+        write=False,
+        operation="get_current_story_id",
+        plan_id=resolved_plan_id,
+    ) as conn:
+        return repositories.get_plan_state(conn, resolved_plan_id).current_story_id
+
+
+def set_current_story_id(
+    story_id: Optional[str], plan_id: Optional[str] = None
+) -> None:
+    if plan_id is None and story_id is None:
+        try:
+            resolved_plan_id = get_current_plan_id()
+        except ValueError:
+            return
+    else:
+        resolved_plan_id = plan_id or get_current_plan_id()
+    with service_uow(
+        write=True,
+        operation="set_current_story_id",
+        plan_id=resolved_plan_id,
+    ) as conn:
+        if (
+            story_id is not None
+            and repositories.get_story(conn, resolved_plan_id, story_id) is None
+        ):
+            raise KeyError(f"story with ID '{story_id}' not found.")
+        repositories.set_current_story(
+            conn,
+            plan_id=resolved_plan_id,
+            current_story_id=story_id,
+        )
+
+
+def get_current_task_id(plan_id: Optional[str] = None) -> Optional[str]:
+    try:
+        resolved_plan_id = plan_id or get_current_plan_id()
+    except ValueError:
+        return None
+    with service_uow(
+        write=False,
+        operation="get_current_task_id",
+        plan_id=resolved_plan_id,
+    ) as conn:
+        return repositories.get_plan_state(conn, resolved_plan_id).current_task_id
+
+
+def set_current_task_id(task_id: Optional[str], plan_id: Optional[str] = None) -> None:
+    if plan_id is None and task_id is None:
+        try:
+            resolved_plan_id = get_current_plan_id()
+        except ValueError:
+            return
+    else:
+        resolved_plan_id = plan_id or get_current_plan_id()
+    with service_uow(
+        write=True,
+        operation="set_current_task_id",
+        plan_id=resolved_plan_id,
+    ) as conn:
+        if task_id is None:
+            repositories.set_current_task(
+                conn,
+                plan_id=resolved_plan_id,
+                current_task_story_id=None,
+                current_task_local_id=None,
+            )
+            return
+        story_id, local_task_id = resolve_task_id(
+            task_id, story_id=None, plan_id=resolved_plan_id, conn=conn
+        )
+        if (
+            repositories.get_task(conn, resolved_plan_id, story_id, local_task_id)
+            is None
+        ):
+            raise KeyError(f"task with ID '{story_id}:{local_task_id}' not found.")
+        repositories.set_current_task(
+            conn,
+            plan_id=resolved_plan_id,
+            current_task_story_id=story_id,
+            current_task_local_id=local_task_id,
+        )
+
+
+def resolve_task_id(
+    task_id: str,
+    story_id: Optional[str] = None,
+    plan_id: Optional[str] = None,
+    conn: Any | None = None,
+) -> tuple[str, str]:
     """Resolve a task ID into a (story_id, local_task_id) tuple.
 
     - If task_id is fully-qualified ('story:task'), it is parsed.
@@ -63,7 +234,13 @@ def resolve_task_id(task_id: str, story_id: Optional[str] = None) -> tuple[str, 
             ) from e
     else:
         # Local ID: require story context
-        s_id = story_id or get_current_story_id()
+        s_id: str | None
+        if story_id:
+            s_id = story_id
+        elif conn is not None and plan_id is not None:
+            s_id = repositories.get_plan_state(conn, plan_id).current_story_id
+        else:
+            s_id = get_current_story_id(plan_id)
         if not s_id:
             raise ValueError(
                 "Cannot use a local task ID without a current story. Call `set_current_story` or provide a fully-qualified ID ('story:task')."
@@ -107,92 +284,6 @@ def parse_csv_list(csv: str) -> list[str]:
     if not csv:
         return []
     return [t.strip() for t in csv.split(",") if t.strip()]
-
-
-def validate_and_save(plan: Plan) -> None:
-    """Validate and save the plan."""
-    # Import here to avoid potential import cycles
-    from plan_manager.domain.validation import (
-        validate_plan_dependencies,
-    )
-
-    try:
-        validate_plan_dependencies(plan.stories)
-        plan_repo.save(plan, plan.id)
-    except Exception:
-        logger.exception("Plan validation failed; changes were not saved.")
-        raise
-
-
-def write_story_details(story: Story) -> None:
-    """Write story details to file."""
-    if getattr(story, "file_path", None):
-        try:
-            # Persist tasks as identifiers only to keep story frontmatter small and
-            # stable
-            front = story.model_dump(mode="json", exclude_none=True)
-            front["tasks"] = [
-                (
-                    t.local_id
-                    if getattr(t, "local_id", None)
-                    else (
-                        t.id.split(":", 1)[1]
-                        if isinstance(getattr(t, "id", None), str) and ":" in t.id
-                        else getattr(t, "id", None)
-                    )
-                )
-                for t in (story.tasks or [])
-            ]
-            front["tasks"] = [
-                tid for tid in front["tasks"] if isinstance(tid, str) and tid
-            ]
-            if story.file_path:
-                save_item_to_file(story.file_path, front, content=None, overwrite=False)
-        except (KeyError, ValueError, AttributeError, OSError):
-            # Best-effort: log but don't fail on write errors
-            logger.info(
-                "Best-effort write of story file_path failed for '%s'.", story.id
-            )
-
-
-def write_task_details(task: Task) -> None:
-    """Write task details to file."""
-    try:
-        story_id = getattr(task, "story_id", None)
-        local_task_id = None
-        task_id = getattr(task, "id", "")
-        if ":" in task_id:
-            parts = task_id.split(":", 1)
-            story_id = story_id or parts[0]
-            local_task_id = parts[1]
-        else:
-            local_task_id = slugify(task_id)
-        if not story_id or not local_task_id:
-            raise ValueError(
-                "Cannot determine story_id or local_task_id for task file_path path."
-            )
-        path = task_file_path(story_id, local_task_id)
-        save_item_to_file(path, task, content=None, overwrite=False)
-    except (ValueError, AttributeError, OSError):
-        # Best-effort: log but don't fail on write errors
-        logger.info(
-            "Best-effort write of task file_path failed for '%s'.",
-            getattr(task, "id", "unknown"),
-        )
-
-
-def merge_frontmatter_defaults(path: str, base: dict[str, Any]) -> dict[str, Any]:
-    """Merge default values with frontmatter values."""
-    try:
-        front, _ = read_item_file(path)
-        result = dict(base)
-        if front:
-            for k, v in front.items():
-                result.setdefault(k, v)
-        return result
-    except (OSError, KeyError):
-        # Fallback to base if frontmatter cannot be read
-        return base
 
 
 def find_dependents(plan: Plan, target_id: str) -> list[str]:
@@ -256,3 +347,34 @@ def is_unblocked(item: Story | Task, plan: Plan) -> bool:
             return False
 
     return True
+
+
+def status_to_wire(status: Status) -> Status:
+    return status
+
+
+def datetime_to_wire(value: datetime | None) -> str | None:
+    if value is None:
+        return None
+    return value.isoformat()
+
+
+def plan_to_dict(plan: Plan) -> dict[str, Any]:
+    payload = plan.model_dump(mode="python", exclude_none=True)
+    payload["creation_time"] = datetime_to_wire(plan.creation_time)
+    payload["completion_time"] = datetime_to_wire(plan.completion_time)
+    return payload
+
+
+def story_to_dict(story: Story) -> dict[str, Any]:
+    payload = story.model_dump(mode="python", exclude_none=True)
+    payload["creation_time"] = datetime_to_wire(story.creation_time)
+    payload["completion_time"] = datetime_to_wire(story.completion_time)
+    return payload
+
+
+def task_to_dict(task: Task) -> dict[str, Any]:
+    payload = task.model_dump(mode="python", exclude_none=True)
+    payload["creation_time"] = datetime_to_wire(task.creation_time)
+    payload["completion_time"] = datetime_to_wire(task.completion_time)
+    return payload

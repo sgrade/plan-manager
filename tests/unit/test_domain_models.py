@@ -65,7 +65,6 @@ class TestStoryModel:
             priority=2,
             status=Status.IN_PROGRESS,
             depends_on=["other-story"],
-            file_path="stories/test-story.md",
         )
         assert story.id == "test-story"
         assert story.title == "Test Story"
@@ -74,7 +73,6 @@ class TestStoryModel:
         assert story.priority == 2
         assert story.status == Status.IN_PROGRESS
         assert story.depends_on == ["other-story"]
-        assert story.file_path == "stories/test-story.md"
 
 
 class TestTaskModel:

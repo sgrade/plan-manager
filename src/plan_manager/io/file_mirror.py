@@ -1,31 +1,13 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Roman Klyuev
 
-import logging
-import threading
-from datetime import datetime, timezone
-from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import yaml
 
-from plan_manager.config import WORKSPACE_ROOT
-
-logger = logging.getLogger(__name__)
-YAML_WRITE_LOCK = threading.RLock()
-
 
 def split_front_matter(raw_text: str) -> tuple[dict[str, Any], str]:
-    """Split markdown text containing YAML front matter into metadata and body.
-
-    Args:
-        raw_text: The raw markdown text that may contain YAML front matter
-
-    Returns:
-        Tuple[Dict[str, Any], str]: A tuple of (front_matter_dict, body_text)
-                                   where front_matter_dict contains parsed YAML metadata
-                                   and body_text is the remaining markdown content
-    """
+    """Split markdown text containing YAML front matter into metadata and body."""
     if raw_text.startswith("---"):
         parts = raw_text.split("\n")
         if len(parts) > 1:
@@ -43,129 +25,11 @@ def split_front_matter(raw_text: str) -> tuple[dict[str, Any], str]:
                         front = {}
                     return front, body.lstrip("\n")
             except (yaml.YAMLError, ValueError, KeyError):
-                # Silently ignore malformed YAML front matter
                 pass
     return {}, raw_text
 
 
 def render_with_front_matter(front: dict[str, Any], body: str) -> str:
-    """Render a dictionary and body text into markdown with YAML front matter.
-
-    Args:
-        front: The metadata dictionary to serialize as YAML front matter
-        body: The main content body
-
-    Returns:
-        str: The complete markdown text with front matter
-    """
+    """Render a dictionary and body text into markdown with YAML front matter."""
     fm = yaml.safe_dump(front, sort_keys=False).rstrip() + "\n"
     return f"---\n{fm}---\n\n{body or ''}"
-
-
-def atomic_write(abs_path: str, content: str) -> None:
-    """Write content to a file atomically to prevent corruption on failure.
-
-    Args:
-        abs_path: The absolute path to write to
-        content: The content to write
-    """
-    file_path = Path(abs_path)
-    file_path.parent.mkdir(parents=True, exist_ok=True)
-    tmp_path = file_path.with_suffix(file_path.suffix + ".tmp")
-    tmp_path.write_text(content, encoding="utf-8")
-    tmp_path.replace(file_path)
-
-
-def read_item_file(details_path: str) -> tuple[dict[str, Any], str]:
-    """Read a markdown file with YAML front matter and split into metadata and content.
-
-    Args:
-        details_path: Workspace-relative path to the markdown file
-
-    Returns:
-        Tuple[Dict[str, Any], str]: A tuple of (metadata_dict, content_body)
-    """
-    abs_path = Path(WORKSPACE_ROOT) / details_path
-    if not abs_path.exists():
-        return {}, ""
-    raw = abs_path.read_text(encoding="utf-8")
-    return split_front_matter(raw)
-
-
-def _to_iso_z(val: Any) -> Any:
-    """Convert datetime objects to ISO format strings with Z suffix for YAML serialization."""
-    if isinstance(val, datetime):
-        dt = val if val.tzinfo else val.replace(tzinfo=timezone.utc)
-        return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    return val
-
-
-def save_item_to_file(
-    details_path: str,
-    front_source: Any,
-    content: Optional[str] = None,
-    overwrite: bool = False,
-) -> None:
-    """Save data to a markdown file with YAML front matter.
-
-    Args:
-        details_path: Workspace-relative path where the file should be saved
-        front_source: The data object to serialize as YAML front matter
-        content: Optional body content to append after front matter
-        overwrite: If True, overwrite existing file; if False, merge with existing front matter
-
-    Raises:
-        FileExistsError: If overwrite=False and file already exists with different data
-    """
-    abs_path = Path(WORKSPACE_ROOT) / details_path
-    try:
-        with YAML_WRITE_LOCK:
-            existing_front: dict[str, Any]
-            existing_body: str
-            existing_front, existing_body = ({}, "")
-            if abs_path.exists():
-                existing_front, existing_body = read_item_file(details_path)
-
-            if hasattr(front_source, "model_dump"):
-                # Use JSON mode to serialize Enums (e.g., Status) as strings
-                front = front_source.model_dump(mode="json", exclude_none=True)
-            elif isinstance(front_source, dict):
-                front = {k: v for k, v in front_source.items() if v is not None}
-            else:
-                front = {k: v for k, v in vars(front_source).items() if v is not None}
-
-            # Normalize datetimes
-            for key in ("creation_time", "completion_time"):
-                if key in front and front[key] is not None:
-                    front[key] = _to_iso_z(front[key])
-
-            merged: dict[str, Any] = (
-                dict(existing_front) if (abs_path.exists() and not overwrite) else {}
-            )
-            merged.update(front)
-            merged.setdefault("schema_version", 1)
-
-            rendered = render_with_front_matter(
-                merged, existing_body if content is None else content
-            )
-            atomic_write(str(abs_path), rendered)
-            logger.info("Wrote file_path file: %s", abs_path)
-    except (OSError, yaml.YAMLError) as e:
-        # Best-effort: log but don't fail on file write errors
-        logger.warning("Best-effort write failed for '%s': %s", abs_path, e)
-
-
-def delete_item_file(details_path: str) -> None:
-    """Delete a markdown file containing item data.
-
-    Args:
-        details_path: Workspace-relative path to the file to delete
-    """
-    try:
-        abs_path = Path(WORKSPACE_ROOT) / details_path
-        if abs_path.exists():
-            abs_path.unlink()
-            logger.info("Deleted file_path file: %s", abs_path)
-    except OSError as e:
-        # Best-effort: log but don't fail on delete errors
-        logger.warning("Best-effort delete failed for '%s': %s", abs_path, e)

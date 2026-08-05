@@ -20,10 +20,10 @@ from plan_manager.schemas.outputs import (
     WorkflowGate,
 )
 from plan_manager.services import changelog_service
-from plan_manager.services.shared import resolve_task_id
-from plan_manager.services.state_repository import (
+from plan_manager.services.shared import (
     get_current_story_id,
     get_current_task_id,
+    resolve_task_id,
     set_current_task_id,
 )
 from plan_manager.services.task_service import (

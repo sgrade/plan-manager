@@ -72,7 +72,7 @@ WORKSPACE_ROOT = str(Path.cwd())
 TODO_DIR = os.getenv("TODO_DIR") or str(Path(WORKSPACE_ROOT) / "todo")
 PLANS_INDEX_FILE_PATH = str(Path(TODO_DIR) / "plans" / "index.yaml")
 PLAN_MANAGER_DB_DIR = os.getenv("PLAN_MANAGER_DB_DIR") or str(
-    Path(WORKSPACE_ROOT) / ".plan-manager" / "db"
+    Path(WORKSPACE_ROOT) / "db"
 )
 PLAN_MANAGER_DB_PATH = str(Path(PLAN_MANAGER_DB_DIR) / "plan_manager.sqlite3")
 

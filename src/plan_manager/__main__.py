@@ -13,6 +13,7 @@ import uvicorn
 # ensure that configuration and logging are set up exactly once, as soon as
 # the application starts. The order is critical.
 from plan_manager import config
+from plan_manager.storage.db import startup_storage
 
 # To prevent the warning: Import "plan_manager.logging" is not accessed
 import_module("plan_manager.logging")
@@ -22,6 +23,12 @@ logger = logging.getLogger(__name__)
 
 
 def main() -> None:
+    try:
+        startup_storage(config.TODO_DIR, config.PLAN_MANAGER_DB_DIR)
+    except Exception as exc:
+        logger.exception("Storage startup failed.")
+        raise SystemExit(f"Storage startup failed: {exc}") from exc
+
     log_destination = config.LOG_FILE_PATH if config.ENABLE_FILE_LOG else "stdout only"
     logger.info(
         "Starting MCP Plan Manager Server on %s:%s (reload=%s). App logs to: %s",
