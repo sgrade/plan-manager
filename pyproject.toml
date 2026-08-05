@@ -21,7 +21,7 @@ classifiers = [
 ]
 requires-python = ">=3.13"
 dependencies = [
-    "PyYAML>=6.0",        # YAML file parsing for plan data
+    "PyYAML>=6.0.3",      # YAML file parsing for plan data
     "mcp[cli]>=1.17.0",   # MCP SDK for server functionality
     "starlette",          # ASGI framework used by FastMCP
     "uvicorn[standard]",  # ASGI server for running the MCP server
@@ -32,15 +32,15 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=8.0",
-    "pytest-cov>=4.1",
-    "pytest-asyncio>=0.23",
-    "mypy>=1.8",
-    "ruff>=0.3",
-    "bandit>=1.7",
-    "pre-commit>=3.6",
-    "twine>=5.0",
-    "types-PyYAML>=6.0",
+    "pytest>=9.0.3",
+    "pytest-cov>=7.1.0",
+    "pytest-asyncio>=1.3.0",
+    "mypy>=1.20.1",
+    "ruff>=0.15.10",
+    "bandit>=1.9.4",
+    "pre-commit>=4.5.1",
+    "twine>=6.2.0",
+    "types-PyYAML>=6.0.12.20260408",
 ]
 
 [project.urls]
@@ -143,4 +143,7 @@ ignore_missing_imports = true
 # Bandit configuration
 [tool.bandit]
 exclude_dirs = ["tests", ".venv"]
+# Everything else is suppressed per-site with `# nosec <id>`, so no rule gets a
+# repo-wide blind spot. Bandit 1.8.6 could not parse Python 3.13+ sources and
+# silently reported nothing, which is why those suppressions arrive with 1.9.4.
 skips = ["B101"]  # assert_used - we use asserts in tests

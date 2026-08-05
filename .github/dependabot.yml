@@ -1,12 +1,21 @@
 version: 2
+# Updates target `develop` so dependency changes follow the normal contribution
+# flow (see docs/contributing.md); `main` only receives them via a release.
+# Grouping keeps a weekly run to one PR per concern instead of one per package.
 updates:
   # Python dependencies
   - package-ecosystem: "pip"
     directory: "/"
+    target-branch: "develop"
     schedule:
       interval: "weekly"
       day: "monday"
     open-pull-requests-limit: 10
+    groups:
+      python-runtime:
+        dependency-type: "production"
+      python-dev:
+        dependency-type: "development"
     labels:
       - "dependencies"
       - "python"
@@ -19,10 +28,15 @@ updates:
   # GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "/"
+    target-branch: "develop"
     schedule:
       interval: "weekly"
       day: "monday"
     open-pull-requests-limit: 5
+    groups:
+      github-actions:
+        patterns:
+          - "*"
     labels:
       - "dependencies"
       - "github-actions"
@@ -33,10 +47,15 @@ updates:
   # Docker
   - package-ecosystem: "docker"
     directory: "/.devcontainer"
+    target-branch: "develop"
     schedule:
       interval: "weekly"
       day: "monday"
     open-pull-requests-limit: 5
+    groups:
+      docker:
+        patterns:
+          - "*"
     labels:
       - "dependencies"
       - "docker"
