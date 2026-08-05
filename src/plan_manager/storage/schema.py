@@ -80,9 +80,9 @@ MIGRATION_1_DDL = [
         "current_story_id TEXT, "
         "current_task_story_id TEXT, "
         "current_task_local_id TEXT, "
-        "FOREIGN KEY (plan_id, current_story_id) REFERENCES stories(plan_id, id) ON DELETE SET NULL, "
+        "FOREIGN KEY (plan_id, current_story_id) REFERENCES stories(plan_id, id), "
         "FOREIGN KEY (plan_id, current_task_story_id, current_task_local_id) "
-        "REFERENCES tasks(plan_id, story_id, local_id) ON DELETE SET NULL"
+        "REFERENCES tasks(plan_id, story_id, local_id)"
         ") STRICT"
     ),
     (

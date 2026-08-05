@@ -19,6 +19,7 @@ from pydantic import ValidationError
 from plan_manager.domain.models import Plan, Story, Task
 from plan_manager.io.file_mirror import split_front_matter
 from plan_manager.io.paths import slugify
+from plan_manager.storage.codecs import dumps_json, loads_json, serialize_steps
 from plan_manager.storage.schema import (
     IMPORT_STATE_DONE,
     IMPORT_STATE_KEY,
@@ -478,7 +479,7 @@ def _build_temp_db(tree: _LegacyTree, temp_db_path: Path) -> None:
                             else None
                         ),
                         plan.order,
-                        _to_json(plan.extra),
+                        dumps_json(plan.extra),
                     ),
                 )
                 for story in plan.stories:
@@ -492,8 +493,8 @@ def _build_temp_db(tree: _LegacyTree, temp_db_path: Path) -> None:
                             story.model.status.value,
                             story.model.priority,
                             story.model.description,
-                            _to_json(story.model.acceptance_criteria),
-                            _to_json(story.model.depends_on),
+                            dumps_json(story.model.acceptance_criteria),
+                            dumps_json(story.model.depends_on),
                             story.body,
                             canonical_utc_timestamp(story.model.creation_time),
                             (
@@ -502,7 +503,7 @@ def _build_temp_db(tree: _LegacyTree, temp_db_path: Path) -> None:
                                 else None
                             ),
                             story.order,
-                            _to_json(story.extra),
+                            dumps_json(story.extra),
                         ),
                     )
                     for task in story.tasks:
@@ -517,10 +518,10 @@ def _build_temp_db(tree: _LegacyTree, temp_db_path: Path) -> None:
                                 task.model.status.value,
                                 task.model.priority,
                                 task.model.description,
-                                _to_json(task.model.depends_on),
-                                _to_json(_serialize_steps(task.model.steps)),
-                                _to_json(task.model.changes),
-                                _to_json(
+                                dumps_json(task.model.depends_on),
+                                dumps_json(serialize_steps(task.model.steps)),
+                                dumps_json(task.model.changes),
+                                dumps_json(
                                     [
                                         feedback.model_dump(mode="json")
                                         for feedback in task.model.review_feedback
@@ -535,7 +536,7 @@ def _build_temp_db(tree: _LegacyTree, temp_db_path: Path) -> None:
                                     else None
                                 ),
                                 task.order,
-                                _to_json(task.extra),
+                                dumps_json(task.extra),
                             ),
                         )
                 if any(
@@ -663,7 +664,7 @@ def _source_semantic_view(tree: _LegacyTree) -> dict[str, Any]:
                         "status": task.model.status.value,
                         "priority": task.model.priority,
                         "depends_on": task.model.depends_on,
-                        "steps": _serialize_steps(task.model.steps),
+                        "steps": serialize_steps(task.model.steps),
                         "changes": task.model.changes,
                         "review_feedback": [
                             feedback.model_dump(mode="json")
@@ -717,17 +718,17 @@ def _db_semantic_view(db_path: Path) -> dict[str, Any]:
                         "description": story_row["description"],
                         "status": str(story_row["status"]),
                         "priority": story_row["priority"],
-                        "acceptance_criteria": _from_json(
+                        "acceptance_criteria": loads_json(
                             story_row["acceptance_criteria"]
                         ),
-                        "depends_on": _from_json(story_row["depends_on"]),
+                        "depends_on": loads_json(story_row["depends_on"]),
                         "body": story_row["body"]
                         if story_row["body"] is not None
                         else "",
                         "creation_time": str(story_row["creation_time"]),
                         "completion_time": story_row["completion_time"],
                         "ord": int(story_row["ord"]),
-                        "extra": _from_json(story_row["extra"]) or {},
+                        "extra": loads_json(story_row["extra"]) or {},
                         "tasks": [
                             {
                                 "local_id": str(task_row["local_id"]),
@@ -735,10 +736,10 @@ def _db_semantic_view(db_path: Path) -> dict[str, Any]:
                                 "description": task_row["description"],
                                 "status": str(task_row["status"]),
                                 "priority": task_row["priority"],
-                                "depends_on": _from_json(task_row["depends_on"]),
-                                "steps": _from_json(task_row["steps"]),
-                                "changes": _from_json(task_row["changes"]),
-                                "review_feedback": _from_json(
+                                "depends_on": loads_json(task_row["depends_on"]),
+                                "steps": loads_json(task_row["steps"]),
+                                "changes": loads_json(task_row["changes"]),
+                                "review_feedback": loads_json(
                                     task_row["review_feedback"]
                                 ),
                                 "rework_count": int(task_row["rework_count"]),
@@ -748,7 +749,7 @@ def _db_semantic_view(db_path: Path) -> dict[str, Any]:
                                 "creation_time": str(task_row["creation_time"]),
                                 "completion_time": task_row["completion_time"],
                                 "ord": int(task_row["ord"]),
-                                "extra": _from_json(task_row["extra"]) or {},
+                                "extra": loads_json(task_row["extra"]) or {},
                             }
                             for task_row in task_rows
                         ],
@@ -772,7 +773,7 @@ def _db_semantic_view(db_path: Path) -> dict[str, Any]:
                     "creation_time": str(plan_row["creation_time"]),
                     "completion_time": plan_row["completion_time"],
                     "ord": int(plan_row["ord"]),
-                    "extra": _from_json(plan_row["extra"]) or {},
+                    "extra": loads_json(plan_row["extra"]) or {},
                     "stories": stories_view,
                     "plan_state": {
                         "current_story_id": (
@@ -794,8 +795,8 @@ def _db_semantic_view(db_path: Path) -> dict[str, Any]:
                             "legacy_id": str(event_row["legacy_id"]),
                             "ts": str(event_row["ts"]),
                             "type": str(event_row["type"]),
-                            "scope": _from_json(event_row["scope"]),
-                            "data": _from_json(event_row["data"]),
+                            "scope": loads_json(event_row["scope"]),
+                            "data": loads_json(event_row["data"]),
                         }
                         for event_row in event_rows
                     ],
@@ -1414,12 +1415,6 @@ def _sweep_orphaned_import_temp_dbs(db_dir: Path) -> None:
         _cleanup_sqlite_artifacts(temp_file)
 
 
-def _serialize_steps(steps: list[Task.Step] | None) -> list[dict[str, Any]] | None:
-    if steps is None:
-        return None
-    return [step.model_dump(mode="json") for step in steps]
-
-
 def _cleanup_sqlite_sidecars(db_path: Path) -> None:
     for candidate in (Path(f"{db_path}-wal"), Path(f"{db_path}-shm")):
         _safe_unlink(candidate)
@@ -1435,18 +1430,6 @@ def _safe_unlink(path: Path) -> None:
         path.unlink()
     except OSError:
         return
-
-
-def _to_json(value: Any) -> str | None:
-    if value is None:
-        return None
-    return json.dumps(value, sort_keys=True)
-
-
-def _from_json(value: Any) -> Any:
-    if value is None:
-        return None
-    return json.loads(str(value))
 
 
 def _raise_if_errors(errors: list[ImportProblem]) -> None:

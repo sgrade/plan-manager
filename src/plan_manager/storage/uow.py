@@ -18,6 +18,19 @@ DEFAULT_BUSY_RETRY_ATTEMPTS = 3
 class StorageBusyError(RuntimeError):
     """Raised when storage remains busy after bounded retries."""
 
+    def __init__(
+        self,
+        message: str = "SQLite is busy. Please retry later.",
+        *,
+        operation: str | None = None,
+        plan_id: str | None = None,
+        attempts: int | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.operation = operation
+        self.plan_id = plan_id
+        self.attempts = attempts
+
 
 class StorageMisuseError(RuntimeError):
     """Raised when a unit of work is used contrary to its declared mode."""
@@ -45,7 +58,9 @@ def unit_of_work(
             if conn.in_transaction:
                 conn.rollback()
             if _is_busy_error(exc):
-                raise StorageBusyError("SQLite is busy. Please retry later.") from exc
+                raise StorageBusyError(
+                    operation="unit_of_work", attempts=busy_retry_attempts
+                ) from exc
             raise
         else:
             if write and conn.in_transaction:
@@ -55,9 +70,7 @@ def unit_of_work(
                     if conn.in_transaction:
                         conn.rollback()
                     if _is_busy_error(exc):
-                        raise StorageBusyError(
-                            "SQLite is busy. Please retry later."
-                        ) from exc
+                        raise StorageBusyError(operation="commit", attempts=1) from exc
                     raise
             elif not write and conn.in_transaction:
                 # A mutating statement ran in a read-only unit of work. Without
@@ -108,7 +121,9 @@ def _begin_immediate_attempt(
         if not _is_busy_error(exc):
             raise
         if attempt >= attempts:
-            raise StorageBusyError("SQLite is busy. Please retry later.") from exc
+            raise StorageBusyError(
+                operation="BEGIN IMMEDIATE", attempts=attempt
+            ) from exc
         # Exponential backoff with bounded jitter keeps retries deterministic enough for tests.
         lower = 0.005 * (2 ** (attempt - 1))
         upper = 0.020 * (2 ** (attempt - 1))
