@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.0](https://github.com/sgrade/plan-manager/compare/plan-manager-v0.12.0...plan-manager-v0.13.0) (2026-08-05)
+
+
+### ⚠ BREAKING CHANGES
+
+* set_current_plan is removed and plan_id is now a required parameter on story/task/workflow/report/changelog/context tools. Multiple agents can work distinct plans concurrently with no shared pointer; see the compatibility map in docs/usage_guide_agents.md.
+* persistent state moves from YAML files to SQLite (PLAN_MANAGER_DB_DIR, named volume recommended). Existing YAML trees are auto-imported on first start; invalid trees are refused with a full per-file problem report and the server does not start until they are fixed - the YAML source is never modified. Pre-flight with 'pm import --dry-run'.
+
+### Features
+
+* add export and import CLI with snapshot-consistent YAML backups ([19895c3](https://github.com/sgrade/plan-manager/commit/19895c3c73ab35e460ec3a2ff38764d4047b9621))
+* add SQLite storage foundation (schema, bootstrap, unit of work) ([ef8e1f4](https://github.com/sgrade/plan-manager/commit/ef8e1f42c56f83335d1534129db578cae1f89aa5))
+* add SQLite-backed repositories over the unit of work ([cfbac73](https://github.com/sgrade/plan-manager/commit/cfbac7382a48f32e38d822065adf0b588f0a89e4))
+* add strict YAML-to-SQLite migration importer ([975e8cf](https://github.com/sgrade/plan-manager/commit/975e8cfccc704c45211cfd218b53f1344e7cc5d6))
+* make workflow guidance safe for autonomous execution ([a3061fd](https://github.com/sgrade/plan-manager/commit/a3061fdf88803971335a90768b76e8811d00486a))
+* replace file browser with read-only plan UI ([b7afe5b](https://github.com/sgrade/plan-manager/commit/b7afe5b21950d73aa0b22818794a212d9704b149))
+* require explicit plan_id on all plan-scoped tools ([362cac6](https://github.com/sgrade/plan-manager/commit/362cac6e8cba5e9fcf8db6fdda84fcff92bcb8b1))
+* serve from SQLite storage ([64e6b5c](https://github.com/sgrade/plan-manager/commit/64e6b5c6c21d1609e1a5961f9451db87ce4c265c))
+
+
+### Bug Fixes
+
+* fall back to stdout when file logging is unavailable ([8346a73](https://github.com/sgrade/plan-manager/commit/8346a73fbc0b8c0b956508b6f96a744203cb4ad3))
+* run Streamable HTTP stateless to prevent connection wedging ([7b845da](https://github.com/sgrade/plan-manager/commit/7b845da95e2f0a917c6dfea09d22536c01c9a620))
+* serialize concurrent YAML writes under a global lock with atomic renames ([0c33ee5](https://github.com/sgrade/plan-manager/commit/0c33ee55345a29c48f08180df754d1b93e09faf7))
+
 ## [0.12.0](https://github.com/sgrade/plan-manager/compare/plan-manager-v0.11.0...plan-manager-v0.12.0) (2026-06-20)
 
 
