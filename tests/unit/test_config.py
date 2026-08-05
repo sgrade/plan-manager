@@ -29,11 +29,11 @@ class TestConfig:
         assert TODO_DIR is not None
         assert isinstance(TODO_DIR, str)
 
-    def test_enable_browser_is_bool(self):
-        """Test that ENABLE_BROWSER is a boolean."""
-        from plan_manager.config import ENABLE_BROWSER
+    def test_enable_ui_is_bool(self):
+        """Test that PLAN_MANAGER_ENABLE_UI is a boolean."""
+        from plan_manager.config import PLAN_MANAGER_ENABLE_UI
 
-        assert isinstance(ENABLE_BROWSER, bool)
+        assert isinstance(PLAN_MANAGER_ENABLE_UI, bool)
 
     def test_port_is_int(self):
         """Test that PORT is an integer."""

@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Plan Manager UI</title>
+  <link rel="stylesheet" href="/ui/static/ui.css">
+</head>
+<body>
+  <main class="container">
+    <h1>Plans</h1>
+    {% if plans %}
+      <ul class="item-list">
+        {% for plan in plans %}
+          <li>
+            <a href="/ui/{{ plan.id }}">{{ plan.title }}</a>
+            <span class="meta">({{ plan.id }}) - {{ plan.status.value }}</span>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p>No plans found.</p>
+    {% endif %}
+  </main>
+</body>
+</html>

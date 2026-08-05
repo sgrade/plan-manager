@@ -26,6 +26,8 @@ dependencies = [
     "starlette",          # ASGI framework used by FastMCP
     "uvicorn[standard]",  # ASGI server for running the MCP server
     "pydantic>=2.0",      # Schema validation for story and Plan models
+    "jinja2",             # Server-rendered read-only supervision UI templates
+    "markdown-it-py",     # Markdown rendering with raw HTML disabled
 ]
 
 [project.optional-dependencies]
@@ -131,6 +133,10 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = "uvicorn.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["jinja2", "markdown_it", "markupsafe"]
 ignore_missing_imports = true
 
 # Bandit configuration

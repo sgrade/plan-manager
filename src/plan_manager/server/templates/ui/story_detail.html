@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{{ story.title }}</title>
+  <link rel="stylesheet" href="/ui/static/ui.css">
+</head>
+<body>
+  <main class="container">
+    <p><a href="/ui/{{ plan.id }}">Back to plan</a></p>
+    <h1>{{ story.title }}</h1>
+    <p class="meta">Story ID: {{ story.id }} | Status: {{ story.status.value }}</p>
+    {% if story.description %}
+      <p>{{ story.description }}</p>
+    {% endif %}
+
+    <section>
+      <h2>Story Body</h2>
+      <article class="markdown-body">{{ story_body_html }}</article>
+    </section>
+
+    <section>
+      <h2>Tasks</h2>
+      {% if tasks %}
+        {% for task in tasks %}
+          <article class="task-card">
+            <h3>{{ task.title }}</h3>
+            <p class="meta">{{ task.id }} | {{ task.status }}{% if task.priority is not none %} | Priority {{ task.priority }}{% endif %}</p>
+            {% if task.description %}
+              <p>{{ task.description }}</p>
+            {% endif %}
+            <div class="markdown-body">{{ task.body_html }}</div>
+          </article>
+        {% endfor %}
+      {% else %}
+        <p>No tasks in this story.</p>
+      {% endif %}
+    </section>
+  </main>
+</body>
+</html>

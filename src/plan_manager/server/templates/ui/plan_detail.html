@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{{ plan.title }}</title>
+  <link rel="stylesheet" href="/ui/static/ui.css">
+</head>
+<body>
+  <main class="container">
+    <p><a href="/ui">All plans</a></p>
+    <h1>{{ plan.title }}</h1>
+    <p class="meta">Plan ID: {{ plan.id }} | Status: {{ plan.status.value }}</p>
+    {% if plan.description %}
+      <p>{{ plan.description }}</p>
+    {% endif %}
+
+    <section>
+      <h2>Current State</h2>
+      <ul class="item-list">
+        <li>Current story: {{ state.current_story_id or "None" }}</li>
+        <li>Current task: {{ state.current_task_id or "None" }}</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Stories</h2>
+      {% if stories %}
+        <ul class="item-list">
+          {% for story in stories %}
+            <li>
+              <a href="/ui/{{ plan.id }}/{{ story.id }}">{{ story.title }}</a>
+              <span class="meta">({{ story.id }}) - {{ story.status.value }}</span>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p>No stories in this plan.</p>
+      {% endif %}
+    </section>
+
+    <section>
+      <h2>Recent Events (50)</h2>
+      {% if events %}
+        <ul class="item-list">
+          {% for event in events %}
+            <li>
+              <span class="meta">#{{ event.seq }} | {{ event.ts }} | {{ event.event_type }}</span>
+              {% if event.scope %}
+                <div>Scope: {{ event.scope }}</div>
+              {% endif %}
+              {% if event.data %}
+                <div>Data: {{ event.data }}</div>
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p>No events for this plan.</p>
+      {% endif %}
+    </section>
+  </main>
+</body>
+</html>

@@ -41,6 +41,8 @@ plan-manager:
   restart: unless-stopped
 ```
 
+Warning: publishing a port (for example `8105:3000`) makes the unauthenticated `/ui` supervision page world-readable to anything that can reach that host/network. Prefer loopback-only binding unless the network is trusted.
+
 `HOST=0.0.0.0` is required so the server is reachable from outside the container (the default `127.0.0.1` only binds to loopback).
 
 `/health` returns `{"status": "ok"}` for Docker healthchecks and probes.

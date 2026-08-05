@@ -3,10 +3,11 @@
 
 """Integration coverage for stateless Streamable HTTP mode."""
 
+import re
+
 import pytest
 from starlette.testclient import TestClient
 
-from plan_manager.config import ENABLE_BROWSER
 from plan_manager.server.app import starlette_app
 
 _INIT_BODY = {
@@ -61,9 +62,12 @@ def test_streamable_http_stateless_json_mode_and_routes():
         assert health.json() == {"status": "ok"}
         assert health.headers.get("x-correlation-id") == health_correlation_id
 
-        if ENABLE_BROWSER:
-            browse = client.get("/browse/")
-            assert browse.status_code == 200
+        root = client.get("/", follow_redirects=False)
+        assert root.status_code in {302, 307}
+        assert root.headers["location"] == "/ui"
+
+        browse = client.get("/browse")
+        assert browse.status_code == 404
 
 
 @pytest.mark.integration
@@ -87,3 +91,16 @@ def test_streamable_http_stateless_concurrent_initializes():
             assert "result" in resp.json()
             assert "mcp-session-id" not in resp.headers
             assert resp.headers.get("x-correlation-id") == corr_id
+
+
+@pytest.mark.integration
+def test_invalid_correlation_id_is_replaced_with_uuid():
+    with TestClient(starlette_app(), base_url="http://127.0.0.1:3000") as client:
+        resp = _initialize(client, correlation_id='bad-id"><script>alert(1)</script>')
+    assert resp.status_code == 200
+    corr_id = resp.headers.get("x-correlation-id")
+    assert corr_id is not None
+    assert re.fullmatch(
+        r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
+        corr_id,
+    )

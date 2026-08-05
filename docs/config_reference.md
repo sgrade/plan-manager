@@ -52,9 +52,11 @@ logging and emits a warning.
 - REQUIRE_CHANGES_BEFORE_DONE (default: `true`)
   - Require changelog entries before DONE
 
-## UI / Browser
-- PLAN_MANAGER_ENABLE_BROWSER (default: `true`)
-  - Enable the `/browse` endpoint for viewing files
+## UI
+- PLAN_MANAGER_ENABLE_UI (default: `true`)
+  - Enable the read-only supervision UI under `/ui`
+- Removed: `PLAN_MANAGER_ENABLE_BROWSER`
+  - The legacy `/browse` endpoint and browser flag were removed
 
 ## Uvicorn / Server
 - HOST (default: `127.0.0.1`)
