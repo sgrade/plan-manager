@@ -63,7 +63,7 @@
         "source=${localEnv:HOME}${localEnv:USERPROFILE}/.agents/skills,target=/root/.agents/skills,type=bind,consistency=cached,readonly"
     ],
     // Run commands
-    "postCreateCommand": "uv sync --all-extras --dev && uv run pre-commit install-hooks && git config --global credential.helper '!/usr/bin/gh auth git-credential'",
+    "postCreateCommand": "bash scripts/setup-dev.sh",
     "postStartCommand": "uv run pm",
     // Port forwarding
     "forwardPorts": [

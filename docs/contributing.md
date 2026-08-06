@@ -203,7 +203,10 @@ seven seconds and is invoked from three places, so they cannot drift apart:
   `--no-verify`, so CI is the enforceable one, and on `develop` it is also the
   real pre-merge gate — see the `--ff-only` note above.
 
-Both hooks need `git config core.hooksPath .githooks` once per clone.
+Both hooks live in `.githooks/`, which git only consults once `core.hooksPath`
+points there. The devcontainer does this for you on creation; outside it, run
+`./scripts/setup-dev.sh` once per clone. Until then a clone has no local gate
+at all, and CI is the first thing that will tell you something is wrong.
 
 ### Running Tests
 
