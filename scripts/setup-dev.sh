@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Roman Klyuev
 #
 # setup-dev.sh — one-time setup for a fresh clone. Safe to re-run.
 #

@@ -39,7 +39,7 @@ dev = [
     "ruff>=0.15.10",
     "bandit>=1.9.4",
     "pre-commit>=4.5.1",
-    "twine>=6.2.0",
+    "twine>=7.0.0",
     "types-PyYAML>=6.0.12.20260408",
 ]
 

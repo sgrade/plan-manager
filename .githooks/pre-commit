@@ -3,7 +3,7 @@
 #   1. The configured git author email is a UID of the configured
 #      signing key (else GitHub shows the commit as "Unverified").
 #   2. The staged diff matches no denied content-hygiene pattern
-#      (sensitive identifiers). See ip-protection core/content-hygiene.md.
+#      (sensitive identifiers).
 #
 # Activation (one-time per clone):
 #   git config core.hooksPath .githooks
@@ -53,12 +53,14 @@ fi
 
 denylist=".git-hygiene-denylist"
 if [ -s "$denylist" ] \
-   && git diff --cached \
+   && git diff --cached --unified=0 --no-color \
+      | grep -E '^\+' \
+      | grep -vE '^\+\+\+' \
       | grep -iEf <(grep -vE '^[[:space:]]*(#|$)' "$denylist") >/dev/null 2>&1; then
   {
     echo "pre-commit: staged diff matches a denied content-hygiene pattern; commit refused."
     echo "pre-commit: review with:"
-    echo "  git diff --cached | grep -iEf <(grep -vE '^[[:space:]]*(#|\$)' $denylist)"
+    echo "  git diff --cached --unified=0 | grep -E '^\\+' | grep -vE '^\\+\\+\\+' | grep -iEf <(grep -vE '^[[:space:]]*(#|\$)' $denylist)"
   } >&2
   exit 1
 fi
