@@ -308,6 +308,64 @@ print(json.dumps({
         if cli != expected_line:
             raise RuntimeError(f"CLI identity mismatch: {cli!r}")
 
+    with tempfile.TemporaryDirectory(
+        prefix="plan-manager-dependency-install-"
+    ) as install_name:
+        install_root = Path(install_name)
+        venv = install_root / "venv"
+        subprocess.run(
+            ["uv", "venv", "--python", sys.executable, str(venv)],
+            check=True,
+            text=True,
+            capture_output=True,
+        )
+        venv_python = venv / "bin" / "python"
+        subprocess.run(
+            [
+                "uv",
+                "pip",
+                "install",
+                "--python",
+                str(venv_python),
+                str(wheel),
+            ],
+            check=True,
+            text=True,
+            capture_output=True,
+        )
+        install_env = dict(os.environ)
+        install_env.pop("PYTHONPATH", None)
+        install_env["PLAN_MANAGER_DB_DIR"] = str(install_root / "db")
+        install_env["TODO_DIR"] = str(install_root / "todo")
+        installed = subprocess.run(
+            [
+                str(venv_python),
+                "-c",
+                (
+                    "import json; "
+                    "from plan_manager.identity import build_identity; "
+                    "from plan_manager.server.app import starlette_app; "
+                    "assert starlette_app; "
+                    "print(json.dumps(build_identity(), sort_keys=True))"
+                ),
+            ],
+            cwd=install_root,
+            env=install_env,
+            check=True,
+            text=True,
+            capture_output=True,
+        )
+        installed_json = next(
+            line
+            for line in reversed(installed.stdout.splitlines())
+            if line.startswith("{")
+        )
+        installed_identity = json.loads(installed_json)
+        if installed_identity != identity:
+            raise RuntimeError(
+                "declared-dependency install identity differs from built artifact"
+            )
+
     sys.stdout.write(
         json.dumps(
             {
