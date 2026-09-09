@@ -3,12 +3,18 @@
 
 from mcp.server.fastmcp.prompts import base
 
+from plan_manager.prompts.artifact_paths import (
+    authority_instructions,
+    prompt_artifact_path,
+)
+
 
 def build_create_stories_prompt_messages(
     plan_id: str,
 ) -> list[base.Message]:
     """Construct the messages for 'create_stories' using the given plan_id."""
 
+    artifact_path = prompt_artifact_path("stories.json")
     return [
         # == Turn 1: The Example ==
         # This is the "few-shot" example we provide to the model.
@@ -50,9 +56,10 @@ def build_create_stories_prompt_messages(
         # Now that the model has seen the pattern, we ask our actual question.
         base.UserMessage(
             f"Now, generate user stories for this plan: {plan_id}. "
-            "Save this JSON in a temporary file named 'stories.json' in a directory called 'todo/temp'. Create the directories if they doesn't exist. Then STOP. Do not do anything else. "
-            "I might review the JSON, edit it, or ask you to edit it. The review is considered complete when I say 'approve'. "
-            f"Once I approve, you will create the stories by calling `create_story` for each story with `plan_id='{plan_id}'`. Use the most recent version of the JSON if it was edited. "
-            "Once you have created the stories, you will delete the temporary file."
+            f"Save this JSON to the new invocation-owned path '{artifact_path}'. "
+            "Create its parent directory and do not overwrite any existing file. "
+            f"The creation action is `create_story(plan_id='{plan_id}', ...)` "
+            "using the most recent proposal. "
+            + authority_instructions("story creation", artifact_path)
         ),
     ]

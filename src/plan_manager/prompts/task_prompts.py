@@ -3,10 +3,16 @@
 
 from mcp.server.fastmcp.prompts import base
 
+from plan_manager.prompts.artifact_paths import (
+    authority_instructions,
+    prompt_artifact_path,
+)
+
 
 def create_tasks_messages(plan_id: str, story_id: str) -> list[base.Message]:
     """Construct the messages for 'create_tasks' prompt using the given story_id."""
 
+    artifact_path = prompt_artifact_path("tasks.json")
     return [
         # == Turn 1: The Example ==
         # This is the "few-shot" example we provide to the model.
@@ -43,10 +49,11 @@ def create_tasks_messages(plan_id: str, story_id: str) -> list[base.Message]:
         # Now that the model has seen the pattern, we ask our actual question.
         base.UserMessage(
             f"Now, generate tasks for this story: {story_id} in plan {plan_id}. "
-            "Save this JSON in a temporary file named 'tasks.json' in a directory called 'todo/temp'. Create the directories if they doesn't exist. Then STOP. Do not do anything else. "
-            "I might review the JSON, edit it, or ask you to edit it. The review is considered complete when I say 'approve'. "
-            f"Once I approve, you will create the tasks by calling `create_task` for each task with `plan_id='{plan_id}'` and `story_id='{story_id}'`. Use the most recent version of the JSON if it was edited. "
-            "Once you have created the tasks, you will delete the temporary file."
+            f"Save this JSON to the new invocation-owned path '{artifact_path}'. "
+            "Create its parent directory and do not overwrite any existing file. "
+            f"The creation action is `create_task(plan_id='{plan_id}', "
+            f"story_id='{story_id}', ...)` using the most recent proposal. "
+            + authority_instructions("task creation", artifact_path)
         ),
     ]
 
@@ -54,6 +61,7 @@ def create_tasks_messages(plan_id: str, story_id: str) -> list[base.Message]:
 def create_steps_messages(plan_id: str, task_id: str) -> list[base.Message]:
     """Construct the messages for 'create_steps' prompt using the given task_id."""
 
+    artifact_path = prompt_artifact_path("steps.json")
     return [
         # == Turn 1: The Example ==
         # This is the "few-shot" example we provide to the model.
@@ -90,10 +98,11 @@ def create_steps_messages(plan_id: str, task_id: str) -> list[base.Message]:
         # Now that the model has seen the pattern, we ask our actual question.
         base.UserMessage(
             f"Now, generate implementation steps for this task: {task_id} in plan {plan_id}. "
-            "Save this JSON in a temporary file named 'steps.json' in a directory called 'todo/temp'. Create the directories if they don't exist; overwrite the file if it already exists. Then STOP. Do not do anything else. "
-            "I might review the JSON, edit it, or ask you to edit it. The review is considered complete when I say 'approve'. "
-            f"Once I approve, you will attach the steps by calling `create_task_steps` with `plan_id='{plan_id}'` and `task_id='{task_id}'`, using the most recent version of the JSON if it was edited. "
-            f"After the steps are created, call `start_task` with `plan_id='{plan_id}'` and `task_id='{task_id}'` to move the task to IN_PROGRESS. "
-            "Once you have created the steps, you will delete the temporary file."
+            f"Save this JSON to the new invocation-owned path '{artifact_path}'. "
+            "Create its parent directory and do not overwrite any existing file. "
+            f"The attachment action is `create_task_steps(plan_id='{plan_id}', "
+            f"task_id='{task_id}', ...)`, then call "
+            f"`start_task(plan_id='{plan_id}', task_id='{task_id}')`. "
+            + authority_instructions("step attachment and task start", artifact_path)
         ),
     ]

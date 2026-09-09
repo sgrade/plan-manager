@@ -36,96 +36,72 @@ graph TD
 
 The following diagram illustrates how a higher-level work item (a Story) is decomposed into children (Tasks). It includes paths for both manual creation and prompt-assisted ("Assisted") creation of child work items.
 
-A key concept in this workflow is that newly suggested items are considered **proposals**, not final work items. The user must give an explicit approval before the agent proceeds to formally create them in the system.
+A key concept is that suggested items are **proposals**, not authority.
+Plan Manager does not grant or verify authority. When the caller's governing
+context already records authority covering creation, the agent may create the
+items without requesting the same approval again. If authority is missing,
+exhausted, out of scope, or the decision is reserved, the agent preserves the
+proposal and surfaces only that decision.
 
-Assisted prompts used in this workflow:
-- **create_plan**: draft a plan (epic) JSON, stage for review, then create the plan upon approval.
-- **create_stories**: propose stories for a plan, stage for review, then create stories upon approval.
-- **create_tasks**: propose tasks for a story, stage for review, then create tasks upon approval.
-- **create_steps**: propose implementation steps for a task, stage for review, then attach steps upon approval.
+Assisted prompts use a fresh
+`.plan-manager-tmp/<token>/<artifact>.json` path for every invocation. They
+create through the matching tool when recorded authority covers the action;
+otherwise they stop for the exact missing or reserved decision. Cleanup is
+limited to the invocation-owned directory.
 
 ```mermaid
 graph TD
     N1([Start]) --> N2{How?};
-    N2 -- Manual --> N3[User guides the agent in the chat] --> N5;
-    N2 -- Assisted --> N4["User runs /create_<children> prompt"] --> N5;
-    N5["Agent follows the prompts to propose children"];
-    N5 --> N6["User reviews the proposals"];
-    N6 --> N7{"Changes required?"};
-    N7 -- Yes --> N3;
-    N7 -- No --> N8["User types approve"] --> N9;
-    N9["Agent runs create_<child>(plan_id, ...) for each approved item"];
-    N9 --> N10[Children Created];
-    N10 --> N11([End]);
+    N2 -- Manual --> N5["Agent prepares proposal"];
+    N2 -- Assisted --> N4["Agent gets /create_<children> prompt"] --> N5;
+    N5 --> N6{Recorded authority covers creation?};
+    N6 -- Yes --> N7["Agent runs create_<child>(plan_id, ...)"];
+    N6 -- No / reserved --> N8["Preserve proposal; surface exact decision"];
+    N7 --> N9[Children Created] --> N10([End]);
+    N8 --> N10;
 ```
 
 ---
 
 ### Task Execution
 
-The task execution lifecycle begins with selecting a task to work on. If a task is not already set as the current work item, the agent will proactively list the available tasks and suggest the next one. Once a task is selected, it follows a strict, two-gate review lifecycle:
+The task execution lifecycle begins by selecting a task. Plan Manager checks
+status, steps, dependencies, and changes; authority remains in the caller's
+governing context.
 
-1.  **Pre-Execution Approval (Gate 1):** The user approves the proposed steps (or fast-tracks the task) before work begins.
-2.  **Code Review Approval (Gate 2):** After the agent submits its work, the user performs a final review to mark the task as done.
+1. **Start and execution:** recorded covering authority permits preparation,
+   `start_task`, and in-scope work without duplicate approval or an `execute`
+   token. Missing or reserved authority stops only the affected action.
+2. **Owner review:** after submission, `approve_pr` and `merge_pr` remain
+   reserved until owner review approval is recorded. Changes, checks, and
+   worker reports are not owner approval.
 
 The diagrams below illustrate this process.
 
 ```mermaid
 graph TD
     N1([Start]) --> N2{Current task set?};
-
-    subgraph Select Current Task
-        N2 -- No --> N3["Agent runs list_tasks(plan_id, ...)"];
-        N3 --> N4["Agent proposes next task"];
-        N4 --> N5{User confirms?};
-        N5 -- Yes --> N6["Agent runs set_current_task(plan_id, task_id)"];
-        N5 -- No --> N7["User runs set_current_task(plan_id, task_id)"];
-        N6 --> N8[Current Task is set];
-        N7 --> N8;
-    end
-
+    N2 -- No --> N3["Agent lists and selects scoped task"] --> N8;
     N2 -- Yes --> N8;
-
-    %% Status routing after selection: setting current task does not change status
-    N8 --> N8a{Task status?};
-    N8a -- TODO (unblocked) --> N9[Agent asks the user: What would you like to do?];
-    N8a -- IN_PROGRESS --> N20;
+    N8["Agent loads scoped task details"] --> N8a{Task status?};
+    N8a -- TODO (unblocked) --> N9["Prepare/attach steps"];
+    N8a -- IN_PROGRESS --> N20["Continue in-scope work"];
     N8a -- BLOCKED --> NB[Task is BLOCKED: resolve dependencies first] --> N31;
     N8a -- PENDING_REVIEW --> N23;
     N8a -- DONE --> N31;
-
-    N9 --> N10{What does the user do?};
-
-    subgraph Gate 1: Pre-Execution Approval
-        N10 -- Plan First (Assisted) --> N11["User runs /create_steps prompt"];
-        N11 --> N12["Agent saves proposed steps to todo/temp/steps.json"];
-        N12 --> N13["User reviews/edits the steps.json file"];
-        N13 --> N14["User says 'approve steps' in chat"];
-        N14 --> N15["Agent runs create_task_steps(plan_id, task_id, steps)"];
-        N15 --> N16["Agent runs start_task(plan_id, task_id)"];
-        N16 --> N17[Task is in **IN_PROGRESS** state];
-
-        N10 -- Fast-Track --> N18["User says 'approve steps' in chat"];
-        N18 --> N19["Agent runs create_task_steps(plan_id, task_id, steps) (no proposal UI)"];
-        N19 --> N16;
-    end
-
-    N17 --> N20["User says 'execute' in chat"];
-    N20 --> N21["Agent executes the task"];
+    N9 --> N10{Recorded authority covers action?};
+    N10 -- No / reserved --> NX["Surface exact missing decision"] --> N31;
+    N10 -- Yes --> N16["Agent runs start_task(plan_id, task_id)"];
+    N16 --> N20;
+    N20 --> N21["Agent executes authorized task"];
     N21 --> N22["Agent runs submit_pr(plan_id, task_id, changes)"];
-
-    subgraph Gate 2: Code Review Approval
-        N22 --> N23["Agent displays changes and asks user to approve or request changes"]
-        N23 --> N24[Task is in PENDING_REVIEW state];
-        N24 --> N25{User reviews the code};
-        N25 -- Approve --> N26["User says 'approve review' in chat"] --> N26a["Agent runs merge_pr(plan_id, task_id, changelog_category, commit_type) (or approve_pr(plan_id, task_id))"] --> N27[Task is in DONE state];
-        N25 -- Request Changes --> N28["User provides feedback in natural language"] --> N29;
-        N29["Agent runs request_pr_changes(plan_id, task_id, feedback)"] --> N17;
-    end
-
+    N22 --> N23["Agent presents changes for owner review"];
+    N23 --> N25{Owner review recorded?};
+    N25 -- No --> N28["Preserve PENDING_REVIEW; surface owner decision"] --> N31;
+    N25 -- Changes requested --> N29["Agent runs request_pr_changes"] --> N20;
+    N25 -- Approved --> N26a["Agent runs merge_pr or approve_pr"] --> N27[Task DONE];
     N27 --> N30["Changelog entry and commit message returned (from merge_pr)"];
     N30 --> N31([End]);
-
 ```
 
 ---

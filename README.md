@@ -1,6 +1,7 @@
 # Plan Manager
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Code: Apache-2.0](https://img.shields.io/badge/Code-Apache--2.0-blue.svg)](LICENSE)
+[![Docs: CC-BY-4.0](https://img.shields.io/badge/Docs-CC--BY--4.0-lightgrey.svg)](LICENSE-docs)
 [![Python: 3.13+](https://img.shields.io/badge/python-3.13+-blue.svg)](https://www.python.org/downloads/)
 [![CI](https://github.com/sgrade/plan-manager/actions/workflows/ci.yml/badge.svg)](https://github.com/sgrade/plan-manager/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/sgrade/plan-manager/branch/main/graph/badge.svg)](https://codecov.io/gh/sgrade/plan-manager)

@@ -331,7 +331,7 @@ def update_task(
             if status == Status.IN_PROGRESS and prev_status == Status.TODO:
                 if not task_obj.steps:
                     raise ValueError(
-                        "An implementation plan must be approved before starting work."
+                        "Implementation steps must be attached before starting work."
                     )
             elif status == Status.IN_PROGRESS and prev_status == Status.PENDING_REVIEW:
                 pass
@@ -572,7 +572,10 @@ def approve_pr(
     changelog_snippet = generate_changelog_for_task(updated, category="Changed")
     return {
         "success": True,
-        "message": f"Task '{task.title}' approved and moved to DONE.",
+        "message": (
+            f"Task '{task.title}' moved to DONE after the caller invoked the "
+            "review transition. Plan Manager does not verify owner authority."
+        ),
         "changelog_snippet": changelog_snippet,
         "plan_id": plan_id,
         **task_to_dict(updated),

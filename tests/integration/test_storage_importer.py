@@ -152,6 +152,10 @@ def _create_valid_tree(todo_dir: Path) -> None:
         },
         body="samep task body",
     )
+    _write_yaml(
+        todo_dir / "samep" / "state.yaml",
+        {"current_story_id": "s"},
+    )
 
 
 def _problem_messages(exc: LegacyImportError) -> list[str]:

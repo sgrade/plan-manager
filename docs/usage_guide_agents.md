@@ -1,6 +1,7 @@
 # Plan Manager — Usage Guide
 
-This guide is for agents using the Plan Manager MCP server. It summarizes the workflow, tools, and guardrails the server enforces.
+This guide is for agents using the Plan Manager MCP server. It summarizes the
+workflow, structural checks, and caller-governed authority boundaries.
 
 ## Overview
 
@@ -13,13 +14,32 @@ Plan Manager coordinates one or more AI agents around explicit plan scope.
 - Explicit scope: every plan-scoped tool requires `plan_id`; workflow mutations also require `task_id`.
 - Per-plan current story/task: `set_current_story` and `set_current_task` are discovery helpers only; mutations must still pass explicit ids.
 
+## Authority and workflow state
+
+1. Plan Manager reports workflow state and structural preconditions. It does
+   not grant, record, or verify authority.
+2. If authority already recorded in your governing context covers the action,
+   scope, and limits, continue without requesting the same approval again or
+   asking for an `execute` token.
+3. If authority is absent, exhausted, out of scope, or the decision is
+   reserved, stop the affected action and surface only that missing or reserved
+   decision.
+4. Steps, status, changes, checks, and worker reports are workflow facts; none
+   is owner approval.
+5. Call `approve_pr` or `merge_pr` only after owner review approval is recorded
+   in your governing context. Plan Manager cannot enforce or verify it.
+6. Dependency blockers and owner story-acceptance review remain unchanged.
+
 ## Commands (tools)
 
 ### Workflow Tools
-- **start_task(plan_id, task_id)** — approve implementation plan and start work (Gate 1: TODO → IN_PROGRESS)
+- **start_task(plan_id, task_id)** — start a structurally ready task under
+  caller-held authority (TODO → IN_PROGRESS)
 - **submit_pr(plan_id, task_id, changes)** — submit work for code review (IN_PROGRESS → PENDING_REVIEW)
-- **approve_pr(plan_id, task_id)** — approve code review (Gate 2: PENDING_REVIEW → DONE)
-- **merge_pr(plan_id, task_id, changelog_category, commit_type)** — **RECOMMENDED**: approve + generate changelog + commit (Gate 2 convenience)
+- **approve_pr(plan_id, task_id)** — complete the review transition only after
+  recorded owner review (PENDING_REVIEW → DONE)
+- **merge_pr(plan_id, task_id, changelog_category, commit_type)** — complete
+  owner-reviewed work and generate changelog/commit-message artifacts
 - **request_pr_changes(plan_id, task_id, feedback)** — request modifications (PENDING_REVIEW → IN_PROGRESS)
 
 ### Task Management Tools
@@ -40,7 +60,8 @@ Result shape essentials (for agents):
 - `merge_pr` returns `TaskFinalizationOut` (no `next_actions` field).
 - `next_actions.arguments` includes `plan_id` and full `task_id` values so scope can be forwarded mechanically.
 - `next_actions.pending_arguments` lists required tool arguments the server cannot infer; the agent must supply them from real context before execution.
-- Gate-crossing mutation actions are marked `AGENT_AFTER_USER_APPROVAL` until the user approves at that gate.
+- Owner-review actions are marked `AGENT_AFTER_USER_APPROVAL`; this is
+  caller-governance guidance, not a server-side authority check.
 - Scope mismatch errors name both the supplied `plan_id` and the mismatched id.
 
 ## Compatibility map (v2 explicit scope)
@@ -80,7 +101,12 @@ TaskWorkflowResult {
 ## Prompts (assisted planning)
 - `/create_plan`, `/create_stories`, `/create_tasks`, `/create_steps` propose content; tools create items.
 - Prompts now carry explicit ids in instructions (`plan_id`, `story_id`, `task_id`) for follow-up tool calls.
-- Always get explicit user approval before creation.
+- Each prompt uses an invocation-unique
+  `.plan-manager-tmp/<token>/<artifact>.json` path and limits cleanup to that
+  invocation.
+- Continue creation immediately when authority already recorded in your
+  governing context covers it. Otherwise preserve the proposal and surface
+  only the missing or reserved decision.
 
 ## Examples: Tool parameter types
 

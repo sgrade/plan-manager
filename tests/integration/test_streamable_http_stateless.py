@@ -8,6 +8,7 @@ import re
 import pytest
 from starlette.testclient import TestClient
 
+from plan_manager.identity import product_version
 from plan_manager.server.app import starlette_app
 
 _INIT_BODY = {
@@ -42,6 +43,8 @@ def test_streamable_http_stateless_json_mode_and_routes():
         assert first.headers["content-type"].startswith("application/json")
         assert first.json()["jsonrpc"] == "2.0"
         assert "result" in first.json()
+        assert first.json()["result"]["serverInfo"]["version"] == product_version()
+        assert first.json()["result"]["protocolVersion"] == "2025-06-18"
         assert "mcp-session-id" not in first.headers
         assert first.headers.get("x-correlation-id")
 

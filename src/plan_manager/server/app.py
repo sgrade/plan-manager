@@ -39,6 +39,7 @@ from plan_manager.config import (
     ENABLE_DNS_REBINDING_PROTECTION,
     PLAN_MANAGER_ENABLE_UI,
 )
+from plan_manager.identity import product_version
 from plan_manager.logging_context import set_correlation_id
 from plan_manager.prompts.prompt_register import register_prompts
 from plan_manager.resources.usage_resources import register_usage_resources
@@ -133,7 +134,12 @@ class UiSecurityHeadersMiddleware:
 
 def _read_quickstart_instructions() -> str:
     """Load Quickstart instructions for InitializeResult from markdown file."""
-    return "Plan Manager coordinates AI agents around a plan. See diagrams in resource://plan-manager/project_workflow.md and details in resource://plan-manager/usage_guide_agents.md."
+    return (
+        "Plan Manager coordinates AI agents around a plan. See diagrams in "
+        "resource://plan-manager/project_workflow.md, details in "
+        "resource://plan-manager/usage_guide_agents.md, and build identity in "
+        "resource://plan-manager/build_info.json."
+    )
 
 
 def starlette_app() -> Starlette:
@@ -157,6 +163,9 @@ def starlette_app() -> Starlette:
         stateless_http=True,
         json_response=True,
     )
+    # MCP 1.26 has no FastMCP version parameter; set its low-level server
+    # identity so initialize reports this product rather than the SDK version.
+    mcp._mcp_server.version = product_version()  # noqa: SLF001
 
     register_context_tools(mcp)
     register_plan_tools(mcp)

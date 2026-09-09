@@ -45,12 +45,14 @@ If `LOG_DIR` cannot be created or written, the server keeps running with stdout-
 logging and emits a warning.
 
 ## Workflow guardrails
-- REQUIRE_APPROVAL_BEFORE_PROGRESS (default: `true`)
-  - Gate status changes off TODO via approval flow
-- REQUIRE_EXECUTION_INTENT_BEFORE_IN_PROGRESS (default: `true`)
-  - Require an execution intent/plan before starting
-- REQUIRE_CHANGES_BEFORE_DONE (default: `true`)
-  - Require changelog entries before DONE
+- `REQUIRE_APPROVAL_BEFORE_PROGRESS` and
+  `REQUIRE_EXECUTION_INTENT_BEFORE_IN_PROGRESS` are deprecated compatibility
+  settings with no runtime enforcement. Authority belongs to the caller's
+  governing context; Plan Manager reports structural workflow state and does
+  not grant or verify authority.
+- `REQUIRE_CHANGES_BEFORE_DONE` is also retained for compatibility but does not
+  toggle behavior. The current task workflow always requires non-empty changes
+  before the PENDING_REVIEW → DONE transition.
 
 ## UI
 - PLAN_MANAGER_ENABLE_UI (default: `true`)
@@ -80,8 +82,17 @@ FastMCP validates the `Host` and `Origin` headers and returns HTTP 421/403 for v
 The `host.docker.internal:*` defaults let sibling containers (e.g. devcontainers) reach the server. Add custom hostnames here when reaching the server under a different name.
 
 ## Docs / Agent guides
-- USAGE_GUIDE_REL_PATH (default: `docs/usage_guide_agents.md`)
-- PROJECT_WORKFLOW_REL_PATH (default: `docs/project_workflow.md`)
+- By default, both guide resources read release-consistent Markdown bundled in
+  the installed package.
+- `USAGE_GUIDE_REL_PATH` — optional usage-guide override.
+- `PROJECT_WORKFLOW_REL_PATH` — optional workflow-guide override.
+- Absolute overrides are absolute. Relative overrides resolve from the
+  server's startup working directory (for the container, `/data`). Empty values
+  are unset. Changes require restart.
+- An unavailable explicit override is not silently ignored: the resource
+  returns a degraded message, logs a warning, and names the variable to fix or
+  unset before restart. If bundled and source-development content are both
+  unavailable, the same degraded behavior applies.
 
 ## Telemetry
 - PLAN_MANAGER_TELEMETRY_ENABLED (default: `false`) — enable lightweight counters/timers

@@ -23,12 +23,16 @@ set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 
 lint() {
-    uv run ruff check src/ tests/
-    uv run ruff format --check src/ tests/
+    uv run ruff check src/ tests/ hatch_build.py scripts/verify_built_artifact.py
+    uv run ruff format --check src/ tests/ hatch_build.py scripts/verify_built_artifact.py
 }
 
 types() {
-    uv run mypy src/plan_manager --no-error-summary
+    uv run mypy \
+        src/plan_manager \
+        hatch_build.py \
+        scripts/verify_built_artifact.py \
+        --no-error-summary
 }
 
 security() {
@@ -57,8 +61,19 @@ tests() {
 }
 
 build() {
+    local source_revision="${PLAN_MANAGER_SOURCE_REVISION:-}"
+    if [[ -z "$source_revision" ]] && [[ -z "$(git status --porcelain --untracked-files=all)" ]]; then
+        source_revision="$(git rev-parse HEAD)"
+    fi
+    uv run python -c 'import shutil; shutil.rmtree("dist", ignore_errors=True)'
+    if [[ -n "$source_revision" ]]; then
+        export PLAN_MANAGER_SOURCE_REVISION="$source_revision"
+    else
+        unset PLAN_MANAGER_SOURCE_REVISION
+    fi
     uv build
     uv run twine check dist/*
+    uv run python scripts/verify_built_artifact.py
 }
 
 case "${1:-all}" in

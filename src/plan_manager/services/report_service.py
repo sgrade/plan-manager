@@ -170,14 +170,22 @@ def _generate_story_report(plan: Plan) -> str:
     # Scenario 3: Active task is awaiting pre-execution review
     if active_task and active_task.status == Status.TODO and active_task.steps:
         report.append(
-            f"\nNext Action: The plan for '{active_task.title}' is ready for review. Run `start_task` with plan_id and task_id to start work."
+            f"\nNext Action: Steps for '{active_task.title}' are ready. If "
+            "authority already recorded in the caller's governing context covers "
+            "the action, run `start_task` with plan_id and task_id without "
+            "requesting the same approval again. Otherwise surface only the "
+            "missing or reserved decision. Plan Manager does not grant or verify "
+            "authority."
         )
         return "\n".join(report)
 
     # Scenario 4: Active task is awaiting code review
     if active_task and active_task.status == Status.PENDING_REVIEW:
         report.append(
-            f"\nNext Action: '{active_task.title}' is ready for code review. Run `approve_pr` with plan_id and task_id to mark it as DONE."
+            f"\nNext Action: '{active_task.title}' is ready for owner review. "
+            "Present the changes; call `approve_pr` only after owner review "
+            "approval is recorded in the caller's governing context. Changes "
+            "and worker reports are not owner approval."
         )
         changes = getattr(active_task, "changes", [])
         if changes:
@@ -185,8 +193,18 @@ def _generate_story_report(plan: Plan) -> str:
             report.extend(f"  - {entry}" for entry in changes)
         return "\n".join(report)
 
-    # Scenario 5: No active task, or active task is DONE/IN_PROGRESS. Suggest
-    # next unblocked task.
+    if active_task and active_task.status == Status.IN_PROGRESS:
+        report.append(
+            f"\nNext Action: Continue in-scope work on '{active_task.title}' "
+            "under authority already recorded in the caller's governing context; "
+            "do not request an execute token. Run `submit_pr` with plan_id, "
+            "task_id, and non-empty change summaries when complete. If authority "
+            "is absent, exhausted, out of scope, or reserved, stop and surface "
+            "only that decision."
+        )
+        return "\n".join(report)
+
+    # Scenario 5: No active task, or active task is DONE. Suggest next task.
     next_task_to_do = next(
         (
             t
@@ -199,11 +217,15 @@ def _generate_story_report(plan: Plan) -> str:
     if next_task_to_do:
         if next_task_to_do.steps:
             report.append(
-                f"\nNext Action: The plan for '{next_task_to_do.title}' is ready for review. Set it as active (`set_current_task` with plan_id and task_id), then run `start_task`."
+                f"\nNext Action: Set '{next_task_to_do.title}' as active, then "
+                "run `start_task` when caller-recorded authority covers it; "
+                "otherwise surface the missing or reserved decision."
             )
         else:
             report.append(
-                f"\nNext Action: Run `create_task_steps` for task '{next_task_to_do.id}' (with plan_id), then run `start_task`."
+                f"\nNext Action: Prepare steps for task '{next_task_to_do.id}' "
+                "under caller-recorded authority, then run `start_task`; stop "
+                "only for missing or reserved authority."
             )
     # Check if all tasks are done
     elif all(t.status == Status.DONE for t in story.tasks):

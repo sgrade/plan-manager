@@ -145,6 +145,7 @@ cython_debug/
 
 # Project specific
 todo/
+.plan-manager-tmp/
 logs/
 *.log
 temp/

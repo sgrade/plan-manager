@@ -10,9 +10,12 @@ RUN uv sync --no-dev --locked --no-install-project
 
 # App + docs (docs are force-included in the wheel by hatchling)
 COPY README.md ./
+COPY hatch_build.py ./
 COPY src/ src/
 COPY docs/ docs/
-RUN uv sync --no-dev --locked --no-editable
+ARG PLAN_MANAGER_SOURCE_REVISION
+RUN PLAN_MANAGER_SOURCE_REVISION="${PLAN_MANAGER_SOURCE_REVISION}" uv build --wheel \
+    && uv pip install --python .venv/bin/python --no-deps dist/*.whl
 
 # --- Runtime ---
 FROM python:3.13-slim-bookworm
@@ -20,7 +23,10 @@ FROM python:3.13-slim-bookworm
 COPY --from=builder /app/.venv /app/.venv
 ENV PATH="/app/.venv/bin:$PATH"
 
-RUN useradd --system --no-create-home appuser
+RUN useradd --system --no-create-home appuser \
+    && mkdir -p /data \
+    && chown -R appuser:appuser /data
+WORKDIR /data
 USER appuser
 
 EXPOSE 3000

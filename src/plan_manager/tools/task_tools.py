@@ -334,82 +334,79 @@ def _compute_next_actions_for_task(
         if not (task.steps or []):
             actions.append(
                 NextAction(
-                    kind="instruction",
-                    name="ask_user_next_step",
-                    label="Ask: Would you like assisted steps or fast-track?",
-                    who=WhoRuns.AGENT,
-                    recommended=True,
-                )
-            )
-            # Only user instructions at this point; the agent must wait for the user's
-            # choice
-            actions.append(
-                NextAction(
                     kind="prompt",
                     name="/create_steps",
-                    label="Assisted: User runs /create_steps prompt",
-                    who=WhoRuns.USER,
-                    recommended=False,
+                    label=(
+                        "Prepare steps under authority recorded in the caller's "
+                        "governing context; otherwise surface the missing or "
+                        "reserved decision"
+                    ),
+                    who=WhoRuns.AGENT,
+                    recommended=True,
                     arguments={"plan_id": plan_id, "task_id": task.id},
                 )
             )
             actions.append(
                 NextAction(
                     kind="instruction",
-                    name="user_approval_fast_track",
-                    label="Fast-track: User says 'approve steps' with concrete steps",
-                    who=WhoRuns.USER,
+                    name="authority_boundary",
+                    label=(
+                        "Plan Manager does not grant or verify authority. Stop only "
+                        "if authority is absent, exhausted, out of scope, or reserved."
+                    ),
+                    who=WhoRuns.AGENT,
                     recommended=False,
                 )
             )
         else:
             actions.append(
                 NextAction(
-                    kind="instruction",
-                    name="user_approves_steps",
-                    label="User says 'approve steps' in chat",
-                    who=WhoRuns.USER,
+                    kind="tool",
+                    name="start_task",
+                    label=(
+                        "Agent runs start_task when covered by authority already "
+                        "recorded in its governing context"
+                    ),
+                    who=WhoRuns.AGENT,
                     recommended=True,
-                    arguments={
-                        "then": [
-                            {
-                                "tool": "start_task",
-                                "arguments": {"plan_id": plan_id, "task_id": task.id},
-                            }
-                        ]
-                    },
+                    arguments={"plan_id": plan_id, "task_id": task.id},
                 )
             )
             actions.append(
                 NextAction(
-                    kind="tool",
-                    name="start_task",
-                    label="Agent runs start_task after user approval",
-                    who=WhoRuns.AGENT_AFTER_USER_APPROVAL,
+                    kind="instruction",
+                    name="authority_boundary",
+                    label=(
+                        "If authority is absent, exhausted, out of scope, or the "
+                        "decision is reserved, surface only that missing decision"
+                    ),
+                    who=WhoRuns.AGENT,
                     recommended=False,
-                    blocked_reason="Waiting for user approval at Gate 1.",
-                    arguments={"plan_id": plan_id, "task_id": task.id},
                 )
             )
         return actions
 
     if gate == WorkflowGate.EXECUTING:
-        # Follow the diagram: user instructs to execute, agent executes, then
-        # submits for review
         actions.append(
             NextAction(
                 kind="instruction",
-                name="user_execute_instruction",
-                label="User says 'execute' in chat",
-                who=WhoRuns.USER,
+                name="agent_execute_work",
+                label=(
+                    "Continue in-scope work under authority already recorded in "
+                    "the caller's governing context"
+                ),
+                who=WhoRuns.AGENT,
                 recommended=True,
             )
         )
         actions.append(
             NextAction(
                 kind="instruction",
-                name="agent_execute_work",
-                label="Agent executes the task",
+                name="authority_boundary",
+                label=(
+                    "If authority is absent, exhausted, out of scope, or the "
+                    "decision is reserved, stop and surface only that decision"
+                ),
                 who=WhoRuns.AGENT,
                 recommended=False,
             )
@@ -431,24 +428,23 @@ def _compute_next_actions_for_task(
         return actions
 
     if gate == WorkflowGate.AWAITING_REVIEW:
-        # Gate 2 sequence per workflow:
-        # 1) Agent displays changes and asks the user to approve or
-        # request changes
         actions.append(
             NextAction(
                 kind="instruction",
                 name="display_review_and_prompt",
-                label="Show changelog entries and ask: Say 'approve review' or provide feedback to request changes.",
+                label=(
+                    "Show changes for owner review. A worker report or workflow "
+                    "state is not owner approval."
+                ),
                 who=WhoRuns.AGENT,
                 recommended=True,
             )
         )
-        # 2a) PRIMARY: User approves review in chat, then agent runs finalize_task
         actions.append(
             NextAction(
                 kind="instruction",
                 name="user_approves_review",
-                label="User says 'approve review' in chat",
+                label="Owner records review approval in the caller's governing context",
                 who=WhoRuns.USER,
                 recommended=False,
                 arguments={
@@ -473,10 +469,13 @@ def _compute_next_actions_for_task(
             NextAction(
                 kind="tool",
                 name="merge_pr",
-                label="Agent runs merge_pr after user approval (choose changelog_category and commit_type to reflect the actual change)",
+                label=(
+                    "Agent runs merge_pr only after recorded owner review "
+                    "(choose changelog_category and commit_type)"
+                ),
                 who=WhoRuns.AGENT_AFTER_USER_APPROVAL,
                 recommended=False,
-                blocked_reason="Waiting for user approval at Gate 2.",
+                blocked_reason="Waiting for recorded owner review approval.",
                 arguments={
                     "plan_id": plan_id,
                     "task_id": task.id,
@@ -484,19 +483,20 @@ def _compute_next_actions_for_task(
                 pending_arguments=["changelog_category", "commit_type"],
             )
         )
-        # 2b) FALLBACK: Manual approval + artifact generation
         actions.append(
             NextAction(
                 kind="tool",
                 name="approve_pr",
-                label="Agent runs approve_pr (Gate 2: Code Review Approval) - then generate artifacts separately",
+                label=(
+                    "Agent runs approve_pr only after recorded owner review; "
+                    "worker completion does not satisfy this requirement"
+                ),
                 who=WhoRuns.AGENT_AFTER_USER_APPROVAL,
                 recommended=False,
-                blocked_reason="Waiting for user approval at Gate 2.",
+                blocked_reason="Waiting for recorded owner review approval.",
                 arguments={"plan_id": plan_id, "task_id": task.id},
             )
         )
-        # 2c) REWORK: User provides feedback, then agent runs request_pr_changes
         actions.append(
             NextAction(
                 kind="instruction",
@@ -583,7 +583,10 @@ def create_task_steps(
     steps: list[dict[str, Any]],
     story_id: str | None = None,
 ) -> TaskWorkflowResult:
-    """Create implementation steps for a task, enabling pre-execution review.
+    """Create task steps under authority held in the caller's governing context.
+
+    Plan Manager checks workflow structure but does not grant or verify
+    authority. Stop for missing, exhausted, out-of-scope, or reserved authority.
 
     Args:
         plan_id: Plan identifier, for example `concurrency_stability`.
@@ -618,8 +621,12 @@ def create_task_steps(
     gate = _status_to_gate(task.status, task.steps)
     next_actions = _compute_next_actions_for_task(plan_id, task, gate)
     message_lines = [
-        f"Gate 1: Pre-Execution — steps attached for task '{task.title}'.",
-        "Ask the user to approve the steps before running start_task.",
+        f"Steps attached for task '{task.title}'.",
+        (
+            "Run start_task when authority already recorded in the caller's "
+            "governing context covers the action. Plan Manager does not grant "
+            "or verify that authority."
+        ),
     ]
     return TaskWorkflowResult(
         success=True,
@@ -693,11 +700,11 @@ def start_task(
     story_id: str | None = None,
 ) -> TaskWorkflowResult:
     """
-    Start work on a TODO task (Gate 1: Pre-Execution Approval).
+    Start work on a TODO task after the caller checks its governing authority.
 
-    Approves the implementation plan and transitions the task from TODO to IN_PROGRESS status.
-    This tool should be called after create_task_steps() has been used to define the
-    implementation plan.
+    Transitions the task from TODO to IN_PROGRESS after create_task_steps() has
+    defined the implementation plan. Plan Manager validates workflow state but
+    does not grant or verify authority.
 
     Validates:
     - Task is in TODO status
@@ -705,7 +712,7 @@ def start_task(
     - Task is not blocked by dependencies
 
     Transition: TODO → IN_PROGRESS
-    Gate: Gate 1 (Pre-Execution Approval)
+    Authority: caller-governed; reuse recorded covering authority
 
     Returns:
         TaskWorkflowResult: Result with task details and next actions for execution
@@ -765,7 +772,9 @@ def approve_pr(
     Approve a PENDING_REVIEW task (Gate 2: Code Review Approval).
 
     Completes the code review process and marks the task as DONE. This tool should be
-    called after the user has reviewed the submitted work and provides approval.
+    called only after the owner has reviewed the submitted work and that approval
+    is recorded in the caller's governing context. Plan Manager does not grant or verify
+    authority.
 
     Validates:
     - Task is in PENDING_REVIEW status
@@ -774,7 +783,7 @@ def approve_pr(
     Transition: PENDING_REVIEW → DONE
     Gate: Gate 2 (Code Review Approval)
 
-    Important: agents should only call this tool after the user approves the review.
+    Important: task changes and worker reports are not owner approval.
 
     Returns:
         TaskWorkflowResult: Result with task details, changelog snippet, and next actions
@@ -830,7 +839,10 @@ def request_pr_changes(
     feedback: str,
     story_id: str | None = None,
 ) -> TaskWorkflowResult:
-    """Request changes for a task (PENDING_REVIEW -> IN_PROGRESS).
+    """Request owner-directed changes (PENDING_REVIEW -> IN_PROGRESS).
+
+    Continue only under authority recorded in the caller's governing context;
+    Plan Manager does not grant or verify it.
 
     Args:
         plan_id: Plan identifier, for example `concurrency_stability`.
@@ -889,7 +901,10 @@ def submit_pr(
     changes: list[str],
     story_id: str | None = None,
 ) -> TaskWorkflowResult:
-    """Submit a completed task for code review and move it to PENDING_REVIEW status.
+    """Submit authorized work for review (IN_PROGRESS -> PENDING_REVIEW).
+
+    Plan Manager checks workflow state but does not grant or verify authority.
+    Stop for missing, exhausted, out-of-scope, or reserved authority.
 
     Args:
         plan_id: Plan identifier, for example `concurrency_stability`.
@@ -952,11 +967,13 @@ def merge_pr(
     """Convenience tool: approve task + generate changelog + commit message in one call.
 
     This tool combines the approve_pr, generate_changelog_entry, and generate_commit_message
-    operations into a single workflow step for convenience when the user approves the review.
+    operations into a single workflow step after recorded owner review approval.
+    Plan Manager does not grant or verify authority.
 
     ONLY use this if:
     - Task is in PENDING_REVIEW status
-    - User has explicitly approved the review
+    - Owner review approval is recorded in the caller's governing context
+    - Worker completion is not treated as owner approval
     - No further changes are needed
 
     If changes are needed, use request_pr_changes to return the task to IN_PROGRESS.
@@ -988,7 +1005,7 @@ def merge_pr(
             plan_id=plan_id,
             message=str(exc),
             recovery=[
-                "Call this tool only after user review approval at Gate 2.",
+                "Call this tool only after recorded owner review approval.",
                 "Confirm task_id points to a PENDING_REVIEW task in the supplied plan_id.",
                 "Provide changelog_category and commit_type explicitly.",
             ],

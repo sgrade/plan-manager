@@ -47,14 +47,14 @@ def write_text(path: str, content: str, encoding: str = "utf-8") -> None:
 
 
 def read_markdown(relative_path: str) -> str:
-    """Read and strip a markdown file located under the workspace.
+    """Read a markdown file located under the workspace exactly.
 
     Args:
         relative_path: Workspace-relative path to the markdown file
                       (e.g., "docs/quickstart_agents.md")
 
     Returns:
-        str: The stripped markdown content
+        str: The markdown content, including its original trailing newline
     """
     abs_path = resolve_workspace_path(relative_path)
-    return read_text(abs_path).strip()
+    return read_text(abs_path)

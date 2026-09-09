@@ -18,6 +18,7 @@ import uvicorn
 # ensure that configuration and logging are set up exactly once, as soon as
 # the application starts. The order is critical.
 from plan_manager import config
+from plan_manager.identity import version_line
 from plan_manager.storage.db import DB_FILENAME, bootstrap, startup_storage
 from plan_manager.storage.exporter import export_tree
 from plan_manager.storage.importer import (
@@ -167,6 +168,7 @@ def _existing_plan_count(db_path: Path) -> int:
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="pm")
+    parser.add_argument("--version", action="version", version=version_line())
     subparsers = parser.add_subparsers(dest="command")
 
     export_parser = subparsers.add_parser(

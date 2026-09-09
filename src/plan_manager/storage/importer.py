@@ -990,16 +990,20 @@ def _db_semantic_view(db_path: Path, *, include_event_seq: bool) -> dict[str, An
                     "stories": stories_view,
                     "plan_state": {
                         "current_story_id": (
-                            str(state_row["current_story_id"]) if state_row else None
+                            str(state_row["current_story_id"])
+                            if state_row and state_row["current_story_id"] is not None
+                            else None
                         ),
                         "current_task_story_id": (
                             str(state_row["current_task_story_id"])
                             if state_row
+                            and state_row["current_task_story_id"] is not None
                             else None
                         ),
                         "current_task_local_id": (
                             str(state_row["current_task_local_id"])
                             if state_row
+                            and state_row["current_task_local_id"] is not None
                             else None
                         ),
                     },

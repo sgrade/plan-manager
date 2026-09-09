@@ -3,6 +3,11 @@
 
 from mcp.server.fastmcp.prompts import base
 
+from plan_manager.prompts.artifact_paths import (
+    authority_instructions,
+    prompt_artifact_path,
+)
+
 
 def build_create_plan_prompt_messages() -> list[base.Message]:
     """Few-shot prompt to draft a new Plan (epic-level) for creation.
@@ -11,6 +16,7 @@ def build_create_plan_prompt_messages() -> list[base.Message]:
     description (optional), priority (optional int 0..5).
     """
 
+    artifact_path = prompt_artifact_path("plan.json")
     return [
         # == Turn 1: The Example ==
         # This is the "few-shot" example we provide to the model.
@@ -34,10 +40,9 @@ def build_create_plan_prompt_messages() -> list[base.Message]:
         # Now that the model has seen the pattern, we ask our actual question.
         base.UserMessage(
             "Now, draft a plan for this project. "
-            "Save this JSON in a temporary file named 'plan.json' in a directory called 'todo/temp'. "
-            "Create the directories if they don't exist; overwrite the file if it already exists. Then STOP. Do not do anything else. "
-            "I might review the JSON, edit it, or ask you to edit it. The review is considered complete when I say 'approve'. "
-            "Once I approve, you will create the plan by calling the `create_plan` tool of the Plan Manager MCP server using the fields from the JSON. "
-            "Once you have created the plan, you will delete the temporary file."
+            f"Save this JSON to the new invocation-owned path '{artifact_path}'. "
+            "Create its parent directory and do not overwrite any existing file. "
+            "The creation action is `create_plan` using the JSON fields. "
+            + authority_instructions("plan creation", artifact_path)
         ),
     ]

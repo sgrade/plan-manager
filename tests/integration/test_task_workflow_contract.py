@@ -9,7 +9,7 @@ import pytest
 from plan_manager.schemas.outputs import ActionType, WhoRuns
 from plan_manager.tools import report_tools, task_tools
 from plan_manager.tools.plan_tools import create_plan
-from plan_manager.tools.story_tools import create_story
+from plan_manager.tools.story_tools import create_story, set_current_story
 
 
 def _make_task() -> tuple[str, str, str]:
@@ -89,6 +89,7 @@ def _assert_action_arguments_match_tool_signature(
 
 @pytest.mark.integration
 def test_gate_1_metadata_requires_user_approval_before_start():
+    """Retain the historical test id while asserting its approved replacement."""
     plan_id, _story_id, task_id = _make_task()
     result = task_tools.create_task_steps(
         plan_id=plan_id,
@@ -99,15 +100,35 @@ def test_gate_1_metadata_requires_user_approval_before_start():
     assert result.action == ActionType.CREATE_STEPS
     recommended = [action for action in result.next_actions if action.recommended]
     assert len(recommended) == 1
-    assert recommended[0].name == "user_approves_steps"
+    assert recommended[0].name == "start_task"
+    assert recommended[0].who == WhoRuns.AGENT
+    assert "authority already recorded" in recommended[0].label
     start_action = next(
         action for action in result.next_actions if action.name == "start_task"
     )
-    assert start_action.who == WhoRuns.AGENT_AFTER_USER_APPROVAL
-    assert start_action.recommended is False
+    assert start_action.recommended is True
+    assert "does not grant or verify" in result.message
+    assert "approve steps" not in result.message.lower()
 
     for tool_name, args, pending_args in _iter_emitted_tool_calls(result.next_actions):
         _assert_action_arguments_match_tool_signature(tool_name, args, pending_args)
+
+
+@pytest.mark.integration
+def test_task_without_steps_recommends_authority_neutral_preparation():
+    plan_id, story_id, task_id = _make_task()
+    set_current_story(plan_id=plan_id, story_id=story_id)
+    result = task_tools.set_current_task(plan_id=plan_id, task_id=task_id)
+
+    recommended = [action for action in result.next_actions if action.recommended]
+    assert len(recommended) == 1
+    assert recommended[0].name == "/create_steps"
+    assert recommended[0].who == WhoRuns.AGENT
+    boundary = next(
+        action for action in result.next_actions if action.name == "authority_boundary"
+    )
+    assert "absent, exhausted, out of scope, or reserved" in boundary.label
+    assert "does not grant or verify authority" in boundary.label
 
 
 @pytest.mark.integration
@@ -120,6 +141,15 @@ def test_gate_2_metadata_recommends_prompt_before_mutations():
     )
     started = task_tools.start_task(plan_id=plan_id, task_id=task_id)
     assert started.action == ActionType.START_TASK
+    assert all(
+        action.name != "user_execute_instruction" for action in started.next_actions
+    )
+    assert any(action.name == "authority_boundary" for action in started.next_actions)
+    execute_action = next(
+        action for action in started.next_actions if action.name == "agent_execute_work"
+    )
+    assert execute_action.recommended is True
+    assert "authority already recorded" in execute_action.label
 
     # Regression guard (U6c ergonomics re-review): the EXECUTING state must
     # emit a structured submit_pr continuation so a blind agent never stalls
@@ -152,6 +182,7 @@ def test_gate_2_metadata_recommends_prompt_before_mutations():
     assert merge_action.who == WhoRuns.AGENT_AFTER_USER_APPROVAL
     assert approve_action.recommended is False
     assert merge_action.recommended is False
+    assert "worker completion" in approve_action.label
 
     for tool_name, args, pending_args in _iter_emitted_tool_calls(
         submitted.next_actions
@@ -180,6 +211,21 @@ def test_gate_2_metadata_recommends_prompt_before_mutations():
         if step.get("tool") == "request_pr_changes"
     )
     assert nested_feedback["pending_arguments"] == ["feedback"]
+
+
+def test_workflow_tool_descriptions_state_authority_boundary():
+    functions = (
+        task_tools.create_task_steps,
+        task_tools.start_task,
+        task_tools.request_pr_changes,
+        task_tools.submit_pr,
+        task_tools.approve_pr,
+        task_tools.merge_pr,
+    )
+    for function in functions:
+        description = inspect.getdoc(function)
+        assert description is not None
+        assert "does not grant or verify" in description
 
 
 @pytest.mark.integration
