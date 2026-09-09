@@ -2,6 +2,9 @@
 # Copyright (c) 2026 Roman Klyuev
 
 import json
+import os
+import subprocess
+import sys
 from importlib import metadata
 from pathlib import Path
 
@@ -58,3 +61,22 @@ def test_malformed_packaged_revision_reports_unknown(
     monkeypatch.setattr(identity.resources, "files", lambda _name: tmp_path)
 
     assert identity.source_revision() == "unknown"
+
+
+def test_cli_version_stays_on_one_line_in_narrow_terminal() -> None:
+    env = dict(os.environ)
+    env["COLUMNS"] = "40"
+
+    result = subprocess.run(
+        [sys.executable, "-m", "plan_manager", "--version"],
+        cwd=Path(__file__).resolve().parents[2],
+        env=env,
+        check=True,
+        text=True,
+        capture_output=True,
+    )
+
+    assert result.stderr == ""
+    assert result.stdout.count("\n") == 1
+    assert result.stdout.startswith("plan-manager product_version=")
+    assert " source_revision=" in result.stdout

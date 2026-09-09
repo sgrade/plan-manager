@@ -202,8 +202,13 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> None:
+    resolved_argv = sys.argv[1:] if argv is None else argv
+    if resolved_argv == ["--version"]:
+        sys.stdout.write(version_line() + "\n")
+        raise SystemExit(0)
+
     parser = _build_parser()
-    args = parser.parse_args(argv)
+    args = parser.parse_args(resolved_argv)
     try:
         if args.command == "export":
             code = _run_export(args)
