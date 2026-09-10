@@ -37,6 +37,14 @@ jobs:
       - name: Install dependencies
         run: uv sync --all-extras --dev
 
+      # verify.sh only infers the revision from a clean tree, and the tree is
+      # never clean here: release-please bumps the version in pyproject.toml but
+      # not in uv.lock, so `uv sync` above rewrites the lock. Read it from the
+      # checked-out ref instead — not github.sha, which points at the default
+      # branch when this workflow is dispatched with an explicit tag.
+      - name: Pin the source revision
+        run: echo "PLAN_MANAGER_SOURCE_REVISION=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
       # Same gate as CI, including the build and twine check that produce dist/.
       - name: Verify the released commit
         run: ./scripts/verify.sh
