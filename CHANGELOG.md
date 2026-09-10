@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.1](https://github.com/sgrade/plan-manager/compare/plan-manager-v0.14.0...plan-manager-v0.14.1) (2026-09-10)
+
+
+### Bug Fixes
+
+* report a real source revision in released artifacts ([4a8dd0c](https://github.com/sgrade/plan-manager/commit/4a8dd0cc33abcadcfb300c2ba5e09753dfca8dfa))
+
+
+### Documentation
+
+* allow the agent to commit and push under explicit approval ([750cc38](https://github.com/sgrade/plan-manager/commit/750cc3889381a7333dd42352699d79ad410fe7d8))
+
 ## [0.14.0](https://github.com/sgrade/plan-manager/compare/plan-manager-v0.13.0...plan-manager-v0.14.0) (2026-09-10)
 
 
