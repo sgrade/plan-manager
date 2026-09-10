@@ -24,8 +24,8 @@ Guides AI agents developing Plan Manager.
 - Tests: `tests/` (see conftest.py for isolation)
 
 ## Working Agreements
-- **The maintainer commits and pushes.** Propose the commit; never run `git commit`
-  or `git push` yourself.
+- **The maintainer commits and pushes.** Propose the commit; run `git commit`
+  or `git push` yourself only after explicit owner approval.
 - `scripts/verify.sh` is the single definition of every check; the pre-push hook
   and all five CI jobs call it. Change checks there, not in the workflow files.
 - If you add a gate, prove it fails before trusting it when it passes. Several
