@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.0](https://github.com/sgrade/plan-manager/compare/plan-manager-v0.13.0...plan-manager-v0.14.0) (2026-09-10)
+
+
+### Features
+
+* make installed guidance and build identity self-contained ([d3cad57](https://github.com/sgrade/plan-manager/commit/d3cad57ce78896fd1f5890022cad67d6e51b02ad))
+
+
+### Bug Fixes
+
+* constrain MCP SDK to the compatible major ([b6bfc92](https://github.com/sgrade/plan-manager/commit/b6bfc920d1ee2c2a4f207f06df45a67651f5b15b))
+* keep CLI version output on one line ([5e120ba](https://github.com/sgrade/plan-manager/commit/5e120bae8f32a5b886d0258edfbce331c4c99449))
+
+
+### Documentation
+
+* correct AGENTS.md scoping claim and record working agreements ([9b18f44](https://github.com/sgrade/plan-manager/commit/9b18f44aadfdcc56383cbb67061c8beccee99801))
+* target-design contract drafts (paused hypothesis; autonomy C1 input) ([1159b1f](https://github.com/sgrade/plan-manager/commit/1159b1f73cd6ae2d8191707742cc525bb260312e))
+
 ## [0.13.0](https://github.com/sgrade/plan-manager/compare/plan-manager-v0.12.0...plan-manager-v0.13.0) (2026-08-05)
 
 
