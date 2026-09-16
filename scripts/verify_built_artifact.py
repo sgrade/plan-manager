@@ -28,6 +28,27 @@ def _wheel(dist: Path) -> Path:
     return wheels[0]
 
 
+def _run_fresh_install_child(
+    args: list[str],
+    *,
+    cwd: Path | None = None,
+    env: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
+    try:
+        return subprocess.run(
+            args,
+            cwd=cwd,
+            env=env,
+            check=True,
+            text=True,
+            capture_output=True,
+        )
+    except subprocess.CalledProcessError as error:
+        if error.stderr:
+            sys.stderr.write(error.stderr)
+        raise
+
+
 def main() -> None:
     root = Path(__file__).resolve().parents[1]
     wheel = _wheel(root / "dist")
@@ -313,14 +334,11 @@ print(json.dumps({
     ) as install_name:
         install_root = Path(install_name)
         venv = install_root / "venv"
-        subprocess.run(
+        _run_fresh_install_child(
             ["uv", "venv", "--python", sys.executable, str(venv)],
-            check=True,
-            text=True,
-            capture_output=True,
         )
         venv_python = venv / "bin" / "python"
-        subprocess.run(
+        _run_fresh_install_child(
             [
                 "uv",
                 "pip",
@@ -329,15 +347,12 @@ print(json.dumps({
                 str(venv_python),
                 str(wheel),
             ],
-            check=True,
-            text=True,
-            capture_output=True,
         )
         install_env = dict(os.environ)
         install_env.pop("PYTHONPATH", None)
         install_env["PLAN_MANAGER_DB_DIR"] = str(install_root / "db")
         install_env["TODO_DIR"] = str(install_root / "todo")
-        installed = subprocess.run(
+        installed = _run_fresh_install_child(
             [
                 str(venv_python),
                 "-c",
@@ -351,9 +366,6 @@ print(json.dumps({
             ],
             cwd=install_root,
             env=install_env,
-            check=True,
-            text=True,
-            capture_output=True,
         )
         installed_json = next(
             line
