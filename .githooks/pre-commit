@@ -25,7 +25,9 @@ username=$(git config --get user.name || true)
 [ -n "$useremail" ]  || fail "user.email is not set; refusing to commit."
 [ -n "$username" ]   || fail "user.name is not set; refusing to commit."
 
-uid_emails=$(gpg --list-keys --with-colons "$signingkey" 2>/dev/null \
+# Query the same keyring/program that Git uses for signing.
+gpg_program=$(git config --get gpg.openpgp.program || git config --get gpg.program || printf '%s' gpg)
+uid_emails=$("$gpg_program" --list-keys --with-colons "$signingkey" 2>/dev/null \
   | awk -F: '/^uid/ {print $10}' \
   | sed -n 's/.*<\([^>]*\)>.*/\1/p')
 
