@@ -12,23 +12,37 @@ from typing import Any
 from plan_manager.config import PLAN_MANAGER_DB_DIR, PLAN_MANAGER_DB_PATH, TODO_DIR
 from plan_manager.domain.models import Plan, Status, Story, Task
 from plan_manager.io.paths import slugify
+from plan_manager.io.translit import build_transliteration_table
 from plan_manager.storage import db as storage_db
 from plan_manager.storage import repositories
 from plan_manager.storage.uow import StorageBusyError, unit_of_work
 
 logger = logging.getLogger(__name__)
 
+_TRANSLITERATION = build_transliteration_table()
+
+# Ids must never be empty: an empty id used to put an item into a path outside
+# its plan directory and made it impossible to address.
+FALLBACK_SLUG = "item"
+
 
 def generate_slug(title: str) -> str:
     """Generate a URL-safe slug from a title.
+
+    Cyrillic titles are transliterated first — :func:`slugify` keeps only
+    ``a-z0-9`` and would otherwise strip the whole title and return ``""``.
+    Anything still without sluggable characters falls back to ``"item"``.
+
+    Note: :func:`slugify` itself is intentionally left strict; the legacy
+    importer relies on it to flag titles that cannot produce an id.
 
     Args:
         title: The title to convert into a slug
 
     Returns:
-        str: The slugified title
+        str: The slugified title (never empty)
     """
-    return slugify(title)
+    return slugify(title.translate(_TRANSLITERATION)) or FALLBACK_SLUG
 
 
 def ensure_unique_id_from_set(base_id: str, existing_ids: list[str] | set[str]) -> str:
