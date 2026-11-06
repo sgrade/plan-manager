@@ -50,6 +50,24 @@ class TestGenerateSlug:
         assert result is not None
         assert len(result) > 0
 
+    def test_cyrillic_title_is_transliterated(self):
+        """Cyrillic titles must produce a usable ASCII id, never an empty one."""
+        assert generate_slug("Проверка записи") == "proverka_zapisi"
+
+    def test_mixed_cyrillic_and_ascii_title(self):
+        """Only the Cyrillic part is transliterated; ASCII words are kept."""
+        assert generate_slug("Отчёт Q3") == "otchet_q3"
+
+    @pytest.mark.parametrize("title", ["!!! ???", "日本語"])
+    def test_untransliterable_title_falls_back(self, title):
+        """A title with nothing sluggable still gets a stable id."""
+        assert generate_slug(title) == "item"
+
+    def test_slug_is_never_empty(self):
+        """Guards the regression: an empty slug produced items with an empty id."""
+        for title in ("Проверка", "???", "Üñíçödé", "Отчёт 2026"):
+            assert generate_slug(title) != ""
+
 
 class TestEnsureUniqueId:
     """Test unique ID generation."""
